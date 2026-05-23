@@ -1,0 +1,1663 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Taleem SAT — The Smarter Way to Conquer the Digital SAT</title>
+<meta name="description" content="A modern SAT preparation platform built by a 1500-scorer for ambitious students. Daily questions, AI-powered analysis, and certificates that mean something.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;0,800;1,500;1,600&family=Source+Serif+4:ital,wght@0,400;0,600;1,400;1,500&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* ─────────────────────────────────────────────
+   DESIGN TOKENS — TaleemSAT
+   Emerald + Antique Gold on warm cream
+───────────────────────────────────────────── */
+:root{
+  --green:#1a5c38;
+  --green2:#236b44;
+  --green-d:#0f3f25;
+  --green-l:#d6ead0;
+  --green-xl:#eaf3e4;
+  --gold:#b8922a;
+  --gold-d:#8a6e1f;
+  --gold-l:#f5e9c8;
+  --gold-xl:#fbf5e3;
+  --bg:#f7f5f0;
+  --bg-tint:#efeadf;
+  --surf:#ffffff;
+  --surf2:#f0ede5;
+  --txt:#1a1a1a;
+  --txt-soft:#2d2d2a;
+  --muted:#6b6962;
+  --muted-l:#94918a;
+  --border:#ddd8cc;
+  --border-l:#e8e4d7;
+  --ok:#1a6b35;
+  --err:#b52b2b;
+  --rad-s:6px;
+  --rad:10px;
+  --rad-l:18px;
+  --shad-s:0 1px 3px rgba(0,0,0,.06);
+  --shad:0 4px 20px rgba(0,0,0,.07);
+  --shad-l:0 24px 60px -20px rgba(26,92,56,.22);
+  --shad-gold:0 20px 50px -22px rgba(184,146,42,.35);
+  --serif:'Playfair Display',Georgia,serif;
+  --serif-body:'Source Serif 4','Iowan Old Style',Georgia,serif;
+  --sans:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+  --ease:cubic-bezier(.22,.61,.36,1);
+}
+[data-theme=dark]{
+  --green:#3a8c5e;
+  --green2:#4ea076;
+  --green-d:#1a5c38;
+  --green-l:#1a3024;
+  --green-xl:#142016;
+  --gold:#d4ad3f;
+  --gold-d:#b8922a;
+  --gold-l:#2a2010;
+  --gold-xl:#1f1a0e;
+  --bg:#13130f;
+  --bg-tint:#1a1914;
+  --surf:#1e1d18;
+  --surf2:#26251f;
+  --txt:#eae6da;
+  --txt-soft:#d6d2c5;
+  --muted:#a09a8a;
+  --muted-l:#7a766b;
+  --border:#3a372e;
+  --border-l:#2a2822;
+  --shad:0 4px 24px rgba(0,0,0,.4);
+  --shad-l:0 24px 60px -20px rgba(0,0,0,.6);
+  --shad-gold:0 20px 50px -22px rgba(212,173,63,.18);
+}
+
+/* ─────────────────────────────────────────────
+   RESET & BASE
+───────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  font-family:var(--sans);
+  background:var(--bg);
+  color:var(--txt);
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  overflow-x:hidden;
+  position:relative;
+}
+body::before{
+  content:'';
+  position:fixed;inset:0;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .035 0'/></filter><rect width='200' height='200' filter='url(%23n)'/></svg>");
+  pointer-events:none;z-index:1;opacity:.6;
+}
+[data-theme=dark] body::before{opacity:.4}
+::selection{background:var(--gold-l);color:var(--green-d)}
+[data-theme=dark] ::selection{background:var(--gold);color:#1a1a1a}
+img{max-width:100%;display:block}
+button,input,textarea{font:inherit;color:inherit}
+a{color:inherit;text-decoration:none}
+
+.wrap{max-width:1200px;margin:0 auto;padding:0 32px;position:relative;z-index:2}
+@media(max-width:720px){.wrap{padding:0 20px}}
+
+/* ─────────────────────────────────────────────
+   HEADER
+───────────────────────────────────────────── */
+.site-hdr{
+  position:sticky;top:0;z-index:100;
+  background:rgba(247,245,240,.86);
+  backdrop-filter:saturate(150%) blur(14px);
+  -webkit-backdrop-filter:saturate(150%) blur(14px);
+  border-bottom:1px solid var(--border);
+  transition:background .3s var(--ease);
+}
+[data-theme=dark] .site-hdr{background:rgba(19,19,15,.86)}
+.hdr-inner{
+  display:flex;align-items:center;justify-content:space-between;
+  height:72px;gap:24px;
+}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{
+  width:42px;height:42px;
+  background:linear-gradient(135deg,var(--gold) 0%,var(--gold-d) 100%);
+  border-radius:50%;
+  display:grid;place-items:center;
+  font-family:var(--serif);font-weight:700;font-size:20px;
+  color:#fff;
+  box-shadow:0 6px 16px -4px rgba(184,146,42,.45),inset 0 1px 0 rgba(255,255,255,.3);
+  position:relative;
+}
+.brand-mark::after{
+  content:'';position:absolute;inset:-3px;
+  border:1px solid var(--gold);border-radius:50%;
+  opacity:.35;
+}
+.brand-text{display:flex;flex-direction:column;line-height:1}
+.brand-name{font-family:var(--serif);font-weight:700;font-size:1.15rem;color:var(--green);letter-spacing:-.01em}
+[data-theme=dark] .brand-name{color:var(--green2)}
+.brand-tag{font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-top:4px;font-weight:500}
+
+.nav{display:flex;align-items:center;gap:32px}
+@media(max-width:880px){.nav{display:none}}
+.nav-link{
+  font-size:.86rem;font-weight:500;color:var(--txt-soft);
+  position:relative;padding:6px 0;
+  transition:color .2s var(--ease);
+}
+.nav-link::after{
+  content:'';position:absolute;left:0;right:100%;bottom:0;height:1px;
+  background:var(--gold);transition:right .3s var(--ease);
+}
+.nav-link:hover{color:var(--green)}
+.nav-link:hover::after{right:0}
+
+.hdr-cta{display:flex;align-items:center;gap:10px}
+.theme-tog{
+  width:36px;height:36px;border:1px solid var(--border);background:transparent;
+  border-radius:50%;cursor:pointer;display:grid;place-items:center;
+  color:var(--muted);transition:all .2s var(--ease);
+}
+.theme-tog:hover{color:var(--gold);border-color:var(--gold)}
+.btn-ghost{
+  font-size:.84rem;font-weight:600;color:var(--txt-soft);
+  padding:9px 14px;border-radius:var(--rad-s);
+  transition:color .2s var(--ease);
+}
+.btn-ghost:hover{color:var(--green)}
+.btn-primary{
+  font-size:.84rem;font-weight:600;color:#fff;
+  background:var(--green);padding:11px 20px;border-radius:var(--rad-s);
+  display:inline-flex;align-items:center;gap:6px;
+  border:1px solid var(--green);
+  box-shadow:0 4px 14px -4px rgba(26,92,56,.45);
+  transition:all .25s var(--ease);position:relative;overflow:hidden;
+}
+.btn-primary::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,transparent 0%,rgba(255,255,255,.15) 50%,transparent 100%);
+  transform:translateX(-100%);transition:transform .5s var(--ease);
+}
+.btn-primary:hover{background:var(--green-d);transform:translateY(-1px);box-shadow:0 8px 20px -4px rgba(26,92,56,.55)}
+.btn-primary:hover::before{transform:translateX(100%)}
+.btn-primary svg{transition:transform .25s var(--ease)}
+.btn-primary:hover svg{transform:translateX(3px)}
+
+/* ─────────────────────────────────────────────
+   SECTION LABELS (eyebrow)
+───────────────────────────────────────────── */
+.eyebrow{
+  display:flex;align-items:center;gap:14px;
+  font-size:.68rem;font-weight:700;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--gold-d);
+  margin-bottom:18px;
+}
+[data-theme=dark] .eyebrow{color:var(--gold)}
+.eyebrow::before{
+  content:'';width:32px;height:1px;background:var(--gold);
+}
+.eyebrow.center{justify-content:center}
+.eyebrow.center::after{
+  content:'';width:32px;height:1px;background:var(--gold);
+}
+
+/* ─────────────────────────────────────────────
+   HERO
+───────────────────────────────────────────── */
+.hero{
+  padding:90px 0 60px;
+  position:relative;overflow:hidden;
+}
+.hero::before{
+  content:'';position:absolute;
+  top:-200px;right:-200px;width:600px;height:600px;
+  background:radial-gradient(circle,var(--gold-l) 0%,transparent 60%);
+  opacity:.5;pointer-events:none;
+}
+.hero::after{
+  content:'';position:absolute;
+  bottom:-100px;left:-200px;width:500px;height:500px;
+  background:radial-gradient(circle,var(--green-l) 0%,transparent 60%);
+  opacity:.4;pointer-events:none;
+}
+.hero-grid{
+  display:grid;grid-template-columns:1.1fr .9fr;gap:64px;
+  align-items:center;
+}
+@media(max-width:960px){.hero-grid{grid-template-columns:1fr;gap:48px}}
+
+.hero-h1{
+  font-family:var(--serif);font-weight:700;
+  font-size:clamp(2.2rem,5.4vw,4.1rem);
+  line-height:1.05;letter-spacing:-.025em;
+  color:var(--txt);
+  margin-bottom:24px;
+}
+.hero-h1 .accent{
+  font-style:italic;font-weight:500;color:var(--green);
+  position:relative;display:inline-block;
+}
+.hero-h1 .accent::after{
+  content:'';position:absolute;
+  left:0;right:0;bottom:.08em;height:.12em;
+  background:var(--gold);opacity:.4;z-index:-1;
+}
+.hero-sub{
+  font-size:1.08rem;line-height:1.7;color:var(--muted);
+  max-width:520px;margin-bottom:36px;
+}
+.hero-sub strong{color:var(--txt-soft);font-weight:600}
+
+.hero-ctas{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:40px}
+.btn-lg{padding:14px 22px;font-size:.92rem}
+.btn-outline{
+  font-size:.88rem;font-weight:600;color:var(--green);
+  padding:13px 20px;border-radius:var(--rad-s);
+  border:1.5px solid var(--green);background:transparent;
+  display:inline-flex;align-items:center;gap:7px;
+  transition:all .25s var(--ease);cursor:pointer;
+}
+.btn-outline:hover{background:var(--green-xl);transform:translateY(-1px)}
+[data-theme=dark] .btn-outline:hover{background:var(--green-l)}
+
+.trust{display:flex;align-items:center;gap:14px}
+.trust-avatars{display:flex}
+.trust-avatars span{
+  width:32px;height:32px;border-radius:50%;
+  border:2px solid var(--bg);
+  background:linear-gradient(135deg,var(--green) 0%,var(--gold) 100%);
+  display:grid;place-items:center;
+  font-size:.7rem;font-weight:600;color:#fff;
+  margin-left:-10px;
+}
+.trust-avatars span:first-child{margin-left:0}
+.trust-avatars span:nth-child(2){background:linear-gradient(135deg,var(--gold) 0%,var(--green) 100%)}
+.trust-avatars span:nth-child(3){background:linear-gradient(135deg,var(--green-d) 0%,var(--gold-d) 100%)}
+.trust-text{font-size:.78rem;color:var(--muted);line-height:1.4}
+.trust-text strong{color:var(--txt-soft);font-weight:600}
+
+/* HERO PREVIEW CARD */
+.hero-preview{
+  position:relative;
+  perspective:1200px;
+}
+.preview-card{
+  background:var(--surf);
+  border:1px solid var(--border);
+  border-radius:var(--rad-l);
+  box-shadow:var(--shad-l);
+  overflow:hidden;
+  transform:rotate(-1.5deg);
+  transition:transform .5s var(--ease);
+  position:relative;
+}
+.preview-card:hover{transform:rotate(0deg) translateY(-4px)}
+.preview-card::before{
+  content:'';position:absolute;
+  top:0;left:0;right:0;height:4px;
+  background:linear-gradient(90deg,var(--green) 0%,var(--gold) 100%);
+}
+.pc-hdr{
+  background:var(--green-xl);
+  padding:14px 20px;display:flex;align-items:center;gap:10px;
+  border-bottom:1px solid var(--border-l);
+}
+.pc-num{
+  width:28px;height:28px;background:var(--green);color:#fff;
+  border-radius:50%;display:grid;place-items:center;
+  font-size:.75rem;font-weight:700;
+}
+.pc-cat{
+  font-size:.68rem;font-weight:700;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--green);flex:1;
+}
+.pc-badge{
+  font-size:.65rem;background:var(--gold-l);color:var(--gold-d);
+  padding:3px 8px;border-radius:10px;font-weight:700;
+}
+[data-theme=dark] .pc-badge{background:var(--gold-l);color:var(--gold)}
+.pc-body{padding:22px 22px 24px}
+.pc-passage{
+  font-family:var(--serif-body);
+  font-size:.95rem;line-height:1.75;
+  background:var(--surf2);
+  border-left:3px solid var(--gold);
+  padding:14px 16px;border-radius:0 6px 6px 0;
+  margin-bottom:18px;color:var(--txt-soft);
+}
+.pc-passage em{font-style:italic;color:var(--green)}
+.pc-prompt{
+  font-size:.88rem;font-weight:600;
+  color:var(--txt);margin-bottom:14px;
+}
+.pc-opts{display:flex;flex-direction:column;gap:8px}
+.pc-opt{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:10px 14px;border:1.5px solid var(--border);
+  border-radius:8px;font-size:.85rem;
+  transition:all .2s var(--ease);cursor:pointer;
+}
+.pc-opt:hover{border-color:var(--green);background:var(--green-xl)}
+.pc-opt.sel{border-color:var(--green);background:var(--green-l)}
+.pc-opt-l{
+  width:22px;height:22px;border:1.5px solid var(--border);
+  border-radius:50%;display:grid;place-items:center;
+  font-size:.7rem;font-weight:700;color:var(--muted);
+  flex-shrink:0;transition:all .15s var(--ease);
+}
+.pc-opt.sel .pc-opt-l{background:var(--green);border-color:var(--green);color:#fff}
+.pc-opt.right{border-color:var(--ok);background:rgba(26,107,53,.08)}
+.pc-opt.right .pc-opt-l{background:var(--ok);border-color:var(--ok);color:#fff}
+
+/* Floating accent badge on preview */
+.pc-float{
+  position:absolute;
+  top:-18px;right:-14px;
+  background:var(--gold);color:#fff;
+  padding:8px 14px;border-radius:24px;
+  font-size:.7rem;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;
+  box-shadow:var(--shad-gold);
+  transform:rotate(8deg);
+  z-index:2;
+  animation:wiggle 3s ease-in-out infinite;
+}
+@keyframes wiggle{0%,100%{transform:rotate(8deg)}50%{transform:rotate(5deg)}}
+
+/* ─────────────────────────────────────────────
+   STATS BAR
+───────────────────────────────────────────── */
+.stats{
+  background:var(--green);
+  color:#fff;
+  padding:50px 0;
+  position:relative;overflow:hidden;
+}
+[data-theme=dark] .stats{background:var(--green-d)}
+.stats::before{
+  content:'';position:absolute;inset:0;
+  background:
+    radial-gradient(circle at 20% 50%,rgba(184,146,42,.18) 0%,transparent 50%),
+    radial-gradient(circle at 80% 50%,rgba(184,146,42,.12) 0%,transparent 50%);
+  pointer-events:none;
+}
+.stats-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:24px;
+  position:relative;z-index:2;
+}
+@media(max-width:720px){.stats-grid{grid-template-columns:repeat(2,1fr);gap:36px 24px}}
+.stat{text-align:center;position:relative}
+.stat:not(:last-child)::after{
+  content:'';position:absolute;
+  top:18%;bottom:18%;right:-12px;width:1px;
+  background:rgba(255,255,255,.18);
+}
+@media(max-width:720px){.stat:not(:last-child)::after{display:none}}
+.stat-num{
+  font-family:var(--serif);font-weight:700;
+  font-size:clamp(2.4rem,5vw,3.4rem);
+  color:var(--gold-l);
+  line-height:1;letter-spacing:-.02em;
+}
+.stat-num sup{font-size:.5em;color:rgba(255,255,255,.7);font-weight:500;margin-left:2px}
+.stat-lbl{
+  font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;
+  color:rgba(255,255,255,.7);margin-top:10px;font-weight:500;
+}
+
+/* ─────────────────────────────────────────────
+   INSTRUCTOR
+───────────────────────────────────────────── */
+.instructor{padding:120px 0 100px;position:relative}
+.instructor::before{
+  content:'';position:absolute;
+  top:40px;left:50%;transform:translateX(-50%);
+  width:1px;height:60px;background:var(--gold);opacity:.5;
+}
+.inst-grid{
+  display:grid;grid-template-columns:.85fr 1.15fr;gap:80px;
+  align-items:center;
+}
+@media(max-width:880px){.inst-grid{grid-template-columns:1fr;gap:48px}}
+
+.inst-portrait{
+  position:relative;aspect-ratio:1;width:100%;max-width:480px;
+  margin:0 auto;
+}
+.inst-portrait::before{
+  content:'';position:absolute;
+  top:18px;left:18px;right:-18px;bottom:-18px;
+  border:1.5px solid var(--gold);
+  border-radius:var(--rad-l);
+  z-index:0;
+}
+.inst-portrait-frame{
+  position:relative;z-index:1;
+  width:100%;height:100%;
+  border-radius:var(--rad-l);
+  overflow:hidden;
+  background:var(--surf2);
+  box-shadow:var(--shad-l);
+  border:1px solid var(--border);
+}
+.inst-portrait-frame img{
+  width:100%;height:100%;object-fit:cover;
+  filter:contrast(1.02) saturate(.96);
+}
+.photo-placeholder{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+  background:linear-gradient(135deg,var(--green-xl) 0%,var(--gold-xl) 100%);
+  color:var(--muted);
+  font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;
+  text-align:center;padding:24px;
+}
+.photo-placeholder svg{color:var(--gold);opacity:.6}
+.photo-placeholder code{
+  font-family:var(--mono);background:var(--surf);
+  padding:6px 10px;border-radius:4px;font-size:.7rem;
+  color:var(--green);border:1px solid var(--border);
+  margin-top:4px;
+}
+/* gold corner ornaments */
+.inst-portrait .corner{position:absolute;width:24px;height:24px;border:1.5px solid var(--gold);z-index:2}
+.inst-portrait .corner.tl{top:-8px;left:-8px;border-right:none;border-bottom:none}
+.inst-portrait .corner.br{bottom:10px;right:-26px;border-left:none;border-top:none}
+
+.inst-quote-tag{
+  position:absolute;
+  bottom:24px;left:-30px;
+  background:var(--surf);
+  border:1px solid var(--border);
+  border-left:3px solid var(--gold);
+  padding:14px 18px;border-radius:var(--rad);
+  box-shadow:var(--shad);
+  font-family:var(--serif-body);font-style:italic;
+  font-size:.84rem;line-height:1.5;
+  max-width:240px;color:var(--txt-soft);
+  z-index:3;
+}
+@media(max-width:880px){.inst-quote-tag{position:relative;left:auto;bottom:auto;margin-top:24px;max-width:none}}
+
+.inst-content h2{
+  font-family:var(--serif);font-weight:700;
+  font-size:clamp(2rem,4vw,2.8rem);
+  line-height:1.1;letter-spacing:-.02em;
+  color:var(--txt);margin-bottom:6px;
+}
+.inst-sub{
+  font-family:var(--serif-body);font-style:italic;
+  color:var(--green);font-size:1.05rem;margin-bottom:22px;
+}
+.inst-bio{
+  font-size:1rem;line-height:1.8;color:var(--muted);
+  margin-bottom:28px;max-width:520px;
+}
+.inst-bio strong{color:var(--txt-soft);font-weight:600}
+.creds{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:8px}
+@media(max-width:520px){.creds{grid-template-columns:1fr}}
+.cred{
+  display:flex;align-items:center;gap:10px;
+  padding:12px 14px;background:var(--surf);
+  border:1px solid var(--border);border-radius:var(--rad);
+  transition:all .25s var(--ease);
+}
+.cred:hover{border-color:var(--gold);transform:translateX(2px)}
+.cred-icon{
+  width:32px;height:32px;background:var(--gold-xl);
+  border-radius:50%;display:grid;place-items:center;
+  color:var(--gold-d);flex-shrink:0;
+}
+[data-theme=dark] .cred-icon{background:var(--gold-l);color:var(--gold)}
+.cred-text{font-size:.84rem;color:var(--txt-soft);font-weight:500;line-height:1.3}
+.cred-text small{display:block;font-size:.68rem;color:var(--muted);font-weight:400;margin-top:1px}
+
+/* ─────────────────────────────────────────────
+   FEATURES — what you'll practice
+───────────────────────────────────────────── */
+.section{padding:100px 0}
+.section-head{text-align:center;margin-bottom:64px}
+.section-head h2{
+  font-family:var(--serif);font-weight:700;
+  font-size:clamp(1.9rem,4vw,2.7rem);
+  line-height:1.15;letter-spacing:-.02em;
+  color:var(--txt);margin-bottom:14px;max-width:680px;
+  margin-left:auto;margin-right:auto;
+}
+.section-head h2 em{font-style:italic;color:var(--green);font-weight:500}
+.section-head p{
+  font-size:1.02rem;color:var(--muted);max-width:560px;
+  margin:0 auto;line-height:1.7;
+}
+
+.cat-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:18px;
+}
+@media(max-width:980px){.cat-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.cat-grid{grid-template-columns:1fr}}
+.cat-group-lbl{
+  grid-column:1/-1;
+  display:flex;align-items:center;gap:14px;margin-top:14px;
+  font-size:.7rem;font-weight:700;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--gold-d);
+}
+[data-theme=dark] .cat-group-lbl{color:var(--gold)}
+.cat-group-lbl::after{
+  content:'';flex:1;height:1px;background:var(--border);
+}
+.cat-group-lbl:first-child{margin-top:0}
+
+.cat{
+  background:var(--surf);
+  border:1px solid var(--border);
+  border-radius:var(--rad);
+  padding:24px 22px;
+  position:relative;overflow:hidden;
+  transition:all .3s var(--ease);
+  cursor:pointer;
+}
+.cat::before{
+  content:'';position:absolute;
+  top:0;left:0;height:100%;width:3px;
+  background:var(--green);
+  transform:scaleY(0);transform-origin:bottom;
+  transition:transform .3s var(--ease);
+}
+.cat.math::before{background:var(--gold)}
+.cat:hover{transform:translateY(-3px);box-shadow:var(--shad);border-color:var(--green)}
+.cat.math:hover{border-color:var(--gold)}
+.cat:hover::before{transform:scaleY(1);transform-origin:top}
+.cat-letter{
+  font-family:var(--serif);font-weight:700;
+  font-size:1.6rem;color:var(--green-l);
+  line-height:1;margin-bottom:18px;
+  letter-spacing:-.04em;
+}
+.cat.math .cat-letter{color:var(--gold-l)}
+[data-theme=dark] .cat-letter{color:var(--green)}
+[data-theme=dark] .cat.math .cat-letter{color:var(--gold)}
+.cat-num{
+  font-family:var(--mono);font-size:.62rem;color:var(--muted-l);
+  letter-spacing:.1em;display:block;margin-bottom:6px;
+}
+.cat h3{
+  font-family:var(--serif);font-weight:600;
+  font-size:1.08rem;color:var(--txt);
+  line-height:1.25;margin-bottom:8px;letter-spacing:-.01em;
+}
+.cat p{
+  font-size:.82rem;color:var(--muted);
+  line-height:1.55;
+}
+
+/* ─────────────────────────────────────────────
+   QOD FEATURE SECTION
+───────────────────────────────────────────── */
+.qod-section{
+  background:var(--bg-tint);
+  padding:120px 0;
+  position:relative;overflow:hidden;
+  border-top:1px solid var(--border);
+  border-bottom:1px solid var(--border);
+}
+.qod-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:80px;
+  align-items:center;
+}
+@media(max-width:880px){.qod-grid{grid-template-columns:1fr;gap:48px}}
+
+.qod-text h2{
+  font-family:var(--serif);font-weight:700;
+  font-size:clamp(1.9rem,4vw,2.6rem);
+  line-height:1.15;letter-spacing:-.02em;
+  color:var(--txt);margin-bottom:18px;
+}
+.qod-text h2 em{font-style:italic;color:var(--green);font-weight:500}
+.qod-text > p{
+  font-size:1.02rem;color:var(--muted);line-height:1.75;
+  margin-bottom:28px;max-width:520px;
+}
+.qod-list{margin-top:24px;display:flex;flex-direction:column;gap:18px}
+.qod-item{display:flex;gap:14px;align-items:flex-start}
+.qod-item-num{
+  width:32px;height:32px;flex-shrink:0;
+  background:var(--green);color:#fff;
+  border-radius:50%;display:grid;place-items:center;
+  font-family:var(--serif);font-weight:700;font-size:.85rem;
+}
+.qod-item-text strong{
+  display:block;font-size:.95rem;color:var(--txt);
+  font-weight:600;margin-bottom:3px;
+}
+.qod-item-text span{font-size:.86rem;color:var(--muted);line-height:1.55}
+
+/* MOCK CERTIFICATE */
+.cert-mock{
+  position:relative;perspective:1000px;
+}
+.cert{
+  background:linear-gradient(135deg,#fdfaf2 0%,#f5e9c8 100%);
+  border:2px solid var(--gold);
+  border-radius:8px;
+  padding:32px 28px;
+  position:relative;
+  box-shadow:var(--shad-l);
+  transform:rotate(2deg);
+  transition:transform .5s var(--ease);
+}
+.cert:hover{transform:rotate(0deg) scale(1.02)}
+.cert::before,.cert::after{
+  content:'';position:absolute;
+  width:24px;height:24px;
+  border:1.5px solid var(--gold);
+}
+.cert::before{top:8px;left:8px;border-right:none;border-bottom:none}
+.cert::after{bottom:8px;right:8px;border-left:none;border-top:none}
+.cert-seal{
+  position:absolute;top:-24px;right:24px;
+  width:64px;height:64px;
+  background:radial-gradient(circle,var(--gold) 0%,var(--gold-d) 100%);
+  border-radius:50%;
+  display:grid;place-items:center;
+  color:#fff;font-family:var(--serif);font-weight:700;font-size:.7rem;
+  text-align:center;line-height:1.1;
+  box-shadow:var(--shad-gold),inset 0 2px 4px rgba(255,255,255,.3);
+  border:3px solid #fdfaf2;
+}
+.cert-eyebrow{
+  font-size:.62rem;letter-spacing:.32em;text-transform:uppercase;
+  color:var(--gold-d);text-align:center;font-weight:700;
+  margin-bottom:6px;
+}
+.cert h3{
+  font-family:var(--serif);font-weight:700;
+  font-size:1.5rem;text-align:center;color:#3a2a0a;
+  margin-bottom:18px;letter-spacing:-.01em;
+}
+.cert-divider{
+  width:80px;height:1px;background:var(--gold);
+  margin:0 auto 18px;position:relative;
+}
+.cert-divider::before{
+  content:'◆';position:absolute;
+  top:50%;left:50%;transform:translate(-50%,-50%);
+  background:#fdfaf2;padding:0 8px;color:var(--gold);font-size:10px;
+}
+.cert-body{text-align:center}
+.cert-this{font-family:var(--serif-body);font-style:italic;font-size:.8rem;color:#5a4515;margin-bottom:6px}
+.cert-name{font-family:var(--serif);font-style:italic;font-weight:600;font-size:1.5rem;color:#3a2a0a;margin-bottom:12px}
+.cert-for{font-family:var(--serif-body);font-size:.78rem;color:#5a4515;line-height:1.6;margin-bottom:18px;max-width:280px;margin-left:auto;margin-right:auto}
+.cert-meta{
+  display:flex;justify-content:space-between;align-items:flex-end;
+  margin-top:20px;padding-top:14px;border-top:1px solid rgba(184,146,42,.3);
+}
+.cert-sig{text-align:left}
+.cert-sig-line{
+  font-family:'Brush Script MT',cursive;
+  font-size:1.05rem;color:#3a2a0a;
+  border-bottom:1px solid #3a2a0a;
+  padding-bottom:2px;margin-bottom:4px;
+  width:120px;
+}
+.cert-sig small{font-size:.6rem;color:#5a4515;letter-spacing:.05em}
+.cert-date{text-align:right;font-size:.68rem;color:#5a4515}
+.cert-date strong{display:block;color:#3a2a0a;font-size:.84rem;font-family:var(--serif);font-weight:600;margin-top:2px}
+
+/* points float badge */
+.points-float{
+  position:absolute;
+  top:-20px;left:-20px;
+  background:var(--green);color:#fff;
+  border-radius:50%;width:78px;height:78px;
+  display:grid;place-items:center;
+  box-shadow:var(--shad-l);
+  z-index:5;transform:rotate(-6deg);
+  text-align:center;
+}
+.points-float .num{
+  font-family:var(--serif);font-weight:700;font-size:1.5rem;line-height:1;
+}
+.points-float .lbl{
+  font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;
+  opacity:.85;margin-top:2px;
+}
+
+/* ─────────────────────────────────────────────
+   AI / ANALYTICS SECTION
+───────────────────────────────────────────── */
+.ai-section{padding:120px 0}
+.ai-grid{
+  display:grid;grid-template-columns:1.05fr .95fr;gap:80px;
+  align-items:center;
+}
+@media(max-width:880px){.ai-grid{grid-template-columns:1fr}}
+
+.analytics-mock{
+  background:var(--surf);
+  border:1px solid var(--border);
+  border-radius:var(--rad-l);
+  padding:28px;
+  box-shadow:var(--shad-l);
+  position:relative;
+}
+.analytics-mock::before{
+  content:'';position:absolute;
+  top:0;left:24px;right:24px;height:3px;
+  background:linear-gradient(90deg,var(--green) 0%,var(--gold) 100%);
+  border-radius:0 0 3px 3px;
+}
+.am-hdr{
+  display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:20px;
+}
+.am-title{
+  font-family:var(--serif);font-weight:600;font-size:1rem;color:var(--txt);
+}
+.am-pill{
+  font-size:.62rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  background:var(--green-xl);color:var(--green);padding:4px 10px;border-radius:10px;
+}
+[data-theme=dark] .am-pill{background:var(--green-l);color:var(--green2)}
+.am-bars{display:flex;flex-direction:column;gap:14px;margin-bottom:24px}
+.am-bar-row{display:flex;align-items:center;gap:12px;font-size:.78rem}
+.am-bar-name{flex:1.5;color:var(--txt-soft);font-weight:500;font-size:.8rem}
+.am-bar-track{flex:3;height:8px;background:var(--surf2);border-radius:4px;overflow:hidden;position:relative}
+.am-bar-fill{height:100%;border-radius:4px;transition:width 1.5s var(--ease);width:0}
+.am-bar-pct{width:34px;text-align:right;font-family:var(--mono);font-size:.72rem;color:var(--muted);font-weight:600}
+.am-insight{
+  background:linear-gradient(135deg,var(--green-xl) 0%,var(--gold-xl) 100%);
+  border:1px solid var(--border-l);
+  border-left:3px solid var(--gold);
+  border-radius:var(--rad);padding:16px 18px;
+  display:flex;gap:12px;align-items:flex-start;
+}
+.am-insight-icon{
+  width:32px;height:32px;flex-shrink:0;
+  background:var(--gold);color:#fff;
+  border-radius:50%;display:grid;place-items:center;
+  box-shadow:0 4px 12px -2px rgba(184,146,42,.4);
+}
+.am-insight-text{font-size:.82rem;line-height:1.6;color:var(--txt-soft)}
+.am-insight-text strong{display:block;color:var(--txt);font-weight:700;margin-bottom:2px;font-size:.86rem}
+
+.ai-text h2{
+  font-family:var(--serif);font-weight:700;
+  font-size:clamp(1.9rem,4vw,2.6rem);
+  line-height:1.15;letter-spacing:-.02em;
+  color:var(--txt);margin-bottom:18px;
+}
+.ai-text h2 em{font-style:italic;color:var(--green);font-weight:500}
+.ai-text > p{
+  font-size:1.02rem;color:var(--muted);line-height:1.75;
+  margin-bottom:32px;
+}
+.ai-feats{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:520px){.ai-feats{grid-template-columns:1fr}}
+.ai-feat{
+  padding:18px;background:var(--surf);
+  border:1px solid var(--border);border-radius:var(--rad);
+  transition:all .25s var(--ease);
+}
+.ai-feat:hover{border-color:var(--gold);background:var(--gold-xl)}
+.ai-feat svg{color:var(--gold);margin-bottom:10px}
+.ai-feat h4{font-family:var(--serif);font-weight:600;font-size:.95rem;color:var(--txt);margin-bottom:4px}
+.ai-feat p{font-size:.78rem;color:var(--muted);line-height:1.55}
+
+/* ─────────────────────────────────────────────
+   HOW IT WORKS
+───────────────────────────────────────────── */
+.how-section{
+  padding:120px 0;background:var(--bg-tint);
+  border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+}
+.steps{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:48px;
+  position:relative;
+}
+.steps::before{
+  content:'';position:absolute;
+  top:36px;left:10%;right:10%;height:1px;
+  background:repeating-linear-gradient(90deg,var(--gold) 0 4px,transparent 4px 10px);
+  opacity:.5;z-index:0;
+}
+@media(max-width:780px){.steps{grid-template-columns:1fr;gap:48px}.steps::before{display:none}}
+.step{position:relative;text-align:center;z-index:1}
+.step-num{
+  display:inline-block;
+  font-family:var(--serif);font-weight:600;font-style:italic;
+  font-size:3.2rem;line-height:1;
+  color:var(--gold);background:var(--bg-tint);
+  padding:0 18px;
+  letter-spacing:-.04em;
+}
+.step h3{
+  font-family:var(--serif);font-weight:600;
+  font-size:1.25rem;color:var(--txt);
+  margin:18px 0 10px;letter-spacing:-.01em;
+}
+.step p{
+  font-size:.92rem;color:var(--muted);line-height:1.65;
+  max-width:260px;margin:0 auto;
+}
+
+/* ─────────────────────────────────────────────
+   PRICING
+───────────────────────────────────────────── */
+.pricing{padding:120px 0}
+.tiers{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:22px;
+  max-width:1080px;margin:0 auto;
+  align-items:stretch;
+}
+@media(max-width:880px){.tiers{grid-template-columns:1fr;max-width:480px}}
+
+.tier{
+  background:var(--surf);
+  border:1px solid var(--border);
+  border-radius:var(--rad-l);
+  padding:36px 30px;
+  position:relative;
+  transition:all .3s var(--ease);
+  display:flex;flex-direction:column;
+}
+.tier:hover{transform:translateY(-4px);box-shadow:var(--shad-l)}
+.tier.featured{
+  border:2px solid var(--gold);
+  background:var(--surf);
+  transform:scale(1.04);
+  box-shadow:var(--shad-gold);
+}
+@media(max-width:880px){.tier.featured{transform:scale(1)}}
+.tier.featured:hover{transform:scale(1.04) translateY(-4px)}
+.tier-tag{
+  position:absolute;top:-12px;left:50%;transform:translateX(-50%);
+  background:var(--gold);color:#fff;
+  font-size:.65rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;
+  padding:5px 14px;border-radius:12px;
+  box-shadow:var(--shad-gold);
+}
+.tier-name{
+  font-family:var(--serif);font-weight:600;font-size:1.05rem;
+  color:var(--green);letter-spacing:.04em;text-transform:uppercase;
+  margin-bottom:6px;
+}
+.tier.featured .tier-name{color:var(--gold-d)}
+[data-theme=dark] .tier.featured .tier-name{color:var(--gold)}
+.tier-tagline{font-size:.84rem;color:var(--muted);margin-bottom:24px;line-height:1.5}
+.tier-price{
+  display:flex;align-items:baseline;gap:6px;margin-bottom:28px;
+  font-family:var(--serif);
+}
+.tier-price .currency{font-size:1.2rem;color:var(--muted);font-weight:500}
+.tier-price .amt{font-weight:700;font-size:3rem;color:var(--txt);line-height:1;letter-spacing:-.03em}
+.tier-price .per{font-size:.84rem;color:var(--muted);font-family:var(--sans);font-weight:500;margin-left:2px}
+.tier-feats{flex:1;display:flex;flex-direction:column;gap:11px;margin-bottom:28px}
+.tier-feat{
+  display:flex;align-items:flex-start;gap:10px;
+  font-size:.86rem;color:var(--txt-soft);line-height:1.5;
+}
+.tier-feat.no{color:var(--muted-l);text-decoration:line-through;text-decoration-color:rgba(0,0,0,.15);text-decoration-thickness:1px}
+.tier-feat svg{flex-shrink:0;margin-top:2px}
+.tier-feat .check{color:var(--ok)}
+.tier-feat .x{color:var(--muted-l)}
+.tier .btn-tier{
+  width:100%;padding:13px;border-radius:var(--rad-s);
+  font-size:.88rem;font-weight:600;cursor:pointer;
+  transition:all .25s var(--ease);text-align:center;display:block;
+}
+.tier:not(.featured) .btn-tier{
+  background:transparent;color:var(--green);border:1.5px solid var(--green);
+}
+.tier:not(.featured) .btn-tier:hover{background:var(--green);color:#fff}
+.tier.featured .btn-tier{
+  background:var(--gold);color:#fff;border:1.5px solid var(--gold);
+  box-shadow:0 6px 16px -4px rgba(184,146,42,.4);
+}
+.tier.featured .btn-tier:hover{background:var(--gold-d);transform:translateY(-1px)}
+
+/* ─────────────────────────────────────────────
+   FINAL CTA
+───────────────────────────────────────────── */
+.final-cta{
+  background:var(--green);color:#fff;
+  padding:100px 0;position:relative;overflow:hidden;
+}
+.final-cta::before{
+  content:'';position:absolute;
+  top:-100px;right:-100px;width:400px;height:400px;
+  background:radial-gradient(circle,rgba(184,146,42,.2) 0%,transparent 60%);
+}
+.final-cta::after{
+  content:'';position:absolute;
+  bottom:-100px;left:-100px;width:400px;height:400px;
+  background:radial-gradient(circle,rgba(184,146,42,.12) 0%,transparent 60%);
+}
+.final-inner{text-align:center;position:relative;z-index:2;max-width:680px;margin:0 auto}
+.final-eyebrow{
+  font-size:.7rem;letter-spacing:.3em;text-transform:uppercase;
+  color:var(--gold-l);margin-bottom:18px;
+  display:flex;align-items:center;justify-content:center;gap:14px;
+}
+.final-eyebrow::before,.final-eyebrow::after{
+  content:'';width:30px;height:1px;background:var(--gold-l);opacity:.6;
+}
+.final-cta h2{
+  font-family:var(--serif);font-weight:700;
+  font-size:clamp(2.2rem,5vw,3.4rem);
+  line-height:1.1;letter-spacing:-.025em;
+  margin-bottom:22px;color:#fff;
+}
+.final-cta h2 em{font-style:italic;color:var(--gold-l);font-weight:500}
+.final-cta p{
+  font-size:1.05rem;color:rgba(255,255,255,.78);
+  line-height:1.7;margin-bottom:36px;
+  max-width:520px;margin-left:auto;margin-right:auto;
+}
+.btn-cta-final{
+  display:inline-flex;align-items:center;gap:10px;
+  background:var(--gold);color:#fff;
+  padding:16px 32px;border-radius:var(--rad-s);
+  font-size:.95rem;font-weight:600;
+  box-shadow:0 12px 30px -8px rgba(184,146,42,.5);
+  transition:all .3s var(--ease);
+}
+.btn-cta-final:hover{background:var(--gold-d);transform:translateY(-2px);box-shadow:0 16px 40px -10px rgba(184,146,42,.6)}
+
+/* ─────────────────────────────────────────────
+   FOOTER
+───────────────────────────────────────────── */
+.site-ftr{
+  background:var(--bg);
+  border-top:1px solid var(--border);
+  padding:64px 0 32px;
+}
+.ftr-grid{
+  display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:48px;
+  margin-bottom:48px;
+}
+@media(max-width:780px){.ftr-grid{grid-template-columns:1fr 1fr;gap:36px}}
+.ftr-brand{max-width:280px}
+.ftr-brand .brand{margin-bottom:14px}
+.ftr-brand p{font-size:.84rem;color:var(--muted);line-height:1.65}
+.ftr-col h4{
+  font-size:.7rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--gold-d);margin-bottom:18px;
+}
+[data-theme=dark] .ftr-col h4{color:var(--gold)}
+.ftr-col a{
+  display:block;font-size:.86rem;color:var(--muted);
+  padding:5px 0;transition:color .2s var(--ease);
+}
+.ftr-col a:hover{color:var(--green)}
+.ftr-bot{
+  padding-top:24px;border-top:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap;
+  font-size:.76rem;color:var(--muted);
+}
+.ftr-bot a{color:var(--muted);transition:color .2s var(--ease)}
+.ftr-bot a:hover{color:var(--green)}
+
+/* ─────────────────────────────────────────────
+   ENTRANCE ANIMATIONS
+───────────────────────────────────────────── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.reveal{opacity:0;animation:fadeUp .9s var(--ease) forwards}
+.reveal.delay-1{animation-delay:.1s}
+.reveal.delay-2{animation-delay:.2s}
+.reveal.delay-3{animation-delay:.3s}
+.reveal.delay-4{animation-delay:.4s}
+.in-view{animation:fadeUp .8s var(--ease) forwards}
+
+/* mobile menu toggle */
+.menu-tog{display:none;background:none;border:none;cursor:pointer;color:var(--txt);padding:6px}
+@media(max-width:880px){.menu-tog{display:block}.hdr-cta .btn-ghost{display:none}}
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════
+     HEADER
+════════════════════════════════════════════════════ -->
+<header class="site-hdr">
+  <div class="wrap hdr-inner">
+    <a href="#" class="brand">
+      <div class="brand-mark">T</div>
+      <div class="brand-text">
+        <span class="brand-name">Taleem SAT</span>
+        <span class="brand-tag">Digital SAT Preparation</span>
+      </div>
+    </a>
+    <nav class="nav">
+      <a href="#instructor" class="nav-link">Instructor</a>
+      <a href="#practice" class="nav-link">Practice</a>
+      <a href="#qod" class="nav-link">Daily Question</a>
+      <a href="#pricing" class="nav-link">Pricing</a>
+    </nav>
+    <div class="hdr-cta">
+      <button class="theme-tog" onclick="toggleTheme()" aria-label="Toggle theme" id="themeBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="themeIcon"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </button>
+      <a href="#" class="btn-ghost">Sign in</a>
+      <a href="#" class="btn-primary">
+        Get started
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+      </a>
+    </div>
+  </div>
+</header>
+
+<!-- ════════════════════════════════════════════════════
+     HERO
+════════════════════════════════════════════════════ -->
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <div class="eyebrow reveal">Digital SAT Preparation · est. 2026</div>
+      <h1 class="hero-h1 reveal delay-1">
+        Master the SAT,<br>
+        <span class="accent">one rare question</span><br>
+        at a time.
+      </h1>
+      <p class="hero-sub reveal delay-2">
+        A modern preparation platform built by a <strong>1500-scorer</strong> for ambitious students.
+        Daily questions you won't find on the open web, AI that spots your weak points before the exam does,
+        and certificates that mean something.
+      </p>
+      <div class="hero-ctas reveal delay-3">
+        <a href="#" class="btn-primary btn-lg">
+          Start practicing free
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+        </a>
+        <a href="#instructor" class="btn-outline">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 0 0-16 0"/></svg>
+          Meet your instructor
+        </a>
+      </div>
+      <div class="trust reveal delay-4">
+        <div class="trust-avatars">
+          <span>A</span><span>M</span><span>S</span>
+        </div>
+        <p class="trust-text"><strong>200+ students</strong> preparing for college<br>with Taleem SAT this season.</p>
+      </div>
+    </div>
+
+    <!-- HERO PREVIEW CARD: real-looking question UI -->
+    <div class="hero-preview reveal delay-2">
+      <div class="pc-float">Live preview</div>
+      <div class="preview-card">
+        <div class="pc-hdr">
+          <div class="pc-num">7</div>
+          <div class="pc-cat">Craft & Structure</div>
+          <span class="pc-badge">Hard</span>
+        </div>
+        <div class="pc-body">
+          <div class="pc-passage">
+            The scientist <em>proposed</em> that the unusual sedimentary patterns in the cliffside indicated a sudden climatic shift rather than the gradual erosion her predecessors had assumed.
+          </div>
+          <div class="pc-prompt">As used in the text, what does the word "proposed" most nearly mean?</div>
+          <div class="pc-opts">
+            <div class="pc-opt"><div class="pc-opt-l">A</div><span>Demanded</span></div>
+            <div class="pc-opt right"><div class="pc-opt-l">B</div><span>Suggested</span></div>
+            <div class="pc-opt"><div class="pc-opt-l">C</div><span>Refused</span></div>
+            <div class="pc-opt"><div class="pc-opt-l">D</div><span>Confirmed</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════
+     STATS BAR
+════════════════════════════════════════════════════ -->
+<section class="stats">
+  <div class="wrap stats-grid">
+    <div class="stat"><div class="stat-num" data-num="1500">1500</div><div class="stat-lbl">SAT Score</div></div>
+    <div class="stat"><div class="stat-num">8.0<sup>×2</sup></div><div class="stat-lbl">IELTS, twice</div></div>
+    <div class="stat"><div class="stat-num" data-num="200">200<sup>+</sup></div><div class="stat-lbl">Students Taught</div></div>
+    <div class="stat"><div class="stat-num" data-num="3">3</div><div class="stat-lbl">Years Teaching</div></div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════
+     INSTRUCTOR
+════════════════════════════════════════════════════ -->
+<section class="instructor" id="instructor">
+  <div class="wrap">
+    <div class="inst-grid">
+      <div class="inst-portrait">
+        <div class="corner tl"></div>
+        <div class="inst-portrait-frame">
+          <div class="photo-placeholder">
+            <img src="./bahromjon.jpg" alt="Bahromjon Jo'raqulov, SAT Instructor" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+          </div>
+        </div>
+        <div class="corner br"></div>
+        <div class="inst-quote-tag">
+          "I teach the test I conquered — with the moves I wish I'd known sooner."
+        </div>
+      </div>
+
+      <div class="inst-content">
+        <div class="eyebrow">Meet your instructor</div>
+        <h2>Bahromjon Jo'raqulov</h2>
+        <p class="inst-sub">SAT Instructor · Westminster International University</p>
+        <p class="inst-bio">
+          The <strong>youngest SAT teacher to teach American students</strong>, Bahromjon brings three years of
+          intensive prep experience and a perfectionist's love for the test itself. He treats every wrong
+          answer as a puzzle worth solving — and teaches students to do the same.
+        </p>
+        <div class="creds">
+          <div class="cred">
+            <div class="cred-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15 8.5 22 9.3 17 14 18.2 21 12 17.8 5.8 21 7 14 2 9.3 9 8.5 12 2"/></svg>
+            </div>
+            <div class="cred-text">SAT 1500<small>Personal score</small></div>
+          </div>
+          <div class="cred">
+            <div class="cred-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            </div>
+            <div class="cred-text">IELTS 8.0<small>Achieved twice</small></div>
+          </div>
+          <div class="cred">
+            <div class="cred-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+            </div>
+            <div class="cred-text">Westminster<small>Current student</small></div>
+          </div>
+          <div class="cred">
+            <div class="cred-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <div class="cred-text">3 Years<small>Teaching experience</small></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════
+     WHAT YOU'LL PRACTICE — Categories
+════════════════════════════════════════════════════ -->
+<section class="section" id="practice">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow center">Full digital SAT coverage</div>
+      <h2>Eight focus areas. Hundreds of questions. <em>One platform.</em></h2>
+      <p>Every section of the Digital SAT, broken down into the categories the College Board actually tests — with explanations that read like a tutor sitting next to you.</p>
+    </div>
+
+    <div class="cat-grid">
+      <div class="cat-group-lbl">Reading & Writing</div>
+      <div class="cat">
+        <div class="cat-letter">A</div>
+        <span class="cat-num">01 / R&amp;W</span>
+        <h3>Information &amp; Ideas</h3>
+        <p>Inferences, central ideas, evidence — the analytical core of the verbal section.</p>
+      </div>
+      <div class="cat">
+        <div class="cat-letter">B</div>
+        <span class="cat-num">02 / R&amp;W</span>
+        <h3>Craft &amp; Structure</h3>
+        <p>Words in context, text structure, and the rhetorical moves authors make.</p>
+      </div>
+      <div class="cat">
+        <div class="cat-letter">C</div>
+        <span class="cat-num">03 / R&amp;W</span>
+        <h3>Expression of Ideas</h3>
+        <p>Notes-based writing, transitions, logical completion — your editorial judgment.</p>
+      </div>
+      <div class="cat">
+        <div class="cat-letter">D</div>
+        <span class="cat-num">04 / R&amp;W</span>
+        <h3>Standard English Conventions</h3>
+        <p>Grammar, punctuation, and sentence boundaries — the rules tested every test.</p>
+      </div>
+
+      <div class="cat-group-lbl">Math</div>
+      <div class="cat math">
+        <div class="cat-letter">E</div>
+        <span class="cat-num">05 / Math</span>
+        <h3>Algebra</h3>
+        <p>Linear equations, systems, inequalities — the foundation of every Math module.</p>
+      </div>
+      <div class="cat math">
+        <div class="cat-letter">F</div>
+        <span class="cat-num">06 / Math</span>
+        <h3>Advanced Math</h3>
+        <p>Quadratics, polynomials, exponentials — where mid-700 scores are made or lost.</p>
+      </div>
+      <div class="cat math">
+        <div class="cat-letter">G</div>
+        <span class="cat-num">07 / Math</span>
+        <h3>Problem-Solving &amp; Data</h3>
+        <p>Ratios, percentages, tables and probability — the word-problem section.</p>
+      </div>
+      <div class="cat math">
+        <div class="cat-letter">H</div>
+        <span class="cat-num">08 / Math</span>
+        <h3>Geometry &amp; Trigonometry</h3>
+        <p>Circles, triangles, angle relationships, and the trig basics the SAT loves.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════
+     QUESTION OF THE DAY
+════════════════════════════════════════════════════ -->
+<section class="qod-section" id="qod">
+  <div class="wrap">
+    <div class="qod-grid">
+      <div class="qod-text">
+        <div class="eyebrow">The daily ritual</div>
+        <h2>One rare question every day. <em>Twenty-five right answers</em> earn you a certificate.</h2>
+        <p>
+          Most students refresh Instagram before bed. We'd like to suggest a better habit. The Question
+          of the Day is one carefully-curated SAT question you won't find on the open web — picked from
+          the rarest and trickiest patterns we've seen across hundreds of student sessions.
+        </p>
+        <div class="qod-list">
+          <div class="qod-item">
+            <div class="qod-item-num">1</div>
+            <div class="qod-item-text">
+              <strong>Get it right, earn a point.</strong>
+              <span>One point per correct daily question. Streaks count.</span>
+            </div>
+          </div>
+          <div class="qod-item">
+            <div class="qod-item-num">2</div>
+            <div class="qod-item-text">
+              <strong>25 points = one personalized certificate.</strong>
+              <span>Issued in your name as a downloadable PDF — keep them, share them, frame them.</span>
+            </div>
+          </div>
+          <div class="qod-item">
+            <div class="qod-item-num">3</div>
+            <div class="qod-item-text">
+              <strong>The harder it gets, the more it matters.</strong>
+              <span>Higher tiers earn certificates that signal real preparation discipline.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CERTIFICATE MOCKUP -->
+      <div class="cert-mock">
+        <div class="points-float">
+          <div class="num">25</div>
+          <div class="lbl">points</div>
+        </div>
+        <div class="cert">
+          <div class="cert-seal">25 PTS<br>EARNED</div>
+          <div class="cert-eyebrow">Certificate of Achievement</div>
+          <h3>Taleem SAT</h3>
+          <div class="cert-divider"></div>
+          <div class="cert-body">
+            <p class="cert-this">This certifies that</p>
+            <p class="cert-name">Amir Karimov</p>
+            <p class="cert-for">has demonstrated outstanding consistency by earning twenty-five Question-of-the-Day points through verified daily practice on the Taleem SAT platform.</p>
+            <div class="cert-meta">
+              <div class="cert-sig">
+                <div class="cert-sig-line">B. Jo'raqulov</div>
+                <small>Instructor &amp; Founder</small>
+              </div>
+              <div class="cert-date">
+                Issued
+                <strong>May 2026</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════
+     AI / ANALYTICS
+════════════════════════════════════════════════════ -->
+<section class="ai-section">
+  <div class="wrap">
+    <div class="ai-grid">
+      <!-- ANALYTICS MOCKUP -->
+      <div class="analytics-mock">
+        <div class="am-hdr">
+          <div class="am-title">Performance by Category</div>
+          <div class="am-pill">Live</div>
+        </div>
+        <div class="am-bars">
+          <div class="am-bar-row">
+            <div class="am-bar-name">Information &amp; Ideas</div>
+            <div class="am-bar-track"><div class="am-bar-fill" style="background:var(--ok)" data-pct="78"></div></div>
+            <div class="am-bar-pct">78%</div>
+          </div>
+          <div class="am-bar-row">
+            <div class="am-bar-name">Craft &amp; Structure</div>
+            <div class="am-bar-track"><div class="am-bar-fill" style="background:var(--green2)" data-pct="58"></div></div>
+            <div class="am-bar-pct">58%</div>
+          </div>
+          <div class="am-bar-row">
+            <div class="am-bar-name">Expression of Ideas</div>
+            <div class="am-bar-track"><div class="am-bar-fill" style="background:var(--ok)" data-pct="81"></div></div>
+            <div class="am-bar-pct">81%</div>
+          </div>
+          <div class="am-bar-row">
+            <div class="am-bar-name">Algebra</div>
+            <div class="am-bar-track"><div class="am-bar-fill" style="background:var(--gold)" data-pct="69"></div></div>
+            <div class="am-bar-pct">69%</div>
+          </div>
+          <div class="am-bar-row">
+            <div class="am-bar-name">Advanced Math</div>
+            <div class="am-bar-track"><div class="am-bar-fill" style="background:var(--err)" data-pct="45"></div></div>
+            <div class="am-bar-pct">45%</div>
+          </div>
+        </div>
+        <div class="am-insight">
+          <div class="am-insight-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          </div>
+          <div class="am-insight-text">
+            <strong>AI insight</strong>
+            Advanced Math is your weakest area. 3 of your last 5 errors involved quadratic equations — focus 15 minutes here before May 25.
+          </div>
+        </div>
+      </div>
+
+      <div class="ai-text">
+        <div class="eyebrow">Personalized by design</div>
+        <h2>AI that finds your weak spots — <em>before the test does.</em></h2>
+        <p>
+          Every question you answer feeds an evolving picture of where you're strong, where you're shaky,
+          and where a quiet, fixable habit is costing you points. We don't show you generic tips. We show
+          you the next move that actually matters.
+        </p>
+        <div class="ai-feats">
+          <div class="ai-feat">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <h4>Weakness detection</h4>
+            <p>Pinpoints the sub-topics where you're losing the most points.</p>
+          </div>
+          <div class="ai-feat">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            <h4>Adaptive plan</h4>
+            <p>A personalized study schedule that adjusts as you improve.</p>
+          </div>
+          <div class="ai-feat">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            <h4>Trend tracking</h4>
+            <p>See your accuracy curve in real time, week by week.</p>
+          </div>
+          <div class="ai-feat">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <h4>Exam countdown</h4>
+            <p>Days until your real SAT, with priority drills for the home stretch.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════
+     HOW IT WORKS
+════════════════════════════════════════════════════ -->
+<section class="how-section">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow center">How it works</div>
+      <h2>Three steps. <em>No friction.</em></h2>
+      <p>From sign-up to your first correctly-answered Question of the Day in under three minutes.</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <span class="step-num">01</span>
+        <h3>Create your free account</h3>
+        <p>Sign up with email — tell us your target SAT score and exam date so we can personalize from day one.</p>
+      </div>
+      <div class="step">
+        <span class="step-num">02</span>
+        <h3>Practice every day</h3>
+        <p>Pick a category, answer a question, see the explanation. Refresh for another. Don't forget the QOD.</p>
+      </div>
+      <div class="step">
+        <span class="step-num">03</span>
+        <h3>Track. Improve. Repeat.</h3>
+        <p>Watch your weak areas shrink, collect certificates, and walk into test day knowing exactly what to expect.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════
+     PRICING
+════════════════════════════════════════════════════ -->
+<section class="pricing" id="pricing">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow center">Pricing</div>
+      <h2>Start free. <em>Upgrade when you're serious.</em></h2>
+      <p>Every paid tier includes a 30% discount on our Telegram-based SAT courses.</p>
+    </div>
+
+    <div class="tiers">
+      <div class="tier">
+        <div class="tier-name">Free</div>
+        <div class="tier-tagline">For curious students, just getting started.</div>
+        <div class="tier-price">
+          <span class="currency">$</span>
+          <span class="amt">0</span>
+          <span class="per">forever</span>
+        </div>
+        <div class="tier-feats">
+          <div class="tier-feat"><svg class="check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Question of the Day, every day</div>
+          <div class="tier-feat"><svg class="check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>5 practice questions per day</div>
+          <div class="tier-feat"><svg class="check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Earn QOD points &amp; certificates</div>
+          <div class="tier-feat"><svg class="check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Exam countdown</div>
+          <div class="tier-feat no"><svg class="x" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Answer explanations</div>
+          <div class="tier-feat no"><svg class="x" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>AI weakness detection</div>
+          <div class="tier-feat no"><svg class="x" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Full mock SAT tests</div>
+        </div>
+        <a href="#" class="btn-tier">Get started free</a>
+      </div>
+
+      <div class="tier featured">
+        <div class="tier-tag">Most chosen</div>
+        <div class="tier-name">Pro</div>
+        <div class="tier-tagline">For students preparing seriously, on their own.</div>
+        <div class="tier-price">
+          <span class="currency">$</span>
+          <span class="amt">12</span>
+          <span class="per">/ month</span>
+        </div>
+        <div class="tier-feats">
+          <div class="tier-feat"><svg class="check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Everything in Free</div>
+          <div class="tier-feat"><svg class="check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Unlimited practice questions</div>
+          <div class="tier-feat"><svg class="check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Full answer explanations</div>
+          <div class="tier-feat"><svg class="check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Downloadable PDF certificates</div>
+          <div class="tier-feat"><svg class="check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Performance analytics</div>
+          <div class="tier-feat"><svg class="check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>AI weakness detection</div>
+          <div class="tier-feat"><svg class="check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>30% off Telegram courses</div>
+        </div>
+        <a href="#" class="btn-tier">Start Pro</a>
+      </div>
+
+      <div class="tier">
+        <div class="tier-name">Elite</div>
+        <div class="tier-tagline">For test-takers in the final stretch.</div>
+        <div class="tier-price">
+          <span class="currency">$</span>
+          <span class="amt">25</span>
+          <span class="per">/ month</span>
+        </div>
+        <div class="tier-feats">
+          <div class="tier-feat"><svg class="check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Everything in Pro</div>
+          <div class="tier-feat"><svg class="check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>AI personalized study plan</div>
+          <div class="tier-feat"><svg class="check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Full timed mock SATs</div>
+          <div class="tier-feat"><svg class="check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Section-level score predictions</div>
+          <div class="tier-feat"><svg class="check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Priority Telegram support</div>
+          <div class="tier-feat"><svg class="check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Monthly progress review</div>
+          <div class="tier-feat"><svg class="check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>30% off Telegram courses</div>
+        </div>
+        <a href="#" class="btn-tier">Go Elite</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════
+     FINAL CTA
+════════════════════════════════════════════════════ -->
+<section class="final-cta">
+  <div class="wrap">
+    <div class="final-inner">
+      <div class="final-eyebrow">Your turn</div>
+      <h2>The SAT is a test of <em>discipline</em>.<br>So is preparing for it.</h2>
+      <p>Sign up free in under thirty seconds. The next Question of the Day is waiting.</p>
+      <a href="#" class="btn-cta-final">
+        Create your free account
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════
+     FOOTER
+════════════════════════════════════════════════════ -->
+<footer class="site-ftr">
+  <div class="wrap">
+    <div class="ftr-grid">
+      <div class="ftr-brand">
+        <a href="#" class="brand">
+          <div class="brand-mark">T</div>
+          <div class="brand-text">
+            <span class="brand-name">Taleem SAT</span>
+            <span class="brand-tag">Digital SAT Preparation</span>
+          </div>
+        </a>
+        <p>A modern preparation platform for the Digital SAT, built by Bahromjon Jo'raqulov in Tashkent.</p>
+      </div>
+      <div class="ftr-col">
+        <h4>Product</h4>
+        <a href="#practice">Practice</a>
+        <a href="#qod">Daily Question</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#">Mock Tests</a>
+      </div>
+      <div class="ftr-col">
+        <h4>Learn</h4>
+        <a href="#instructor">Instructor</a>
+        <a href="#">Telegram Course</a>
+        <a href="#">Certificates</a>
+        <a href="#">SAT Guide</a>
+      </div>
+      <div class="ftr-col">
+        <h4>Contact</h4>
+        <a href="https://t.me/TaleemSAT" target="_blank">Telegram Channel</a>
+        <a href="mailto:hello@taleemsat.com">Email</a>
+        <a href="#">Support</a>
+      </div>
+    </div>
+    <div class="ftr-bot">
+      <p>© 2026 Taleem SAT. All rights reserved.</p>
+      <p><a href="#">Privacy</a> · <a href="#">Terms</a> · <a href="#">Refund Policy</a></p>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ─────────────────────────────────────────────
+   Theme toggle
+───────────────────────────────────────────── */
+function toggleTheme(){
+  const root=document.documentElement;
+  const isDark=root.dataset.theme==='dark';
+  root.dataset.theme=isDark?'light':'dark';
+  localStorage.setItem('taleem_theme',isDark?'light':'dark');
+  setThemeIcon();
+}
+function setThemeIcon(){
+  const isDark=document.documentElement.dataset.theme==='dark';
+  document.getElementById('themeIcon').innerHTML=isDark
+    ? '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>'
+    : '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>';
+}
+const saved=localStorage.getItem('taleem_theme');
+if(saved) document.documentElement.dataset.theme=saved;
+setThemeIcon();
+
+/* ─────────────────────────────────────────────
+   Reveal on scroll
+───────────────────────────────────────────── */
+const io=new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      e.target.classList.add('in-view');
+      io.unobserve(e.target);
+    }
+  });
+},{threshold:.12,rootMargin:'0px 0px -60px 0px'});
+
+document.querySelectorAll('.section-head, .cat, .step, .tier, .qod-item, .cred, .ai-feat, .am-bar-row, .stat')
+  .forEach(el=>{el.style.opacity='0';io.observe(el);});
+
+/* ─────────────────────────────────────────────
+   Animate analytics bars when in view
+───────────────────────────────────────────── */
+const barIo=new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      const fill=e.target;
+      const pct=fill.dataset.pct;
+      setTimeout(()=>fill.style.width=pct+'%',120);
+      barIo.unobserve(fill);
+    }
+  });
+},{threshold:.3});
+document.querySelectorAll('.am-bar-fill').forEach(b=>barIo.observe(b));
+
+/* ─────────────────────────────────────────────
+   Count-up stats
+───────────────────────────────────────────── */
+const countIo=new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{
+    if(!e.isIntersecting) return;
+    const el=e.target;
+    const target=parseInt(el.dataset.num,10);
+    if(!target){countIo.unobserve(el);return;}
+    let cur=0;const start=performance.now();
+    const dur=1400;
+    const suffix=el.querySelector('sup')?.outerHTML||'';
+    const animate=(t)=>{
+      const p=Math.min((t-start)/dur,1);
+      const ease=1-Math.pow(1-p,3);
+      cur=Math.round(target*ease);
+      el.innerHTML=cur+suffix;
+      if(p<1) requestAnimationFrame(animate);
+    };
+    requestAnimationFrame(animate);
+    countIo.unobserve(el);
+  });
+},{threshold:.5});
+document.querySelectorAll('.stat-num[data-num]').forEach(el=>countIo.observe(el));
+
+/* ─────────────────────────────────────────────
+   Hero preview: clickable options
+───────────────────────────────────────────── */
+document.querySelectorAll('.pc-opt').forEach(opt=>{
+  opt.addEventListener('click',()=>{
+    document.querySelectorAll('.pc-opt').forEach(o=>o.classList.remove('sel'));
+    opt.classList.add('sel');
+  });
+});
+</script>
+
+</body>
+</html>
