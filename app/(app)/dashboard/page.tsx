@@ -107,15 +107,24 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Coming soon placeholder */}
+      {/* Practice CTA */}
       <div
-        className="rounded-l p-8 text-center"
-        style={{ background: 'var(--surf)', border: '1px dashed var(--border)' }}
+        className="rounded-l p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+        style={{ background: 'var(--surf)', border: '1px solid var(--border)' }}
       >
-        <p className="text-sm font-medium text-txt mb-1">
-          Practice questions and daily QOD are coming in Phase 2.
-        </p>
-        <p className="text-xs text-muted">Check back soon!</p>
+        <div>
+          <p className="text-sm font-semibold text-txt mb-0.5">Ready to practice?</p>
+          <p className="text-xs text-muted">
+            10 questions across 8 SAT categories — pick one and start.
+          </p>
+        </div>
+        <a
+          href="/practice"
+          className="shrink-0 rounded px-4 py-2 text-sm font-semibold"
+          style={{ background: 'var(--green)', color: '#fff' }}
+        >
+          Start practicing →
+        </a>
       </div>
     </div>
   );
