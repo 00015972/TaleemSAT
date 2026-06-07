@@ -18,6 +18,25 @@ export default async function DashboardPage() {
     .eq('id', user.id)
     .single();
 
+  // Fetch today's QOD status in parallel with profile
+   
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const { data: todayQOD } = await supabase
+    .from('qod_schedule')
+    .select('id')
+    .eq('scheduled_date', todayStr)
+    .maybeSingle();
+
+  const qodAnswered = todayQOD
+    ? (await supabase
+        .from('qod_answers')
+        .select('is_correct')
+        .eq('user_id', user.id)
+        .eq('qod_id', todayQOD.id)
+        .maybeSingle()
+      ).data
+    : null;
+
   const isVerified = !!user.email_confirmed_at;
   const rawName: string =
     (profile?.full_name as string | null) ??
@@ -107,6 +126,9 @@ export default async function DashboardPage() {
         </div>
       )}
 
+      {/* QOD widget */}
+      <QODWidget hasQOD={!!todayQOD} answered={qodAnswered} />
+
       {/* Practice CTA */}
       <div
         className="rounded-l p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
@@ -195,5 +217,58 @@ function ChecklistItem({
         {label}
       </span>
     </div>
+  );
+}
+
+function QODWidget({
+  hasQOD,
+  answered,
+}: {
+  hasQOD: boolean;
+  answered: { is_correct: boolean } | null;
+}) {
+  if (!hasQOD) return null;
+
+  const done = !!answered;
+  const correct = answered?.is_correct ?? false;
+
+  return (
+    <a
+      href="/qod"
+      className="flex items-center justify-between gap-4 rounded-l p-5 mb-8 transition-colors hover:bg-surf2"
+      style={{ background: 'var(--surf)', border: '1px solid var(--border)', textDecoration: 'none' }}
+    >
+      <div className="flex items-center gap-4">
+        <div
+          className="w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0"
+          style={{
+            background: done
+              ? correct
+                ? 'color-mix(in srgb, var(--ok) 15%, transparent)'
+                : 'color-mix(in srgb, var(--err) 12%, transparent)'
+              : 'color-mix(in srgb, var(--gold) 15%, transparent)',
+          }}
+        >
+          {done ? (correct ? '✓' : '✗') : '⭐'}
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-txt">
+            {done ? "Today's question answered" : "Today's question is waiting"}
+          </p>
+          <p className="text-xs text-muted">
+            {done
+              ? correct
+                ? '+1 point earned'
+                : 'Better luck tomorrow'
+              : '+1 point up for grabs'}
+          </p>
+        </div>
+      </div>
+      {!done && (
+        <span className="text-sm font-semibold shrink-0" style={{ color: 'var(--green)' }}>
+          Answer now →
+        </span>
+      )}
+    </a>
   );
 }

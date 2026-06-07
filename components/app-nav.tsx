@@ -6,7 +6,7 @@ import { SignOutButton } from '@/components/sign-out-button';
 const NAV_LINKS = [
   { href: '/dashboard', label: 'Dashboard', active: true },
   { href: '/practice', label: 'Practice', active: true },
-  { href: '/qod', label: 'Daily Question', active: false },
+  { href: '/qod', label: 'Daily Question', active: true },
   { href: '/analytics', label: 'Analytics', active: false },
 ];
 
