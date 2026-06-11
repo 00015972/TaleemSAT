@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
     category_id: string;
     question_text: string;
     passage: string | null;
-    options: { A: string; B: string; C: string; D: string };
+    options: { id: string; text: string }[];
     correct_answer: string;
     explanation: string;
     difficulty: 'easy' | 'medium' | 'hard';

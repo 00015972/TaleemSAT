@@ -7,8 +7,8 @@ const NAV_LINKS = [
   { href: '/admin', label: 'Dashboard', icon: '▦', active: true, exact: true },
   { href: '/admin/questions', label: 'Questions', icon: '❓', active: true },
   { href: '/admin/qod', label: 'Daily Question', icon: '⭐', active: true },
-  { href: '/admin/users', label: 'Users', icon: '👥', active: false },
-  { href: '/admin/subscriptions', label: 'Subscriptions', icon: '💳', active: false },
+  { href: '/admin/users', label: 'Users', icon: '👥', active: true },
+  { href: '/admin/subscriptions', label: 'Subscriptions', icon: '💳', active: true },
   { href: '/admin/settings', label: 'Settings', icon: '⚙', active: false },
 ];
 

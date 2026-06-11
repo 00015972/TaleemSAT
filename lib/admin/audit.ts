@@ -4,8 +4,8 @@ import type { Database, Json } from '@/lib/supabase/types';
 
 type AuditEntry = {
   actorUserId: string;
-  action: string; // e.g. 'question.create', 'question.update', 'qod.schedule'
-  targetType: 'question' | 'qod';
+  action: string; // e.g. 'question.create', 'question.update', 'qod.schedule', 'user.update'
+  targetType: 'question' | 'qod' | 'user';
   targetId?: string | null;
   before?: Json | null;
   after?: Json | null;
