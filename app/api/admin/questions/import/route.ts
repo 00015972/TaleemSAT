@@ -175,7 +175,7 @@ export async function POST(request: NextRequest) {
       category_id: categoryId,
       question_text: questionText,
       passage: input.passage,
-      options: input.options,
+      options: (['A', 'B', 'C', 'D'] as const).map(k => ({ id: k, text: input.options[k] })),
       correct_answer: correctAnswer,
       explanation: input.explanation,
       difficulty: difficulty as 'easy' | 'medium' | 'hard',

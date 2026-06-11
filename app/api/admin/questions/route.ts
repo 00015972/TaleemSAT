@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       category_id: body.categoryId,
       question_text: body.questionText.trim(),
       passage: body.passage?.trim() || null,
-      options: body.options,
+      options: (['A', 'B', 'C', 'D'] as const).map(k => ({ id: k, text: body.options[k] })),
       correct_answer: body.correctAnswer,
       explanation: body.explanation.trim(),
       difficulty: body.difficulty as 'easy' | 'medium' | 'hard',
