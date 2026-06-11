@@ -14,8 +14,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+# NOTE: lib/ and lib64/ (Python packaging dirs) intentionally NOT ignored —
+# in this Next.js project lib/ holds source code (Supabase clients, helpers).
 parts/
 sdist/
 var/

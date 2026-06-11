@@ -1,0 +1,2 @@
+subject,category,question_text,passage,option_a,option_b,option_c,option_d,correct_answer,explanation,difficulty,tags
+Math,Algebra,"If 3x + 6 = 18, what is the value of x?",,2,3,4,6,C,"Subtract 6 from both sides to get 3x = 12, then divide by 3 to find x = 4.",easy,linear equations;solving

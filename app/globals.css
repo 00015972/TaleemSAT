@@ -173,3 +173,25 @@ a {
   height: 1px;
   background: var(--gold);
 }
+
+/* Shared form control — used across admin forms */
+.form-input {
+  width: 100%;
+  border-radius: var(--rad-s);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--txt);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.form-input:focus {
+  border-color: var(--green);
+}
+
+.form-input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

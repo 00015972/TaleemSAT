@@ -274,6 +274,26 @@ export const stripeEvents = pgTable('stripe_events', {
   raw: jsonb('raw').notNull(),
 });
 
+// ─── Audit log ──────────────────────────────────────────────────────
+export const auditLog = pgTable(
+  'audit_log',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    actorUserId: uuid('actor_user_id').references(() => users.id),
+    action: text('action').notNull(), // 'question.create', 'qod.schedule', ...
+    targetType: text('target_type').notNull(), // 'question' | 'qod'
+    targetId: uuid('target_id'),
+    before: jsonb('before'),
+    after: jsonb('after'),
+    note: text('note'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('audit_log_actor_idx').on(t.actorUserId),
+    index('audit_log_target_idx').on(t.targetType, t.targetId),
+  ]
+);
+
 // ─── Email subscriptions ────────────────────────────────────────────
 export const emailSubscriptions = pgTable(
   'email_subscriptions',
