@@ -24,8 +24,11 @@ export default async function SettingsPage() {
     : '';
 
   return (
-    <div className="wrap py-8">
-      <h1 className="font-serif text-3xl font-bold mb-8 text-txt">Settings</h1>
+    <div className="wrap py-5">
+      <div className="app-head">
+        <h1>Settings</h1>
+        <p>Your profile, plan, and security.</p>
+      </div>
       <SettingsForm
         userId={user.id}
         email={user.email!}

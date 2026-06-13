@@ -108,16 +108,13 @@ export function UsersTable({
   return (
     <div>
       {/* Header */}
-      <div className="mb-5">
-        <h1 className="font-serif text-2xl font-bold text-txt">Users</h1>
-        <p className="text-sm text-muted mt-0.5">{total} total</p>
+      <div className="adm-head mb-5">
+        <h1>Users</h1>
+        <p>{total.toLocaleString('en-US')} accounts</p>
       </div>
 
       {/* Filter toolbar */}
-      <div
-        className="flex flex-wrap items-end gap-3 p-3 rounded-l mb-4"
-        style={{ background: 'var(--surf)', border: '1px solid var(--border)' }}
-      >
+      <div className="adm-toolbar">
         <FilterSelect
           label="Role"
           value={local.role}
@@ -137,8 +134,8 @@ export function UsersTable({
             { value: 'elite', label: 'Elite' },
           ]}
         />
-        <div className="flex flex-col gap-1 flex-1 min-w-[180px]">
-          <span className="text-xs font-semibold text-txt">Search</span>
+        <div className="adm-filter flex-1 min-w-[180px]">
+          <span>Search</span>
           <input
             className="form-input"
             value={local.q}
@@ -151,33 +148,19 @@ export function UsersTable({
         </div>
       </div>
 
-      {error && (
-        <div
-          className="rounded p-3 mb-3 text-sm"
-          style={{
-            background: 'color-mix(in srgb, var(--err) 10%, transparent)',
-            border: '1px solid color-mix(in srgb, var(--err) 35%, transparent)',
-            color: 'var(--txt)',
-          }}
-        >
-          {error}
-        </div>
-      )}
+      {error && <div className="adm-alert err">{error}</div>}
 
       {/* Table */}
-      <div
-        className="rounded-l overflow-hidden"
-        style={{ background: 'var(--surf)', border: '1px solid var(--border)' }}
-      >
-        <table className="w-full text-sm">
+      <div className="adm-table-wrap">
+        <table className="adm-table">
           <thead>
-            <tr style={{ borderBottom: '1px solid var(--border)' }}>
-              <Th>User</Th>
-              <Th>Role</Th>
-              <Th>Tier</Th>
-              <Th className="hidden md:table-cell text-right">Points</Th>
-              <Th className="hidden md:table-cell text-right">Streak</Th>
-              <Th className="hidden lg:table-cell">Joined</Th>
+            <tr>
+              <th>User</th>
+              <th>Role</th>
+              <th>Tier</th>
+              <th className="hidden md:table-cell text-right">Points</th>
+              <th className="hidden md:table-cell text-right">Streak</th>
+              <th className="hidden lg:table-cell">Joined</th>
             </tr>
           </thead>
           <tbody>
@@ -192,23 +175,21 @@ export function UsersTable({
                 const isSelf = u.id === currentUserId;
                 const saving = savingId === u.id;
                 return (
-                  <tr
-                    key={u.id}
-                    style={{ borderBottom: '1px solid var(--border)' }}
-                    className="transition-colors hover:bg-surf2"
-                  >
-                    <Td>
+                  <tr key={u.id}>
+                    <td>
                       <div className="flex flex-col">
                         <span className="text-txt font-medium">
                           {u.fullName || '—'}
                           {isSelf && (
-                            <span className="ml-2 text-xs text-muted font-normal">(you)</span>
+                            <span className="ml-2 text-xs text-muted font-normal">
+                              (you)
+                            </span>
                           )}
                         </span>
                         <span className="text-xs text-muted">{u.email}</span>
                       </div>
-                    </Td>
-                    <Td>
+                    </td>
+                    <td>
                       <select
                         className="form-input"
                         style={{ minWidth: 110, padding: '0.3rem 0.5rem' }}
@@ -220,8 +201,8 @@ export function UsersTable({
                         <option value="student">Student</option>
                         <option value="admin">Admin</option>
                       </select>
-                    </Td>
-                    <Td>
+                    </td>
+                    <td>
                       <select
                         className="form-input"
                         style={{ minWidth: 100, padding: '0.3rem 0.5rem' }}
@@ -233,16 +214,26 @@ export function UsersTable({
                         <option value="pro">Pro</option>
                         <option value="elite">Elite</option>
                       </select>
-                    </Td>
-                    <Td className="hidden md:table-cell text-right text-txt-soft">
+                    </td>
+                    <td
+                      className="hidden md:table-cell text-right"
+                      style={{ fontFamily: 'var(--mono)', fontSize: '0.8rem' }}
+                    >
                       {u.points}
-                    </Td>
-                    <Td className="hidden md:table-cell text-right text-txt-soft">
-                      {u.streakDays > 0 ? `${u.streakDays}🔥` : '—'}
-                    </Td>
-                    <Td className="hidden lg:table-cell text-muted">
+                    </td>
+                    <td
+                      className="hidden md:table-cell text-right"
+                      style={{ fontFamily: 'var(--mono)', fontSize: '0.8rem' }}
+                    >
+                      {u.streakDays > 0 ? (
+                        <span style={{ color: 'var(--green)' }}>{u.streakDays}d</span>
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
+                    </td>
+                    <td className="hidden lg:table-cell text-muted">
                       {formatDate(u.createdAt)}
-                    </Td>
+                    </td>
                   </tr>
                 );
               })
@@ -253,23 +244,21 @@ export function UsersTable({
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-4">
+        <div className="adm-pager">
           <button
             onClick={() => gotoPage(page - 1)}
             disabled={page <= 1}
-            className="rounded px-3 py-1.5 text-sm disabled:opacity-40"
-            style={{ background: 'var(--surf2)', color: 'var(--txt)', border: '1px solid var(--border)' }}
+            className="adm-btn secondary"
           >
             ← Prev
           </button>
-          <span className="text-sm text-muted">
-            Page {page} of {totalPages}
+          <span className="where">
+            Page {page} / {totalPages}
           </span>
           <button
             onClick={() => gotoPage(page + 1)}
             disabled={page >= totalPages}
-            className="rounded px-3 py-1.5 text-sm disabled:opacity-40"
-            style={{ background: 'var(--surf2)', color: 'var(--txt)', border: '1px solid var(--border)' }}
+            className="adm-btn secondary"
           >
             Next →
           </button>
@@ -299,8 +288,8 @@ function FilterSelect({
   options: { value: string; label: string }[];
 }) {
   return (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs font-semibold text-txt">{label}</span>
+    <div className="adm-filter">
+      <span>{label}</span>
       <select
         className="form-input"
         style={{ minWidth: 130 }}
@@ -316,30 +305,4 @@ function FilterSelect({
       </select>
     </div>
   );
-}
-
-function Th({
-  children,
-  className = '',
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <th
-      className={`text-left font-semibold text-xs uppercase tracking-wide px-3 py-2.5 text-muted ${className}`}
-    >
-      {children}
-    </th>
-  );
-}
-
-function Td({
-  children,
-  className = '',
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return <td className={`px-3 py-2.5 align-middle ${className}`}>{children}</td>;
 }

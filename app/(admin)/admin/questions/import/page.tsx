@@ -122,24 +122,20 @@ export default function ImportPage() {
 
   return (
     <div className="p-6 md:p-8 max-w-3xl">
-      <div className="mb-6 flex items-center gap-2 text-sm text-muted">
-        <Link href="/admin/questions" className="hover:underline">
-          Questions
-        </Link>
+      <div className="adm-crumbs">
+        <Link href="/admin/questions">Questions</Link>
         <span>/</span>
-        <span className="text-txt">Import CSV</span>
+        <span className="here">Import CSV</span>
       </div>
-      <h1 className="font-serif text-2xl font-bold text-txt mb-2">Import questions</h1>
-      <p className="text-sm text-muted mb-6">
-        Upload a CSV to bulk-create questions. All imported questions land as{' '}
-        <strong>drafts</strong> — review and publish them after.
-      </p>
+      <div className="adm-head">
+        <h1>Import questions</h1>
+        <p>
+          Bulk-create from CSV. Everything lands as <strong>drafts</strong> for review.
+        </p>
+      </div>
 
       {/* Format guide */}
-      <details
-        className="rounded-l p-4 mb-5"
-        style={{ background: 'var(--surf)', border: '1px solid var(--border)' }}
-      >
+      <details className="adm-panel mb-5">
         <summary className="text-sm font-semibold text-txt cursor-pointer">
           CSV format guide
         </summary>
@@ -167,11 +163,7 @@ export default function ImportPage() {
         </div>
       </details>
 
-      {error && (
-        <p className="text-sm mb-4" style={{ color: 'var(--err)' }}>
-          {error}
-        </p>
-      )}
+      {error && <div className="adm-alert err">{error}</div>}
 
       {/* Phase: idle / selected — dropzone */}
       {(phase.name === 'idle' || phase.name === 'selected' || phase.name === 'previewing') && (
@@ -187,25 +179,17 @@ export default function ImportPage() {
             const file = e.dataTransfer.files[0];
             if (file) handleFile(file);
           }}
-          className="rounded-l p-8 text-center transition-colors"
-          style={{
-            background: dragging
-              ? 'color-mix(in srgb, var(--green) 8%, transparent)'
-              : 'var(--surf)',
-            border: `2px dashed ${dragging ? 'var(--green)' : 'var(--border)'}`,
-          }}
+          className={`adm-drop${dragging ? ' drag' : ''}`}
         >
-          <p className="text-3xl mb-2">📄</p>
-          {phase.name === 'idle' ? (
-            <>
-              <p className="text-sm text-txt mb-1">Drag &amp; drop your CSV here</p>
-              <p className="text-xs text-muted mb-4">or</p>
-            </>
-          ) : (
+          <span className="file-tag">
+            {phase.name === 'idle' ? '.CSV' : phase.fileName}
+          </span>
+          {phase.name === 'idle' && (
             <p className="text-sm text-txt mb-4">
-              Selected: <strong>{phase.fileName}</strong>
+              Drag &amp; drop your CSV here, or browse for it.
             </p>
           )}
+          {phase.name !== 'idle' && <div className="mb-4" />}
 
           <input
             ref={fileRef}
@@ -218,24 +202,21 @@ export default function ImportPage() {
             }}
           />
           <div className="flex items-center justify-center gap-3">
-            <button
-              onClick={() => fileRef.current?.click()}
-              className="rounded px-4 py-2 text-sm font-semibold"
-              style={{ background: 'var(--surf2)', color: 'var(--txt)', border: '1px solid var(--border)' }}
-            >
+            <button onClick={() => fileRef.current?.click()} className="adm-btn secondary">
               Browse files
             </button>
             {phase.name === 'selected' && (
-              <button
-                onClick={runPreview}
-                className="rounded px-4 py-2 text-sm font-semibold"
-                style={{ background: 'var(--green)', color: '#fff' }}
-              >
+              <button onClick={runPreview} className="adm-btn">
                 Preview import →
               </button>
             )}
             {phase.name === 'previewing' && (
-              <span className="text-sm text-muted">Analyzing…</span>
+              <span
+                className="text-sm"
+                style={{ fontFamily: 'var(--mono)', fontSize: '0.75rem', color: 'var(--muted)' }}
+              >
+                Analyzing…
+              </span>
             )}
           </div>
         </div>
@@ -244,24 +225,42 @@ export default function ImportPage() {
       {/* Phase: preview */}
       {(phase.name === 'preview' || phase.name === 'importing') && (
         <div>
-          <SummaryCards summary={phase.summary} />
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <MiniStat label="Will import" value={phase.summary.validCount} color="var(--ok)" />
+            <MiniStat label="Skipped (dupes)" value={phase.summary.skipCount} color="var(--gold-d)" />
+            <MiniStat
+              label="Errors"
+              value={phase.summary.errorCount - phase.summary.skipCount}
+              color="var(--err)"
+            />
+          </div>
 
           {phase.summary.preview.length > 0 && (
-            <div
-              className="rounded-l overflow-hidden mb-4"
-              style={{ background: 'var(--surf)', border: '1px solid var(--border)' }}
-            >
-              <p className="text-xs font-semibold text-muted px-3 py-2" style={{ borderBottom: '1px solid var(--border)' }}>
-                Preview (first {phase.summary.preview.length})
-              </p>
-              <table className="w-full text-sm">
+            <div className="adm-table-wrap mb-4">
+              <table className="adm-table">
+                <thead>
+                  <tr>
+                    <th className="w-10">Row</th>
+                    <th>Question</th>
+                    <th className="hidden sm:table-cell">Category</th>
+                    <th>Key</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {phase.summary.preview.map(p => (
-                    <tr key={p.row} style={{ borderBottom: '1px solid var(--border)' }}>
-                      <Td className="text-muted w-10">{p.row}</Td>
-                      <Td className="text-txt">{p.questionText}…</Td>
-                      <Td className="text-muted hidden sm:table-cell">{p.category}</Td>
-                      <Td className="text-txt-soft">{p.correctAnswer}</Td>
+                    <tr key={p.row}>
+                      <td
+                        style={{ fontFamily: 'var(--mono)', fontSize: '0.72rem', color: 'var(--muted)' }}
+                      >
+                        {p.row}
+                      </td>
+                      <td className="q-preview">{p.questionText}…</td>
+                      <td className="hidden sm:table-cell text-muted">{p.category}</td>
+                      <td
+                        style={{ fontFamily: 'var(--mono)', fontSize: '0.78rem', color: 'var(--green)' }}
+                      >
+                        {p.correctAnswer}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -269,16 +268,13 @@ export default function ImportPage() {
             </div>
           )}
 
-          {phase.summary.errors.length > 0 && (
-            <ErrorList errors={phase.summary.errors} />
-          )}
+          {phase.summary.errors.length > 0 && <ErrorList errors={phase.summary.errors} />}
 
           <div className="flex items-center gap-3 mt-5">
             <button
               onClick={runImport}
               disabled={phase.name === 'importing' || phase.summary.validCount === 0}
-              className="rounded px-5 py-2.5 text-sm font-semibold disabled:opacity-50"
-              style={{ background: 'var(--green)', color: '#fff' }}
+              className="adm-btn"
             >
               {phase.name === 'importing'
                 ? 'Importing…'
@@ -287,7 +283,7 @@ export default function ImportPage() {
             <button
               onClick={reset}
               disabled={phase.name === 'importing'}
-              className="rounded px-4 py-2.5 text-sm text-muted disabled:opacity-50 hover:underline"
+              className="text-sm text-muted disabled:opacity-50 hover:underline"
             >
               Cancel
             </button>
@@ -297,12 +293,18 @@ export default function ImportPage() {
 
       {/* Phase: done */}
       {phase.name === 'done' && (
-        <div
-          className="rounded-l p-6"
-          style={{ background: 'var(--surf)', border: '1px solid var(--border)' }}
-        >
-          <p className="text-2xl mb-2">✅</p>
-          <p className="text-base font-semibold text-txt mb-1">
+        <div className="adm-panel accent">
+          <span
+            className="adm-pill mb-3"
+            style={{
+              color: 'var(--ok)',
+              background: 'color-mix(in srgb, var(--ok) 12%, transparent)',
+              border: '1px solid color-mix(in srgb, var(--ok) 30%, transparent)',
+            }}
+          >
+            ✓ Import complete
+          </span>
+          <p className="text-base font-semibold text-txt mb-1 mt-2">
             Imported {phase.summary.imported} question
             {phase.summary.imported === 1 ? '' : 's'} as drafts.
           </p>
@@ -310,22 +312,12 @@ export default function ImportPage() {
             {phase.summary.skipCount > 0 && `${phase.summary.skipCount} skipped. `}
             Review and publish them from the questions list.
           </p>
-          {phase.summary.errors.length > 0 && (
-            <ErrorList errors={phase.summary.errors} />
-          )}
+          {phase.summary.errors.length > 0 && <ErrorList errors={phase.summary.errors} />}
           <div className="flex gap-3 mt-4">
-            <Link
-              href="/admin/questions?status=draft"
-              className="rounded px-4 py-2 text-sm font-semibold"
-              style={{ background: 'var(--green)', color: '#fff' }}
-            >
+            <Link href="/admin/questions?status=draft" className="adm-btn">
               Review drafts →
             </Link>
-            <button
-              onClick={reset}
-              className="rounded px-4 py-2 text-sm font-semibold"
-              style={{ background: 'var(--surf2)', color: 'var(--txt)', border: '1px solid var(--border)' }}
-            >
+            <button onClick={reset} className="adm-btn secondary">
               Import another
             </button>
           </div>
@@ -335,17 +327,7 @@ export default function ImportPage() {
   );
 }
 
-function SummaryCards({ summary }: { summary: Summary }) {
-  return (
-    <div className="grid grid-cols-3 gap-3 mb-4">
-      <MiniCard label="Will import" value={summary.validCount} color="var(--ok)" />
-      <MiniCard label="Skipped (dupes)" value={summary.skipCount} color="var(--gold-d)" />
-      <MiniCard label="Errors" value={summary.errorCount - summary.skipCount} color="var(--err)" />
-    </div>
-  );
-}
-
-function MiniCard({
+function MiniStat({
   label,
   value,
   color,
@@ -355,12 +337,9 @@ function MiniCard({
   color: string;
 }) {
   return (
-    <div
-      className="rounded p-3"
-      style={{ background: 'var(--surf)', border: '1px solid var(--border)' }}
-    >
-      <p className="text-xs text-muted mb-1">{label}</p>
-      <p className="text-xl font-bold" style={{ color }}>
+    <div className="adm-stat">
+      <p className="adm-stat-label">{label}</p>
+      <p className="adm-stat-num" style={{ color, fontSize: '1.4rem' }}>
         {value}
       </p>
     </div>
@@ -376,8 +355,11 @@ function ErrorList({ errors }: { errors: RowError[] }) {
         border: '1px solid color-mix(in srgb, var(--err) 25%, transparent)',
       }}
     >
-      <p className="text-xs font-semibold mb-2" style={{ color: 'var(--err)' }}>
-        {errors.length} row{errors.length === 1 ? '' : 's'} with issues
+      <p
+        className="text-xs font-semibold mb-2"
+        style={{ color: 'var(--err)', fontFamily: 'var(--mono)', letterSpacing: '0.06em' }}
+      >
+        {errors.length} ROW{errors.length === 1 ? '' : 'S'} WITH ISSUES
       </p>
       <ul className="text-xs text-txt-soft flex flex-col gap-1">
         {errors.slice(0, 50).map((e, i) => (
@@ -389,14 +371,4 @@ function ErrorList({ errors }: { errors: RowError[] }) {
       </ul>
     </div>
   );
-}
-
-function Td({
-  children,
-  className = '',
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return <td className={`px-3 py-2 align-middle ${className}`}>{children}</td>;
 }

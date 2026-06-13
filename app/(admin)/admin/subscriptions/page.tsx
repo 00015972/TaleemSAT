@@ -55,74 +55,68 @@ export default async function SubscriptionsPage() {
 
   return (
     <div className="p-6 md:p-8 max-w-5xl">
-      <div className="mb-6">
-        <h1 className="font-serif text-2xl font-bold text-txt">Subscriptions</h1>
-        <p className="text-sm text-muted mt-0.5">
-          Read-only overview of plans and access tiers.
-        </p>
+      <div className="adm-head">
+        <h1>Subscriptions</h1>
+        <p>Plans and access tiers.</p>
       </div>
 
       {/* Pre-payments notice */}
-      <div
-        className="mb-6 rounded p-4 text-sm"
-        style={{
-          background: 'color-mix(in srgb, var(--gold) 10%, transparent)',
-          border: '1px solid color-mix(in srgb, var(--gold) 35%, transparent)',
-          color: 'var(--txt)',
-        }}
-      >
-        Payments aren&apos;t wired up yet (that&apos;s a later phase). Tiers are
-        currently assigned by hand in{' '}
-        <Link href="/admin/users" className="font-semibold underline">
-          Users
-        </Link>
-        . Once Stripe/Payme is live, real subscriptions will appear in the table below.
+      <div className="adm-alert info">
+        <div>
+          Payments aren&apos;t wired up yet (that&apos;s a later phase). Tiers are
+          currently assigned by hand in{' '}
+          <Link href="/admin/users" className="font-semibold underline">
+            Users
+          </Link>
+          . Once Stripe/Payme is live, real subscriptions appear in the table below.
+        </div>
       </div>
 
       {/* Tier distribution */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <KpiCard label="Free" value={tierCounts.free} />
-        <KpiCard label="Pro" value={tierCounts.pro} accent="var(--green)" />
-        <KpiCard label="Elite" value={tierCounts.elite} accent="var(--gold-d)" />
-        <KpiCard label="Paid total" value={paid} sub="Pro + Elite" />
+      <div className="adm-stat-grid">
+        <StatCard label="Free" value={tierCounts.free} />
+        <StatCard label="Pro" value={tierCounts.pro} accent="var(--green)" />
+        <StatCard label="Elite" value={tierCounts.elite} accent="var(--gold-d)" />
+        <StatCard label="Paid total" value={paid} sub="Pro + Elite" />
       </div>
 
       {/* Manual tier overrides */}
-      <section className="mb-8">
-        <p className="eyebrow mb-3">Manual tier overrides</p>
+      <section className="adm-section">
+        <span className="adm-section-label">Manual tier overrides</span>
         {overrides.length === 0 ? (
-          <p className="text-sm text-muted">
-            Everyone is on the Free tier. Grant Pro/Elite from the Users page to test
-            paid features.
-          </p>
+          <div className="adm-empty">
+            Everyone is on the Free tier. Grant Pro or Elite from the Users page to
+            test paid features.
+          </div>
         ) : (
-          <div
-            className="rounded-l overflow-hidden"
-            style={{ background: 'var(--surf)', border: '1px solid var(--border)' }}
-          >
-            <table className="w-full text-sm">
+          <div className="adm-table-wrap">
+            <table className="adm-table">
               <thead>
-                <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  <Th>User</Th>
-                  <Th>Tier</Th>
-                  <Th className="hidden sm:table-cell">Access until</Th>
+                <tr>
+                  <th>User</th>
+                  <th>Tier</th>
+                  <th className="hidden sm:table-cell">Access until</th>
                 </tr>
               </thead>
               <tbody>
                 {overrides.map(o => (
-                  <tr key={o.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                    <Td>
+                  <tr key={o.id}>
+                    <td>
                       <div className="flex flex-col">
-                        <span className="text-txt font-medium">{o.full_name || '—'}</span>
+                        <span className="text-txt font-medium">
+                          {o.full_name || '—'}
+                        </span>
                         <span className="text-xs text-muted">{o.email}</span>
                       </div>
-                    </Td>
-                    <Td>
+                    </td>
+                    <td>
                       <TierPill tier={o.tier} />
-                    </Td>
-                    <Td className="hidden sm:table-cell text-muted">
-                      {o.current_period_end ? formatDate(o.current_period_end) : 'no expiry'}
-                    </Td>
+                    </td>
+                    <td className="hidden sm:table-cell text-muted">
+                      {o.current_period_end
+                        ? formatDate(o.current_period_end)
+                        : 'no expiry'}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -132,58 +126,52 @@ export default async function SubscriptionsPage() {
       </section>
 
       {/* Subscriptions table (provider-backed) */}
-      <section>
-        <p className="eyebrow mb-3">Provider subscriptions</p>
+      <section className="adm-section">
+        <span className="adm-section-label">Provider subscriptions</span>
         {subs.length === 0 ? (
-          <div
-            className="rounded-l p-5 text-sm text-muted"
-            style={{ background: 'var(--surf)', border: '1px dashed var(--border)' }}
-          >
-            No provider-backed subscriptions yet.
-          </div>
+          <div className="adm-empty">No provider-backed subscriptions yet.</div>
         ) : (
-          <div
-            className="rounded-l overflow-hidden"
-            style={{ background: 'var(--surf)', border: '1px solid var(--border)' }}
-          >
-            <table className="w-full text-sm">
+          <div className="adm-table-wrap">
+            <table className="adm-table">
               <thead>
-                <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  <Th>User</Th>
-                  <Th>Tier</Th>
-                  <Th>Status</Th>
-                  <Th className="hidden sm:table-cell">Provider</Th>
-                  <Th className="hidden md:table-cell">Renews</Th>
+                <tr>
+                  <th>User</th>
+                  <th>Tier</th>
+                  <th>Status</th>
+                  <th className="hidden sm:table-cell">Provider</th>
+                  <th className="hidden md:table-cell">Renews</th>
                 </tr>
               </thead>
               <tbody>
                 {subs.map(s => (
-                  <tr key={s.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                    <Td>
+                  <tr key={s.id}>
+                    <td>
                       <div className="flex flex-col">
                         <span className="text-txt font-medium">
                           {s.users?.full_name || '—'}
                         </span>
-                        <span className="text-xs text-muted">{s.users?.email ?? '—'}</span>
+                        <span className="text-xs text-muted">
+                          {s.users?.email ?? '—'}
+                        </span>
                       </div>
-                    </Td>
-                    <Td>
+                    </td>
+                    <td>
                       <TierPill tier={s.tier as 'free' | 'pro' | 'elite'} />
-                    </Td>
-                    <Td>
+                    </td>
+                    <td>
                       <StatusPill status={s.status} />
-                    </Td>
-                    <Td className="hidden sm:table-cell capitalize text-txt-soft">
+                    </td>
+                    <td className="hidden sm:table-cell capitalize text-txt-soft">
                       {s.provider}
-                    </Td>
-                    <Td className="hidden md:table-cell text-muted">
+                    </td>
+                    <td className="hidden md:table-cell text-muted">
                       {s.current_period_end ? formatDate(s.current_period_end) : '—'}
                       {s.cancel_at_period_end && (
                         <span className="ml-1 text-xs" style={{ color: 'var(--err)' }}>
                           (cancels)
                         </span>
                       )}
-                    </Td>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -203,7 +191,7 @@ function formatDate(iso: string) {
   });
 }
 
-function KpiCard({
+function StatCard({
   label,
   value,
   sub,
@@ -215,15 +203,12 @@ function KpiCard({
   accent?: string;
 }) {
   return (
-    <div
-      className="rounded-l p-4"
-      style={{ background: 'var(--surf)', border: '1px solid var(--border)' }}
-    >
-      <p className="text-xs mb-1 text-muted">{label}</p>
-      <p className="text-2xl font-bold" style={{ color: accent ?? 'var(--txt)' }}>
-        {value}
+    <div className="adm-stat">
+      <p className="adm-stat-label">{label}</p>
+      <p className="adm-stat-num" style={{ color: accent ?? 'var(--txt)' }}>
+        {value.toLocaleString('en-US')}
       </p>
-      {sub && <p className="text-xs mt-0.5 text-muted">{sub}</p>}
+      {sub && <p className="adm-stat-sub">{sub}</p>}
     </div>
   );
 }
@@ -233,7 +218,7 @@ function TierPill({ tier }: { tier: 'free' | 'pro' | 'elite' }) {
     tier === 'elite' ? 'var(--gold-d)' : tier === 'pro' ? 'var(--green)' : 'var(--muted)';
   return (
     <span
-      className="text-xs font-semibold capitalize px-2 py-0.5 rounded"
+      className="adm-pill"
       style={{ color, background: `color-mix(in srgb, ${color} 12%, transparent)` }}
     >
       {tier}
@@ -252,36 +237,10 @@ function StatusPill({ status }: { status: string }) {
   const color = colors[status] ?? 'var(--muted)';
   return (
     <span
-      className="text-xs font-semibold px-2 py-0.5 rounded"
+      className="adm-pill"
       style={{ color, background: `color-mix(in srgb, ${color} 12%, transparent)` }}
     >
       {status.replace('_', ' ')}
     </span>
   );
-}
-
-function Th({
-  children,
-  className = '',
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <th
-      className={`text-left font-semibold text-xs uppercase tracking-wide px-3 py-2.5 text-muted ${className}`}
-    >
-      {children}
-    </th>
-  );
-}
-
-function Td({
-  children,
-  className = '',
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return <td className={`px-3 py-2.5 align-middle ${className}`}>{children}</td>;
 }

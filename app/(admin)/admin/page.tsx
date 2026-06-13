@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Admin Dashboard — Taleem SAT' };
+export const metadata = { title: 'Admin Operations — Taleem SAT' };
 
 // Date math lives in helper functions — react-hooks/purity only flags impure
 // calls in the component render body, not inside named helpers.
@@ -22,17 +22,36 @@ function since24hISO() {
   return d.toISOString();
 }
 
+function formatDay(iso: string) {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
+type ScheduledQ = {
+  id: string;
+  questions: { question_text: string } | { question_text: string }[] | null;
+};
+
+function questionText(row: ScheduledQ | null) {
+  if (!row) return null;
+  const q = Array.isArray(row.questions) ? row.questions[0] : row.questions;
+  return q?.question_text ?? null;
+}
+
 export default async function AdminDashboardPage() {
   const admin = createAdminClient();
   const today = todayUTC();
   const tomorrow = dateOffsetUTC(1);
-
   const since24h = since24hISO();
 
   const [
     totalUsers,
     publishedQuestions,
-    totalQuestions,
+    draftQuestions,
     todaySchedule,
     tomorrowSchedule,
     attempts24h,
@@ -42,11 +61,18 @@ export default async function AdminDashboardPage() {
       .from('questions')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'published'),
-    admin.from('questions').select('id', { count: 'exact', head: true }),
-    admin.from('qod_schedule').select('id').eq('scheduled_date', today).maybeSingle(),
+    admin
+      .from('questions')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'draft'),
     admin
       .from('qod_schedule')
-      .select('id')
+      .select('id, questions(question_text)')
+      .eq('scheduled_date', today)
+      .maybeSingle(),
+    admin
+      .from('qod_schedule')
+      .select('id, questions(question_text)')
       .eq('scheduled_date', tomorrow)
       .maybeSingle(),
     admin
@@ -55,7 +81,7 @@ export default async function AdminDashboardPage() {
       .gte('created_at', since24h),
   ]);
 
-  // QOD-today response stats
+  // Today's response stats
   let qodResponses = 0;
   let qodAccuracy: number | null = null;
   if (todaySchedule.data) {
@@ -70,81 +96,128 @@ export default async function AdminDashboardPage() {
     }
   }
 
-  const noQodTomorrow = !tomorrowSchedule.data;
+  const todayQ = questionText(todaySchedule.data as ScheduledQ | null);
+  const tomorrowQ = questionText(tomorrowSchedule.data as ScheduledQ | null);
 
   return (
     <div className="p-6 md:p-8 max-w-6xl">
-      <div className="mb-6">
-        <h1 className="font-serif text-2xl font-bold text-txt">Dashboard</h1>
-        <p className="text-sm text-muted mt-1">Platform health at a glance.</p>
+      <div className="adm-head">
+        <h1>Operations</h1>
+        <p>The daily pipeline, then the numbers.</p>
       </div>
 
-      {/* Alerts */}
-      {noQodTomorrow && (
-        <div
-          className="mb-6 rounded p-4 flex items-center justify-between gap-4 flex-wrap"
-          style={{
-            background: 'color-mix(in srgb, var(--err) 10%, transparent)',
-            border: '1px solid color-mix(in srgb, var(--err) 35%, transparent)',
-          }}
-        >
-          <p className="text-sm" style={{ color: 'var(--txt)' }}>
-            <strong>No question scheduled for tomorrow.</strong> Students will see an
-            empty Daily Question.
-          </p>
-          <Link
-            href="/admin/qod"
-            className="shrink-0 rounded px-3 py-1.5 text-sm font-semibold"
-            style={{ background: 'var(--err)', color: '#fff' }}
-          >
-            Schedule now →
-          </Link>
-        </div>
-      )}
+      {/* Today / Tomorrow — is the ritual covered? */}
+      <div className="adm-pipeline">
+        <section className="adm-panel accent prx-anim">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <span className="adm-section-label" style={{ marginBottom: 0 }}>
+              Today · {formatDay(today)}
+            </span>
+            {todayQ && (
+              <span className="adm-live">
+                <span className="dot" />
+                Live
+              </span>
+            )}
+          </div>
 
-      {/* KPI cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <KpiCard label="Total users" value={totalUsers.count ?? 0} />
-        <KpiCard
+          {todayQ ? (
+            <>
+              <p className="adm-pl-q">{todayQ}</p>
+              <p className="adm-pl-stat">
+                {qodResponses === 0
+                  ? 'no responses yet'
+                  : `${qodResponses} answered · ${qodAccuracy}% correct`}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="adm-pl-q" style={{ color: 'var(--muted)' }}>
+                Nothing is live today — students see an empty Daily Question.
+              </p>
+              <Link href="/admin/qod" className="adm-btn mt-3 self-start">
+                Schedule today →
+              </Link>
+            </>
+          )}
+        </section>
+
+        <section
+          className={`adm-panel prx-anim${tomorrowQ ? '' : ' alert err'}`}
+          style={{ animationDelay: '0.06s' }}
+        >
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <span className="adm-section-label" style={{ marginBottom: 0 }}>
+              Tomorrow
+            </span>
+            <span
+              className="adm-pill"
+              style={
+                tomorrowQ
+                  ? {
+                      color: 'var(--ok)',
+                      background: 'color-mix(in srgb, var(--ok) 12%, transparent)',
+                      border: '1px solid color-mix(in srgb, var(--ok) 30%, transparent)',
+                    }
+                  : {
+                      color: 'var(--err)',
+                      background: 'color-mix(in srgb, var(--err) 12%, transparent)',
+                      border: '1px solid color-mix(in srgb, var(--err) 30%, transparent)',
+                    }
+              }
+            >
+              {tomorrowQ ? '✓ Ready' : '⚠ Not scheduled'}
+            </span>
+          </div>
+
+          {tomorrowQ ? (
+            <p className="adm-pl-q">{tomorrowQ}</p>
+          ) : (
+            <>
+              <p className="adm-pl-q" style={{ color: 'var(--txt)' }}>
+                No question queued. Schedule one before midnight.
+              </p>
+              <Link href="/admin/qod" className="adm-btn mt-3 self-start">
+                Schedule now →
+              </Link>
+            </>
+          )}
+        </section>
+      </div>
+
+      {/* The ledger */}
+      <div className="adm-stat-grid">
+        <StatCard label="Students" value={fmt(totalUsers.count)} delay={0.1} />
+        <StatCard
           label="Questions live"
-          value={publishedQuestions.count ?? 0}
-          sub={`of ${totalQuestions.count ?? 0} total`}
+          value={fmt(publishedQuestions.count)}
+          sub={`${fmt(draftQuestions.count)} drafts waiting`}
+          delay={0.14}
         />
-        <KpiCard
-          label="Daily Question today"
+        <StatCard
+          label="QOD responses"
           value={todaySchedule.data ? qodResponses : '—'}
           sub={
             todaySchedule.data
               ? qodAccuracy === null
-                ? 'no responses yet'
-                : `${qodAccuracy}% correct`
+                ? 'today · none yet'
+                : `today · ${qodAccuracy}% correct`
               : 'not scheduled'
           }
+          delay={0.18}
         />
-        <KpiCard label="Attempts (24h)" value={attempts24h.count ?? 0} />
+        <StatCard label="Attempts · 24h" value={fmt(attempts24h.count)} delay={0.22} />
       </div>
 
       {/* Quick actions */}
-      <div className="flex flex-wrap gap-3">
-        <Link
-          href="/admin/questions/new"
-          className="rounded px-4 py-2 text-sm font-semibold"
-          style={{ background: 'var(--green)', color: '#fff' }}
-        >
-          + Add question
+      <div className="adm-actions">
+        <Link href="/admin/questions/new" className="adm-btn">
+          New question
         </Link>
-        <Link
-          href="/admin/questions/import"
-          className="rounded px-4 py-2 text-sm font-semibold"
-          style={{ background: 'var(--surf2)', color: 'var(--txt)', border: '1px solid var(--border)' }}
-        >
+        <Link href="/admin/questions/import" className="adm-btn secondary">
           Import CSV
         </Link>
-        <Link
-          href="/admin/qod"
-          className="rounded px-4 py-2 text-sm font-semibold"
-          style={{ background: 'var(--surf2)', color: 'var(--txt)', border: '1px solid var(--border)' }}
-        >
+        <Link href="/admin/qod" className="adm-btn secondary">
           Schedule daily question
         </Link>
       </div>
@@ -152,23 +225,26 @@ export default async function AdminDashboardPage() {
   );
 }
 
-function KpiCard({
+function fmt(n: number | null) {
+  return (n ?? 0).toLocaleString('en-US');
+}
+
+function StatCard({
   label,
   value,
   sub,
+  delay,
 }: {
   label: string;
   value: string | number;
   sub?: string;
+  delay: number;
 }) {
   return (
-    <div
-      className="rounded-l p-4"
-      style={{ background: 'var(--surf)', border: '1px solid var(--border)' }}
-    >
-      <p className="text-xs mb-1 text-muted">{label}</p>
-      <p className="text-2xl font-bold text-txt">{value}</p>
-      {sub && <p className="text-xs mt-0.5 text-muted">{sub}</p>}
+    <div className="adm-stat prx-anim" style={{ animationDelay: `${delay}s` }}>
+      <p className="adm-stat-label">{label}</p>
+      <p className="adm-stat-num">{value}</p>
+      {sub && <p className="adm-stat-sub">{sub}</p>}
     </div>
   );
 }

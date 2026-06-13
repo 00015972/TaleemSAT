@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { ResendVerificationButton } from '@/components/resend-verification-button';
@@ -19,7 +20,7 @@ export default async function DashboardPage() {
     .single();
 
   // Fetch today's QOD status in parallel with profile
-   
+
   const todayStr = new Date().toISOString().slice(0, 10);
   const { data: todayQOD } = await supabase
     .from('qod_schedule')
@@ -55,61 +56,47 @@ export default async function DashboardPage() {
     : null;
 
   const tier = (profile?.tier as string | null) ?? 'free';
+  const streak = profile?.streak_days ?? 0;
+
+  const todayLabel = new Date(`${todayStr}T00:00:00`).toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
 
   return (
-    <div className="wrap py-8">
+    <div className="wrap py-5">
       {/* Email verification banner */}
       {!isVerified && (
         <div
-          className="mb-6 rounded p-4 flex items-center justify-between gap-4 flex-wrap"
+          className="mb-5 rounded p-4 flex items-center justify-between gap-4 flex-wrap"
           style={{
             background: 'color-mix(in srgb, var(--gold) 12%, transparent)',
             border: '1px solid color-mix(in srgb, var(--gold) 30%, transparent)',
           }}
         >
           <p className="text-sm" style={{ color: 'var(--txt)' }}>
-            <strong>Verify your email</strong> to unlock practice questions and the Question of the Day.
+            <strong>Verify your email</strong> to unlock practice questions and the
+            Daily Question.
           </p>
           <ResendVerificationButton email={user.email!} />
         </div>
       )}
 
       {/* Welcome */}
-      <div className="mb-8">
-        <h1 className="font-serif text-3xl font-bold mb-1 text-txt">
-          Welcome back, {firstName}
-        </h1>
-        {daysToExam && daysToExam > 0 ? (
-          <p className="text-sm text-muted">
-            {daysToExam} day{daysToExam === 1 ? '' : 's'} until your exam. Keep going.
-          </p>
-        ) : (
-          <p className="text-sm text-muted">Ready for today&apos;s questions?</p>
-        )}
+      <div className="app-head">
+        <h1>Welcome back, {firstName}.</h1>
+        <p>
+          {daysToExam && daysToExam > 0
+            ? `${daysToExam} day${daysToExam === 1 ? '' : 's'} until your exam. Keep going.`
+            : 'Ready for today’s question?'}
+        </p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Total points" value={profile?.points ?? 0} />
-        <StatCard
-          label="Day streak"
-          value={profile?.streak_days ?? 0}
-          suffix={profile?.streak_days === 1 ? 'day' : 'days'}
-        />
-        <StatCard
-          label="Target score"
-          value={profile?.target_sat_score ?? '—'}
-        />
-        <StatCard label="Plan" value={tier} capitalize />
-      </div>
-
-      {/* Onboarding checklist */}
+      {/* Getting started (unverified only) */}
       {!isVerified && (
-        <div
-          className="rounded-l p-5 mb-8"
-          style={{ background: 'var(--surf)', border: '1px solid var(--border)' }}
-        >
-          <h2 className="text-sm font-semibold mb-4 text-txt">Getting started</h2>
+        <div className="app-panel mb-5">
+          <p className="app-label mb-3">Getting started</p>
           <div className="flex flex-col gap-3">
             <ChecklistItem done={isVerified} label="Verify your email" />
             <ChecklistItem
@@ -119,62 +106,148 @@ export default async function DashboardPage() {
             />
             <ChecklistItem
               done={false}
-              label="Try the Question of the Day"
+              label="Try the Daily Question"
               disabled={!isVerified}
             />
           </div>
         </div>
       )}
 
-      {/* QOD widget */}
-      <QODWidget hasQOD={!!todayQOD} answered={qodAnswered} />
+      {/* Today — the ritual leads */}
+      <div className="app-panel accent prx-anim">
+        <p className="app-label">Today · {todayLabel}</p>
+        <div className="home-today">
+          <TodayStatus hasQOD={!!todayQOD} answered={qodAnswered} />
+          <div className="home-streak">
+            <div className={`num${streak === 0 ? ' zero' : ''}`}>{streak}</div>
+            <div className="lbl">day streak</div>
+          </div>
+        </div>
+      </div>
+
+      {/* The ledger */}
+      <div className="home-tiles">
+        <Tile label="Points" value={String(profile?.points ?? 0)} delay={0.06} />
+        <Tile
+          label="Target score"
+          value={profile?.target_sat_score ? String(profile.target_sat_score) : '—'}
+          delay={0.1}
+        />
+        <Tile
+          label="Exam in"
+          value={daysToExam && daysToExam > 0 ? String(daysToExam) : '—'}
+          unit={daysToExam && daysToExam > 0 ? 'days' : undefined}
+          delay={0.14}
+        />
+        <Tile label="Plan" value={tier} capitalize delay={0.18} />
+      </div>
 
       {/* Practice CTA */}
-      <div
-        className="rounded-l p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
-        style={{ background: 'var(--surf)', border: '1px solid var(--border)' }}
-      >
-        <div>
-          <p className="text-sm font-semibold text-txt mb-0.5">Ready to practice?</p>
-          <p className="text-xs text-muted">
-            10 questions across 8 SAT categories — pick one and start.
-          </p>
+      <div className="app-panel prx-anim" style={{ animationDelay: '0.22s' }}>
+        <div className="home-cta">
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="home-cta-bubs" aria-hidden="true">
+              {['A', 'B', 'C', 'D'].map(l => (
+                <span key={l} className="home-cta-bub">{l}</span>
+              ))}
+            </div>
+            <div>
+              <p className="home-qtitle">Open the practice room</p>
+              <p className="home-qsub">
+                Eight SAT categories, one question at a time, at your own pace.
+              </p>
+            </div>
+          </div>
+          <Link href="/practice" className="prx-btn shrink-0">
+            Start practicing →
+          </Link>
         </div>
-        <a
-          href="/practice"
-          className="shrink-0 rounded px-4 py-2 text-sm font-semibold"
-          style={{ background: 'var(--green)', color: '#fff' }}
-        >
-          Start practicing →
-        </a>
       </div>
     </div>
   );
 }
 
-function StatCard({
+function TodayStatus({
+  hasQOD,
+  answered,
+}: {
+  hasQOD: boolean;
+  answered: { is_correct: boolean } | null;
+}) {
+  if (!hasQOD) {
+    return (
+      <div className="home-qrow">
+        <span className="home-qbub" aria-hidden="true">—</span>
+        <div className="min-w-0">
+          <p className="home-qtitle">No question scheduled today.</p>
+          <p className="home-qsub">Rest day — or sneak in some practice below.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!answered) {
+    return (
+      <div className="home-qrow">
+        <span className="home-qbub wait" aria-hidden="true">?</span>
+        <div className="min-w-0">
+          <p className="home-qtitle">Today&rsquo;s question is waiting.</p>
+          <p className="home-qsub">+1 point and your streak on the line.</p>
+          <Link
+            href="/qod"
+            className="prx-btn inline-block"
+            style={{ marginTop: '0.55rem' }}
+          >
+            Answer now →
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const correct = answered.is_correct;
+  return (
+    <div className="home-qrow">
+      <span className={`home-qbub ${correct ? 'hit' : 'miss'}`} aria-hidden="true">
+        {correct ? '✓' : '✗'}
+      </span>
+      <div className="min-w-0">
+        <p className="home-qtitle">
+          {correct ? 'Answered — correct.' : 'Answered — not your day.'}
+        </p>
+        <p className="home-qsub">
+          {correct
+            ? '+1 point earned. Streak safe.'
+            : 'Streak intact. Tomorrow is a fresh chance.'}
+          {'  '}
+          <Link href="/qod" className="underline" style={{ color: 'var(--green)' }}>
+            Review →
+          </Link>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function Tile({
   label,
   value,
-  suffix,
+  unit,
   capitalize,
+  delay,
 }: {
   label: string;
-  value: string | number;
-  suffix?: string;
+  value: string;
+  unit?: string;
   capitalize?: boolean;
+  delay: number;
 }) {
   return (
-    <div
-      className="rounded-l p-4"
-      style={{ background: 'var(--surf)', border: '1px solid var(--border)' }}
-    >
-      <p className="text-xs mb-1 text-muted">{label}</p>
-      <p
-        className="text-xl font-bold text-txt"
-        style={{ textTransform: capitalize ? 'capitalize' : undefined }}
-      >
+    <div className="home-tile prx-anim" style={{ animationDelay: `${delay}s` }}>
+      <p className="app-label">{label}</p>
+      <p className="num" style={{ textTransform: capitalize ? 'capitalize' : undefined }}>
         {value}
-        {suffix ? ` ${suffix}` : ''}
+        {unit && <span className="unit"> {unit}</span>}
       </p>
     </div>
   );
@@ -195,7 +268,7 @@ function ChecklistItem({
         className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
         style={{
           background: done ? 'var(--green)' : 'transparent',
-          border: `2px solid ${done ? 'var(--green)' : 'var(--border)'}`,
+          border: `2px solid ${done ? 'var(--green)' : 'var(--muted-l)'}`,
         }}
       >
         {done && (
@@ -217,58 +290,5 @@ function ChecklistItem({
         {label}
       </span>
     </div>
-  );
-}
-
-function QODWidget({
-  hasQOD,
-  answered,
-}: {
-  hasQOD: boolean;
-  answered: { is_correct: boolean } | null;
-}) {
-  if (!hasQOD) return null;
-
-  const done = !!answered;
-  const correct = answered?.is_correct ?? false;
-
-  return (
-    <a
-      href="/qod"
-      className="flex items-center justify-between gap-4 rounded-l p-5 mb-8 transition-colors hover:bg-surf2"
-      style={{ background: 'var(--surf)', border: '1px solid var(--border)', textDecoration: 'none' }}
-    >
-      <div className="flex items-center gap-4">
-        <div
-          className="w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0"
-          style={{
-            background: done
-              ? correct
-                ? 'color-mix(in srgb, var(--ok) 15%, transparent)'
-                : 'color-mix(in srgb, var(--err) 12%, transparent)'
-              : 'color-mix(in srgb, var(--gold) 15%, transparent)',
-          }}
-        >
-          {done ? (correct ? '✓' : '✗') : '⭐'}
-        </div>
-        <div>
-          <p className="text-sm font-semibold text-txt">
-            {done ? "Today's question answered" : "Today's question is waiting"}
-          </p>
-          <p className="text-xs text-muted">
-            {done
-              ? correct
-                ? '+1 point earned'
-                : 'Better luck tomorrow'
-              : '+1 point up for grabs'}
-          </p>
-        </div>
-      </div>
-      {!done && (
-        <span className="text-sm font-semibold shrink-0" style={{ color: 'var(--green)' }}>
-          Answer now →
-        </span>
-      )}
-    </a>
   );
 }

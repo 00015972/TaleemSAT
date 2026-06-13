@@ -31,7 +31,6 @@ export function QodScheduler({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | 'saving'>('idle');
   const [error, setError] = useState('');
-  const [warn, setWarn] = useState('');
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -52,7 +51,6 @@ export function QodScheduler({
     }
     setStatus('saving');
     setError('');
-    setWarn('');
     try {
       const res = await fetch('/api/admin/qod', {
         method: 'POST',
@@ -75,11 +73,8 @@ export function QodScheduler({
   }
 
   return (
-    <div
-      className="rounded-l p-5"
-      style={{ background: 'var(--surf)', border: '1px solid var(--border)' }}
-    >
-      <h2 className="text-sm font-semibold text-txt mb-4">Schedule a question</h2>
+    <div className="adm-panel accent">
+      <span className="adm-section-label">Schedule a question</span>
 
       {publishedQuestions.length === 0 ? (
         <p className="text-sm text-muted">
@@ -88,8 +83,8 @@ export function QodScheduler({
       ) : (
         <>
           <div className="flex flex-col sm:flex-row gap-3 mb-3">
-            <label className="flex flex-col gap-1">
-              <span className="text-xs font-semibold text-txt">Date</span>
+            <label className="adm-filter">
+              <span>Date</span>
               <input
                 type="date"
                 className="form-input"
@@ -97,8 +92,8 @@ export function QodScheduler({
                 onChange={e => setDate(e.target.value)}
               />
             </label>
-            <label className="flex flex-col gap-1 flex-1">
-              <span className="text-xs font-semibold text-txt">Find a question</span>
+            <label className="adm-filter flex-1">
+              <span>Find a question</span>
               <input
                 className="form-input"
                 placeholder="Search text or category…"
@@ -118,28 +113,21 @@ export function QodScheduler({
               filtered.map(q => (
                 <button
                   key={q.id}
-                  onClick={() => setSelectedId(q.id)}
-                  className="w-full text-left px-3 py-2.5 flex items-center gap-3 transition-colors"
-                  style={{
-                    borderBottom: '1px solid var(--border)',
-                    background:
-                      selectedId === q.id
-                        ? 'color-mix(in srgb, var(--green) 12%, transparent)'
-                        : 'transparent',
-                  }}
+                  onClick={() => setSelectedId(selectedId === q.id ? null : q.id)}
+                  className={`adm-pick${selectedId === q.id ? ' on' : ''}`}
                 >
+                  <span className="mark" />
                   <span
-                    className="w-4 h-4 rounded-full shrink-0"
-                    style={{
-                      border: `2px solid ${selectedId === q.id ? 'var(--green)' : 'var(--border)'}`,
-                      background: selectedId === q.id ? 'var(--green)' : 'transparent',
-                    }}
-                  />
-                  <span className="flex-1 text-sm text-txt">
+                    className="flex-1 min-w-0 truncate"
+                    style={{ fontFamily: 'var(--serif-read)', fontSize: '0.92rem', color: 'var(--txt)' }}
+                  >
                     {q.preview}
                     {q.preview.length >= 70 ? '…' : ''}
                   </span>
-                  <span className="text-xs text-muted shrink-0 hidden sm:inline">
+                  <span
+                    className="shrink-0 hidden sm:inline"
+                    style={{ fontFamily: 'var(--mono)', fontSize: '0.64rem', color: 'var(--muted)' }}
+                  >
                     {q.categoryName} · {q.difficulty}
                   </span>
                 </button>
@@ -152,19 +140,13 @@ export function QodScheduler({
               {error}
             </p>
           )}
-          {warn && (
-            <p className="text-sm mb-3" style={{ color: 'var(--gold-d)' }}>
-              {warn}
-            </p>
-          )}
 
           <button
             onClick={schedule}
             disabled={status === 'saving' || !selectedId}
-            className="rounded px-5 py-2.5 text-sm font-semibold disabled:opacity-50"
-            style={{ background: 'var(--green)', color: '#fff' }}
+            className="adm-btn"
           >
-            {status === 'saving' ? 'Scheduling…' : 'Schedule for ' + date}
+            {status === 'saving' ? 'Scheduling…' : `Schedule for ${date}`}
           </button>
         </>
       )}

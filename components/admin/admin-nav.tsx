@@ -4,12 +4,12 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const NAV_LINKS = [
-  { href: '/admin', label: 'Dashboard', icon: '▦', active: true, exact: true },
-  { href: '/admin/questions', label: 'Questions', icon: '❓', active: true },
-  { href: '/admin/qod', label: 'Daily Question', icon: '⭐', active: true },
-  { href: '/admin/users', label: 'Users', icon: '👥', active: true },
-  { href: '/admin/subscriptions', label: 'Subscriptions', icon: '💳', active: true },
-  { href: '/admin/settings', label: 'Settings', icon: '⚙', active: false },
+  { href: '/admin', label: 'Operations', active: true, exact: true },
+  { href: '/admin/questions', label: 'Questions', active: true },
+  { href: '/admin/qod', label: 'Daily Question', active: true },
+  { href: '/admin/users', label: 'Users', active: true },
+  { href: '/admin/subscriptions', label: 'Subscriptions', active: true },
+  { href: '/admin/settings', label: 'Settings', active: false },
 ];
 
 export function AdminNav() {
@@ -21,17 +21,12 @@ export function AdminNav() {
   }
 
   return (
-    <nav className="flex flex-col gap-1 p-3">
+    <nav className="adm-nav">
       {NAV_LINKS.map(link => {
         if (!link.active) {
           return (
-            <span
-              key={link.href}
-              className="flex items-center gap-2.5 px-3 py-2 text-sm rounded cursor-not-allowed"
-              style={{ color: 'var(--muted)' }}
-              title="Coming soon"
-            >
-              <span className="w-4 text-center opacity-60">{link.icon}</span>
+            <span key={link.href} className="adm-nav-link off" title="Coming soon">
+              <span className="mark" />
               {link.label}
             </span>
           );
@@ -42,14 +37,9 @@ export function AdminNav() {
           <Link
             key={link.href}
             href={link.href}
-            className="flex items-center gap-2.5 px-3 py-2 text-sm rounded transition-colors"
-            style={
-              active
-                ? { background: 'color-mix(in srgb, var(--green) 14%, transparent)', color: 'var(--green)', fontWeight: 600 }
-                : { color: 'var(--txt-soft)' }
-            }
+            className={`adm-nav-link${active ? ' on' : ''}`}
           >
-            <span className="w-4 text-center">{link.icon}</span>
+            <span className="mark" />
             {link.label}
           </Link>
         );

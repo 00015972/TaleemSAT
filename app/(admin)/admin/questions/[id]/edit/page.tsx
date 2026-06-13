@@ -62,15 +62,13 @@ export default async function EditQuestionPage({
 
   return (
     <div className="p-6 md:p-8 max-w-6xl">
-      <div className="mb-6 flex items-center gap-2 text-sm text-muted">
-        <Link href="/admin/questions" className="hover:underline">
-          Questions
-        </Link>
+      <div className="adm-crumbs">
+        <Link href="/admin/questions">Questions</Link>
         <span>/</span>
-        <span className="text-txt">Edit</span>
+        <span className="here">Edit</span>
       </div>
-      <div className="flex items-center gap-3 mb-6">
-        <h1 className="font-serif text-2xl font-bold text-txt">Edit question</h1>
+      <div className="adm-head">
+        <h1>Edit question</h1>
         <StatusBadge status={question.status} />
       </div>
       <QuestionForm
@@ -93,7 +91,7 @@ function StatusBadge({ status }: { status: string }) {
   const color = colors[status] ?? 'var(--muted)';
   return (
     <span
-      className="text-xs font-semibold uppercase tracking-wide px-2 py-0.5 rounded capitalize"
+      className="adm-pill"
       style={{
         color,
         background: `color-mix(in srgb, ${color} 12%, transparent)`,

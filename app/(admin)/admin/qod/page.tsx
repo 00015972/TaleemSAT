@@ -88,65 +88,69 @@ export default async function AdminQodPage() {
 
   return (
     <div className="p-6 md:p-8 max-w-5xl">
-      <div className="mb-6">
-        <h1 className="font-serif text-2xl font-bold text-txt">Daily Question</h1>
-        <p className="text-sm text-muted mt-0.5">
-          Schedule the Question of the Day. Students see one per day.
-        </p>
+      <div className="adm-head mb-6">
+        <h1>Daily Question</h1>
+        <p>Schedule the Question of the Day. Students see one per day.</p>
       </div>
 
       {/* Today */}
-      <section className="mb-8">
-        <p className="eyebrow mb-3">Today — {today}</p>
+      <section className="adm-section">
+        <span className="adm-section-label">Today · {today}</span>
         {todayRow ? (
-          <div
-            className="rounded-l p-5"
-            style={{ background: 'var(--surf)', border: '1px solid var(--border)' }}
-          >
-            <p className="text-sm text-txt mb-1">
-              {unwrapQuestion(todayRow.questions).question_text.slice(0, 120)}…
+          <div className="adm-panel accent">
+            <div className="flex items-center justify-between gap-3 flex-wrap mb-1">
+              <span className="adm-live">
+                <span className="dot" />
+                Live
+              </span>
+              <span
+                className="adm-pill"
+                style={{
+                  color: 'var(--gold-d)',
+                  background: 'color-mix(in srgb, var(--gold-d) 12%, transparent)',
+                }}
+              >
+                {unwrapQuestion(todayRow.questions).difficulty}
+              </span>
+            </div>
+            <p className="adm-pl-q">
+              {unwrapQuestion(todayRow.questions).question_text.slice(0, 160)}…
             </p>
-            <p className="text-xs text-muted">
-              <span className="capitalize">{unwrapQuestion(todayRow.questions).difficulty}</span>
-              {' · '}
-              {accuracyLabel(todayRow.id)}
-            </p>
+            <p className="adm-pl-stat">{accuracyLabel(todayRow.id)}</p>
           </div>
         ) : (
-          <div
-            className="rounded-l p-5 text-sm text-muted"
-            style={{ background: 'var(--surf)', border: '1px dashed var(--border)' }}
-          >
-            No question scheduled for today.
-          </div>
+          <div className="adm-empty">No question scheduled for today.</div>
         )}
       </section>
 
       {/* Scheduler */}
-      <section className="mb-8">
+      <section className="adm-section">
         <QodScheduler publishedQuestions={publishedQuestions} defaultDate={tomorrow} />
       </section>
 
       {/* Upcoming */}
-      <section className="mb-8">
-        <p className="eyebrow mb-3">Upcoming</p>
+      <section className="adm-section">
+        <span className="adm-section-label">Upcoming</span>
         {upcoming.length === 0 ? (
-          <p className="text-sm text-muted">Nothing scheduled ahead.</p>
+          <div className="adm-empty">Nothing scheduled ahead.</div>
         ) : (
-          <div
-            className="rounded-l overflow-hidden"
-            style={{ background: 'var(--surf)', border: '1px solid var(--border)' }}
-          >
-            {upcoming.map(r => (
+          <div className="adm-table-wrap">
+            {upcoming.map((r, i) => (
               <div
                 key={r.id}
                 className="flex items-center gap-4 px-4 py-3"
-                style={{ borderBottom: '1px solid var(--border)' }}
+                style={i < upcoming.length - 1 ? { borderBottom: '1px solid var(--border-l)' } : undefined}
               >
-                <span className="text-sm font-medium text-txt-soft w-24 shrink-0">
+                <span
+                  className="w-24 shrink-0"
+                  style={{ fontFamily: 'var(--mono)', fontSize: '0.72rem', color: 'var(--txt-soft)' }}
+                >
                   {r.scheduled_date}
                 </span>
-                <span className="text-sm text-txt flex-1 min-w-0 truncate">
+                <span
+                  className="flex-1 min-w-0 truncate"
+                  style={{ fontFamily: 'var(--serif-read)', fontSize: '0.92rem', color: 'var(--txt)' }}
+                >
                   {unwrapQuestion(r.questions).question_text}
                 </span>
                 <UnscheduleButton qodId={r.id} />
@@ -157,28 +161,34 @@ export default async function AdminQodPage() {
       </section>
 
       {/* Past */}
-      <section>
-        <p className="eyebrow mb-3">Recent past</p>
+      <section className="adm-section">
+        <span className="adm-section-label">Recent past</span>
         {past.length === 0 ? (
-          <p className="text-sm text-muted">No past questions yet.</p>
+          <div className="adm-empty">No past questions yet.</div>
         ) : (
-          <div
-            className="rounded-l overflow-hidden"
-            style={{ background: 'var(--surf)', border: '1px solid var(--border)' }}
-          >
-            {past.map(r => (
+          <div className="adm-table-wrap">
+            {past.map((r, i) => (
               <div
                 key={r.id}
                 className="flex items-center gap-4 px-4 py-3"
-                style={{ borderBottom: '1px solid var(--border)' }}
+                style={i < past.length - 1 ? { borderBottom: '1px solid var(--border-l)' } : undefined}
               >
-                <span className="text-sm font-medium text-muted w-24 shrink-0">
+                <span
+                  className="w-24 shrink-0"
+                  style={{ fontFamily: 'var(--mono)', fontSize: '0.72rem', color: 'var(--muted)' }}
+                >
                   {r.scheduled_date}
                 </span>
-                <span className="text-sm text-txt-soft flex-1 min-w-0 truncate">
+                <span
+                  className="flex-1 min-w-0 truncate"
+                  style={{ fontFamily: 'var(--serif-read)', fontSize: '0.92rem', color: 'var(--txt-soft)' }}
+                >
                   {unwrapQuestion(r.questions).question_text}
                 </span>
-                <span className="text-xs text-muted shrink-0 hidden sm:inline">
+                <span
+                  className="shrink-0 hidden sm:inline"
+                  style={{ fontFamily: 'var(--mono)', fontSize: '0.66rem', color: 'var(--muted)' }}
+                >
                   {accuracyLabel(r.id)}
                 </span>
               </div>

@@ -51,9 +51,10 @@ export default async function AdminLayout({
               Taleem SAT
             </Link>
             <span
-              className="text-[0.6rem] font-bold uppercase tracking-wider px-2 py-0.5 rounded"
+              className="adm-pill"
               style={{
-                background: 'color-mix(in srgb, var(--gold) 18%, transparent)',
+                background: 'color-mix(in srgb, var(--gold) 16%, transparent)',
+                border: '1px solid color-mix(in srgb, var(--gold) 32%, transparent)',
                 color: 'var(--gold-d)',
               }}
             >

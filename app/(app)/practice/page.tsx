@@ -24,11 +24,11 @@ export default async function PracticePage() {
   });
 
   return (
-    <div className="wrap py-8">
-      <div className="mb-8">
-        <h1 className="font-serif text-3xl font-bold text-txt">Practice</h1>
-        <p className="text-sm text-muted mt-1">
-          Pick a category and answer questions at your own pace.
+    <div className="wrap py-5">
+      <div className="mb-5 flex items-baseline gap-x-4 gap-y-1 flex-wrap">
+        <h1 className="font-serif text-2xl font-bold text-txt">Practice</h1>
+        <p className="text-sm text-muted">
+          One question at a time, at your own pace.
         </p>
       </div>
       <PracticeShell categories={categories} />

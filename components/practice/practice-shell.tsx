@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -45,6 +45,8 @@ export function PracticeShell({ categories }: { categories: Category[] }) {
   const [phase, setPhase] = useState<Phase>({ name: 'idle' });
   const [seenIds, setSeenIds] = useState<string[]>([]);
   const [startTime, setStartTime] = useState<number | null>(null);
+  // The session sheet: one entry per scored question this visit.
+  const [sheet, setSheet] = useState<boolean[]>([]);
 
   const fetchQuestion = useCallback(
     async (categorySlug: string, exclude: string[]) => {
@@ -74,12 +76,16 @@ export function PracticeShell({ categories }: { categories: Category[] }) {
     fetchQuestion(slug, []);
   }
 
-  function selectOption(optionId: string) {
-    if (phase.name !== 'question') return;
-    setPhase({ name: 'selected', question: phase.question, selected: optionId });
-  }
+  // Allow re-picking another option any time before the answer is checked.
+  const selectOption = useCallback((optionId: string) => {
+    setPhase(p =>
+      p.name === 'question' || p.name === 'selected'
+        ? { name: 'selected', question: p.question, selected: optionId }
+        : p
+    );
+  }, []);
 
-  async function submitAnswer() {
+  const submitAnswer = useCallback(async () => {
     if (phase.name !== 'selected') return;
     const { question, selected } = phase;
     const timeTakenMs = startTime ? Date.now() - startTime : null;
@@ -93,25 +99,67 @@ export function PracticeShell({ categories }: { categories: Category[] }) {
         body: JSON.stringify({ questionId: question.id, selectedAnswer: selected, timeTakenMs }),
       });
       const result = await res.json() as AnswerResult;
+      setSheet(prev => [...prev, result.isCorrect]);
       setPhase({ name: 'result', question, selected, result });
     } catch {
       // Revert to selected state so user can retry
       setPhase({ name: 'selected', question, selected });
     }
-  }
+  }, [phase, startTime]);
 
-  function nextQuestion() {
+  const nextQuestion = useCallback(() => {
     if (!activeCategorySlug) return;
     fetchQuestion(activeCategorySlug, seenIds);
-  }
+  }, [activeCategorySlug, seenIds, fetchQuestion]);
+
+  // Answer with the keyboard: A–D (or 1–4) to choose, Enter to check / continue.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+      if (phase.name === 'question' || phase.name === 'selected') {
+        const letter = e.key.toUpperCase();
+        const opts = phase.question.options;
+        let id: string | undefined;
+        if (letter >= 'A' && letter <= 'D') {
+          id = opts.find(o => o.id === letter)?.id ?? opts[letter.charCodeAt(0) - 65]?.id;
+        } else if (e.key >= '1' && e.key <= '4') {
+          id = opts[Number(e.key) - 1]?.id;
+        }
+        if (id) {
+          e.preventDefault();
+          selectOption(id);
+          return;
+        }
+        if (e.key === 'Enter' && phase.name === 'selected') {
+          e.preventDefault();
+          submitAnswer();
+        }
+      } else if (phase.name === 'result' && e.key === 'Enter') {
+        e.preventDefault();
+        nextQuestion();
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [phase, selectOption, submitAnswer, nextQuestion]);
 
   const english = categories.filter(c => c.subject_slug === 'english');
   const math = categories.filter(c => c.subject_slug === 'math');
+  const activeCategory = categories.find(c => c.slug === activeCategorySlug) ?? null;
+
+  const onQuestion =
+    phase.name === 'question' ||
+    phase.name === 'selected' ||
+    phase.name === 'submitting' ||
+    phase.name === 'result';
 
   return (
-    <div className="flex flex-col md:flex-row gap-6">
+    <div className="prx-layout">
       {/* Category picker */}
-      <aside className="md:w-56 shrink-0">
+      <aside>
         <CategoryGroup
           label="Reading & Writing"
           categories={english}
@@ -123,27 +171,59 @@ export function PracticeShell({ categories }: { categories: Category[] }) {
           categories={math}
           active={activeCategorySlug}
           onSelect={selectCategory}
-          className="mt-4"
+          className="prx-group-gap"
         />
       </aside>
 
       {/* Question area */}
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0">
+        {(sheet.length > 0 || onQuestion) && (
+          <SessionRail sheet={sheet} live={onQuestion && phase.name !== 'result'} />
+        )}
+
         {phase.name === 'idle' && <IdleState />}
         {phase.name === 'loading' && <LoadingSkeleton />}
-        {phase.name === 'empty' && <EmptyState onReset={() => activeCategorySlug && selectCategory(activeCategorySlug)} />}
-        {(phase.name === 'question' ||
-          phase.name === 'selected' ||
-          phase.name === 'submitting' ||
-          phase.name === 'result') && (
+        {phase.name === 'empty' && (
+          <EmptyState onReset={() => activeCategorySlug && selectCategory(activeCategorySlug)} />
+        )}
+        {onQuestion && (
           <QuestionCard
-            phase={phase}
+            key={(phase as Extract<Phase, { name: 'question' }>).question.id}
+            phase={phase as Extract<Phase, { name: 'question' | 'selected' | 'submitting' | 'result' }>}
+            seq={sheet.length + (phase.name === 'result' ? 0 : 1)}
+            categoryName={activeCategory?.name ?? ''}
             onSelect={selectOption}
             onSubmit={submitAnswer}
             onNext={nextQuestion}
           />
         )}
       </div>
+    </div>
+  );
+}
+
+// ─── Session rail ─────────────────────────────────────────────────────────────
+
+function SessionRail({ sheet, live }: { sheet: boolean[]; live: boolean }) {
+  const correct = sheet.filter(Boolean).length;
+  return (
+    <div className="prx-rail">
+      <span className="prx-rail-label">Session sheet</span>
+      <div className="prx-rail-bubs">
+        {sheet.map((hit, i) => (
+          <span
+            key={i}
+            className={`prx-rail-bub ${hit ? 'hit' : 'miss'}`}
+            title={`Q${i + 1}: ${hit ? 'correct' : 'missed'}`}
+          />
+        ))}
+        {live && <span className="prx-rail-bub now" title="Current question" />}
+      </div>
+      {sheet.length > 0 && (
+        <span className="prx-rail-stat">
+          {correct}/{sheet.length} correct
+        </span>
+      )}
     </div>
   );
 }
@@ -166,19 +246,14 @@ function CategoryGroup({
   return (
     <div className={className}>
       <p className="eyebrow mb-2">{label}</p>
-      <ul className="flex flex-col gap-1">
+      <ul className="prx-cat-list">
         {categories.map(cat => (
           <li key={cat.slug}>
             <button
               onClick={() => onSelect(cat.slug)}
-              className="w-full text-left px-3 py-2 rounded text-sm transition-colors"
-              style={{
-                background: active === cat.slug ? 'var(--green)' : 'var(--surf)',
-                color: active === cat.slug ? '#fff' : 'var(--txt)',
-                border: '1px solid var(--border)',
-                fontWeight: active === cat.slug ? 600 : 400,
-              }}
+              className={`prx-cat${active === cat.slug ? ' on' : ''}`}
             >
+              <span className="mark" />
               {cat.name}
             </button>
           </li>
@@ -192,182 +267,186 @@ function CategoryGroup({
 
 function QuestionCard({
   phase,
+  seq,
+  categoryName,
   onSelect,
   onSubmit,
   onNext,
 }: {
   phase: Extract<Phase, { name: 'question' | 'selected' | 'submitting' | 'result' }>;
+  seq: number;
+  categoryName: string;
   onSelect: (id: string) => void;
   onSubmit: () => void;
   onNext: () => void;
 }) {
-  const question =
-    phase.name === 'question'
-      ? phase.question
-      : phase.name === 'selected' || phase.name === 'submitting'
-        ? phase.question
-        : phase.question;
-
+  const { question } = phase;
   const selected =
     phase.name === 'selected' || phase.name === 'submitting' || phase.name === 'result'
       ? phase.selected
       : null;
-
   const result = phase.name === 'result' ? phase.result : null;
   const isSubmitting = phase.name === 'submitting';
   const isInteractive = phase.name === 'question' || phase.name === 'selected';
 
+  // The card is keyed by question id in the shell, so all local state —
+  // including this stopwatch — resets by remount on every new question.
+  const secs = useElapsed(isInteractive || isSubmitting);
+
+  // If a long question pushes the verdict below the fold, glide it into view.
+  // `nearest` is a no-op when everything already fits on screen.
+  const actionsRef = useRef<HTMLDivElement | null>(null);
+  const hasResult = result !== null;
+  useEffect(() => {
+    if (!hasResult) return;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    actionsRef.current?.scrollIntoView({
+      block: 'nearest',
+      behavior: reduce ? 'auto' : 'smooth',
+    });
+  }, [hasResult]);
+
   return (
-    <div
-      className="rounded-l p-6 flex flex-col gap-5"
-      style={{ background: 'var(--surf)', border: '1px solid var(--border)' }}
-    >
-      {/* Difficulty + tags */}
-      <div className="flex items-center gap-2">
-        <DifficultyBadge difficulty={question.difficulty} />
-        {question.tags.slice(0, 2).map(tag => (
-          <span
-            key={tag}
-            className="px-2 py-0.5 text-xs rounded-s"
-            style={{ background: 'var(--bg)', color: 'var(--txt-soft)', border: '1px solid var(--border)' }}
-          >
-            {tag}
+    <div className="prx-card">
+      <div>
+        <div className="prx-card-head">
+          <span className="prx-meta">
+            <span className="prx-qnum">Q{seq}</span>
+            {categoryName}
+            <DifficultyBadge difficulty={question.difficulty} />
           </span>
-        ))}
-      </div>
-
-      {/* Passage */}
-      {question.passage && (
-        <div
-          className="rounded p-4 text-sm leading-relaxed font-serif-body max-h-40 overflow-y-auto"
-          style={{ background: 'var(--bg)', borderLeft: '3px solid var(--gold)', color: 'var(--txt)' }}
-        >
-          {question.passage}
+          <span className="prx-timer">{formatClock(secs)}</span>
         </div>
-      )}
 
-      {/* Question text */}
-      <p className="text-base font-medium leading-relaxed" style={{ color: 'var(--txt)' }}>
-        {question.question_text}
-      </p>
-
-      {/* Options */}
-      <div className="flex flex-col gap-2">
-        {question.options.map(opt => (
-          <OptionButton
-            key={opt.id}
-            option={opt}
-            selected={selected}
-            result={result}
-            interactive={isInteractive}
-            onSelect={onSelect}
-          />
-        ))}
-      </div>
-
-      {/* Result banner */}
-      {result && (
-        <ResultBanner isCorrect={result.isCorrect} />
-      )}
-
-      {/* Explanation */}
-      {result && (
-        <div
-          className="rounded p-4 text-sm leading-relaxed"
-          style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--txt)' }}
-        >
-          <p className="eyebrow mb-2">Explanation</p>
-          <p className="font-serif-body">{result.explanation}</p>
-        </div>
-      )}
-
-      {/* Actions */}
-      <div className="flex gap-3 pt-1">
-        {!result && (
-          <button
-            onClick={onSubmit}
-            disabled={!selected || isSubmitting}
-            className="rounded px-5 py-2.5 text-sm font-semibold disabled:opacity-50 transition-opacity"
-            style={{ background: 'var(--green)', color: '#fff' }}
-          >
-            {isSubmitting ? 'Checking…' : 'Submit'}
-          </button>
+        {question.passage && (
+          <div className="prx-passage prx-anim">{question.passage}</div>
         )}
+
+        <p className="prx-stem prx-anim" style={{ animationDelay: '0.06s' }}>
+          {question.question_text}
+        </p>
+
+        <div className="prx-opts" role="group" aria-label="Answer choices">
+          {question.options.map((opt, i) => (
+            <OptionButton
+              key={opt.id}
+              option={opt}
+              index={i}
+              selected={selected}
+              result={result}
+              interactive={isInteractive}
+              onSelect={onSelect}
+            />
+          ))}
+        </div>
+
         {result && (
-          <button
-            onClick={onNext}
-            className="rounded px-5 py-2.5 text-sm font-semibold"
-            style={{ background: 'var(--green)', color: '#fff' }}
-          >
-            Next question →
-          </button>
+          <div className="prx-anim">
+            <div className="prx-verdict">
+              <span className={`word ${result.isCorrect ? 'good' : 'bad'}`}>
+                {result.isCorrect ? 'Correct.' : 'Not quite.'}
+              </span>
+              <span className="sub">
+                {result.isCorrect
+                  ? `answered in ${formatClock(secs)}`
+                  : `the key was ${result.correctAnswer} · ${formatClock(secs)}`}
+              </span>
+            </div>
+            <div className="prx-expl">
+              <p className="prx-expl-label">Explanation</p>
+              <p className="prx-expl-body">{result.explanation}</p>
+            </div>
+          </div>
         )}
+
+        <div className="prx-actions" ref={actionsRef}>
+          {!result ? (
+            <button
+              onClick={onSubmit}
+              disabled={!selected || isSubmitting}
+              className="prx-btn"
+            >
+              {isSubmitting ? 'Checking…' : 'Check answer'}
+            </button>
+          ) : (
+            <button onClick={onNext} className="prx-btn">
+              Next question →
+            </button>
+          )}
+          <span className="prx-kbd-hint">
+            {!result ? 'A–D to choose · Enter to check' : 'Enter for the next one'}
+          </span>
+        </div>
       </div>
     </div>
   );
+}
+
+// Per-question stopwatch: ticks while answering, freezes once scored.
+function useElapsed(running: boolean) {
+  const [secs, setSecs] = useState(0);
+
+  useEffect(() => {
+    if (!running) return;
+    const t = setInterval(() => setSecs(s => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [running]);
+
+  return secs;
+}
+
+function formatClock(secs: number) {
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
 // ─── Option button ────────────────────────────────────────────────────────────
 
 function OptionButton({
   option,
+  index,
   selected,
   result,
   interactive,
   onSelect,
 }: {
   option: Option;
+  index: number;
   selected: string | null;
   result: AnswerResult | null;
   interactive: boolean;
   onSelect: (id: string) => void;
 }) {
   const isSelected = selected === option.id;
-  const isCorrect = result?.correctAnswer === option.id;
-  const isWrong = isSelected && result && !result.isCorrect;
+  const isKey = result?.correctAnswer === option.id;
+  const isMiss = isSelected && result !== null && !result.isCorrect;
 
-  let bg = 'var(--bg)';
-  let border = 'var(--border)';
-  const textColor = 'var(--txt)';
-  let letterBg = 'var(--surf)';
-  let letterColor = 'var(--txt-soft)';
-
-  if (isCorrect && result) {
-    bg = 'color-mix(in srgb, var(--ok) 10%, transparent)';
-    border = 'var(--ok)';
-    letterBg = 'var(--ok)';
-    letterColor = '#fff';
-  } else if (isWrong) {
-    bg = 'color-mix(in srgb, var(--err) 10%, transparent)';
-    border = 'var(--err)';
-    letterBg = 'var(--err)';
-    letterColor = '#fff';
-  } else if (isSelected && !result) {
-    bg = 'color-mix(in srgb, var(--green) 8%, transparent)';
-    border = 'var(--green)';
-    letterBg = 'var(--green)';
-    letterColor = '#fff';
+  let state = '';
+  if (result) {
+    if (isKey) state = ' key';
+    else if (isMiss) state = ' missed';
+  } else if (isSelected) {
+    state = ' sel';
   }
 
   return (
     <button
       onClick={() => interactive && onSelect(option.id)}
       disabled={!interactive}
-      className="w-full text-left flex items-start gap-3 rounded px-4 py-3 text-sm transition-colors disabled:cursor-default"
-      style={{ background: bg, border: `1px solid ${border}` }}
+      className={`prx-opt prx-anim${state}`}
+      style={{ animationDelay: `${0.12 + index * 0.05}s` }}
+      aria-pressed={isSelected}
     >
-      <span
-        className="shrink-0 w-6 h-6 rounded-s flex items-center justify-center text-xs font-bold mt-0.5"
-        style={{ background: letterBg, color: letterColor }}
-      >
-        {option.id}
+      <span className="prx-opt-bub">
+        <span>{option.id}</span>
       </span>
-      <span style={{ color: textColor }}>{option.text}</span>
-      {isCorrect && result && (
-        <span className="ml-auto shrink-0 text-base" style={{ color: 'var(--ok)' }}>✓</span>
+      <span className="prx-opt-text">{option.text}</span>
+      {isKey && result && (
+        <span className="prx-opt-flag" style={{ color: 'var(--ok)' }}>✓</span>
       )}
-      {isWrong && (
-        <span className="ml-auto shrink-0 text-base" style={{ color: 'var(--err)' }}>✗</span>
+      {isMiss && (
+        <span className="prx-opt-flag" style={{ color: 'var(--err)' }}>✗</span>
       )}
     </button>
   );
@@ -375,30 +454,13 @@ function OptionButton({
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function ResultBanner({ isCorrect }: { isCorrect: boolean }) {
-  return (
-    <div
-      className="rounded px-4 py-3 text-sm font-semibold"
-      style={{
-        background: isCorrect
-          ? 'color-mix(in srgb, var(--ok) 12%, transparent)'
-          : 'color-mix(in srgb, var(--err) 10%, transparent)',
-        color: isCorrect ? 'var(--ok)' : 'var(--err)',
-        border: `1px solid ${isCorrect ? 'color-mix(in srgb, var(--ok) 30%, transparent)' : 'color-mix(in srgb, var(--err) 25%, transparent)'}`,
-      }}
-    >
-      {isCorrect ? '✓ Correct! Well done.' : '✗ Not quite — read the explanation below.'}
-    </div>
-  );
-}
-
 function DifficultyBadge({ difficulty }: { difficulty: string }) {
   const color =
-    difficulty === 'easy' ? 'var(--ok)' : difficulty === 'hard' ? 'var(--err)' : 'var(--gold)';
+    difficulty === 'easy' ? 'var(--ok)' : difficulty === 'hard' ? 'var(--err)' : 'var(--gold-d)';
   return (
     <span
-      className="px-2 py-0.5 text-xs font-semibold rounded-s capitalize"
-      style={{ background: `color-mix(in srgb, ${color} 15%, transparent)`, color }}
+      className="prx-diff"
+      style={{ background: `color-mix(in srgb, ${color} 14%, transparent)`, color }}
     >
       {difficulty}
     </span>
@@ -407,13 +469,14 @@ function DifficultyBadge({ difficulty }: { difficulty: string }) {
 
 function IdleState() {
   return (
-    <div
-      className="rounded-l p-12 text-center"
-      style={{ background: 'var(--surf)', border: '1px dashed var(--border)' }}
-    >
-      <p className="text-2xl mb-3">📖</p>
-      <p className="text-sm font-medium text-txt mb-1">Pick a category to start practicing</p>
-      <p className="text-xs text-muted">Select any topic from the left to load your first question.</p>
+    <div className="prx-empty">
+      <div className="prx-idle-bubs" aria-hidden="true">
+        {['A', 'B', 'C', 'D'].map(l => (
+          <span key={l} className="prx-idle-bub">{l}</span>
+        ))}
+      </div>
+      <p className="prx-empty-title">Your sheet is blank.</p>
+      <p className="prx-empty-sub">Choose a category to open your first question.</p>
     </div>
   );
 }
@@ -421,14 +484,14 @@ function IdleState() {
 function LoadingSkeleton() {
   return (
     <div
-      className="rounded-l p-6 flex flex-col gap-4 animate-pulse"
-      style={{ background: 'var(--surf)', border: '1px solid var(--border)' }}
+      className="prx-card flex flex-col gap-4 animate-pulse"
+      aria-label="Loading question"
     >
-      <div className="h-4 w-24 rounded" style={{ background: 'var(--border)' }} />
+      <div className="h-4 w-32 rounded" style={{ background: 'var(--border)' }} />
       <div className="h-20 rounded" style={{ background: 'var(--bg)' }} />
       <div className="h-5 w-3/4 rounded" style={{ background: 'var(--border)' }} />
       {[0, 1, 2, 3].map(i => (
-        <div key={i} className="h-11 rounded" style={{ background: 'var(--bg)' }} />
+        <div key={i} className="h-12 rounded" style={{ background: 'var(--bg)' }} />
       ))}
     </div>
   );
@@ -436,20 +499,17 @@ function LoadingSkeleton() {
 
 function EmptyState({ onReset }: { onReset: () => void }) {
   return (
-    <div
-      className="rounded-l p-12 text-center"
-      style={{ background: 'var(--surf)', border: '1px solid var(--border)' }}
-    >
-      <p className="text-2xl mb-3">🎉</p>
-      <p className="text-sm font-medium text-txt mb-1">
-        You&apos;ve practiced all questions in this category!
+    <div className="prx-empty">
+      <div className="prx-idle-bubs" aria-hidden="true">
+        {['A', 'B', 'C', 'D'].map(l => (
+          <span key={l} className="prx-idle-bub done">{l}</span>
+        ))}
+      </div>
+      <p className="prx-empty-title">Category cleared.</p>
+      <p className="prx-empty-sub mb-4">
+        You&apos;ve answered every question here. New ones are added regularly.
       </p>
-      <p className="text-xs text-muted mb-4">New questions are added regularly.</p>
-      <button
-        onClick={onReset}
-        className="px-4 py-2 text-sm font-semibold rounded"
-        style={{ background: 'var(--green)', color: '#fff' }}
-      >
+      <button onClick={onReset} className="prx-btn">
         Practice again from the start
       </button>
     </div>

@@ -25,14 +25,15 @@ export default async function NewQuestionPage() {
 
   return (
     <div className="p-6 md:p-8 max-w-6xl">
-      <div className="mb-6 flex items-center gap-2 text-sm text-muted">
-        <Link href="/admin/questions" className="hover:underline">
-          Questions
-        </Link>
+      <div className="adm-crumbs">
+        <Link href="/admin/questions">Questions</Link>
         <span>/</span>
-        <span className="text-txt">New</span>
+        <span className="here">New</span>
       </div>
-      <h1 className="font-serif text-2xl font-bold text-txt mb-6">Add question</h1>
+      <div className="adm-head">
+        <h1>New question</h1>
+        <p>Write it on the left, see the student&apos;s card on the right.</p>
+      </div>
       <QuestionForm mode="create" subjects={subjects} categories={categories} />
     </div>
   );

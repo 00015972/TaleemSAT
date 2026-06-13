@@ -118,34 +118,23 @@ export function QuestionsTable({
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-5 gap-4 flex-wrap">
-        <div>
-          <h1 className="font-serif text-2xl font-bold text-txt">Questions</h1>
-          <p className="text-sm text-muted mt-0.5">{total} total</p>
+      <div className="flex items-end justify-between mb-5 gap-4 flex-wrap">
+        <div className="adm-head" style={{ marginBottom: 0 }}>
+          <h1>Questions</h1>
+          <p>{total.toLocaleString('en-US')} in the bank</p>
         </div>
         <div className="flex gap-2">
-          <Link
-            href="/admin/questions/import"
-            className="rounded px-3 py-2 text-sm font-semibold"
-            style={{ background: 'var(--surf2)', color: 'var(--txt)', border: '1px solid var(--border)' }}
-          >
+          <Link href="/admin/questions/import" className="adm-btn secondary">
             Import CSV
           </Link>
-          <Link
-            href="/admin/questions/new"
-            className="rounded px-3 py-2 text-sm font-semibold"
-            style={{ background: 'var(--green)', color: '#fff' }}
-          >
-            + Add question
+          <Link href="/admin/questions/new" className="adm-btn">
+            New question
           </Link>
         </div>
       </div>
 
       {/* Filter toolbar */}
-      <div
-        className="flex flex-wrap items-end gap-3 p-3 rounded-l mb-4"
-        style={{ background: 'var(--surf)', border: '1px solid var(--border)' }}
-      >
+      <div className="adm-toolbar">
         <FilterSelect
           label="Subject"
           value={local.subject}
@@ -178,8 +167,8 @@ export function QuestionsTable({
             { value: 'archived', label: 'Archived' },
           ]}
         />
-        <div className="flex flex-col gap-1 flex-1 min-w-[180px]">
-          <span className="text-xs font-semibold text-txt">Search</span>
+        <div className="adm-filter flex-1 min-w-[180px]">
+          <span>Search</span>
           <input
             className="form-input"
             value={local.q}
@@ -195,23 +184,25 @@ export function QuestionsTable({
       {/* Bulk action bar */}
       {selected.size > 0 && (
         <div
-          className="flex items-center gap-3 p-3 rounded mb-3"
-          style={{ background: 'color-mix(in srgb, var(--green) 10%, transparent)', border: '1px solid var(--border)' }}
+          className="flex items-center gap-3 px-4 py-2.5 rounded mb-3"
+          style={{
+            background: 'color-mix(in srgb, var(--green) 10%, transparent)',
+            border: '1px solid color-mix(in srgb, var(--green) 30%, transparent)',
+          }}
         >
-          <span className="text-sm font-medium text-txt">{selected.size} selected</span>
-          <button
-            onClick={() => bulk('publish')}
-            disabled={working}
-            className="rounded px-3 py-1.5 text-sm font-semibold disabled:opacity-50"
-            style={{ background: 'var(--green)', color: '#fff' }}
+          <span
+            className="text-xs font-semibold"
+            style={{ fontFamily: 'var(--mono)', color: 'var(--green)' }}
           >
+            {selected.size} selected
+          </span>
+          <button onClick={() => bulk('publish')} disabled={working} className="adm-btn">
             Publish
           </button>
           <button
             onClick={() => bulk('archive')}
             disabled={working}
-            className="rounded px-3 py-1.5 text-sm font-semibold disabled:opacity-50"
-            style={{ background: 'var(--surf2)', color: 'var(--txt)', border: '1px solid var(--border)' }}
+            className="adm-btn secondary"
           >
             Archive
           </button>
@@ -225,22 +216,19 @@ export function QuestionsTable({
       )}
 
       {/* Table */}
-      <div
-        className="rounded-l overflow-hidden"
-        style={{ background: 'var(--surf)', border: '1px solid var(--border)' }}
-      >
-        <table className="w-full text-sm">
+      <div className="adm-table-wrap">
+        <table className="adm-table">
           <thead>
-            <tr style={{ borderBottom: '1px solid var(--border)' }}>
-              <Th className="w-10">
+            <tr>
+              <th className="w-10">
                 <input type="checkbox" checked={allSelected} onChange={toggleAll} />
-              </Th>
-              <Th>Question</Th>
-              <Th className="hidden md:table-cell">Subject</Th>
-              <Th className="hidden lg:table-cell">Category</Th>
-              <Th>Difficulty</Th>
-              <Th>Status</Th>
-              <Th className="text-right">Actions</Th>
+              </th>
+              <th>Question</th>
+              <th className="hidden md:table-cell">Subject</th>
+              <th className="hidden lg:table-cell">Category</th>
+              <th>Difficulty</th>
+              <th>Status</th>
+              <th className="text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -252,44 +240,40 @@ export function QuestionsTable({
               </tr>
             ) : (
               questions.map(q => (
-                <tr
-                  key={q.id}
-                  style={{ borderBottom: '1px solid var(--border)' }}
-                  className="transition-colors hover:bg-surf2"
-                >
-                  <Td>
+                <tr key={q.id}>
+                  <td>
                     <input
                       type="checkbox"
                       checked={selected.has(q.id)}
                       onChange={() => toggle(q.id)}
                     />
-                  </Td>
-                  <Td>
+                  </td>
+                  <td>
                     <Link
                       href={`/admin/questions/${q.id}/edit`}
-                      className="text-txt hover:underline"
+                      className="q-preview hover:underline"
                     >
                       {q.preview}
                       {q.preview.length >= 80 ? '…' : ''}
                     </Link>
-                  </Td>
-                  <Td className="hidden md:table-cell text-muted">{q.subjectName}</Td>
-                  <Td className="hidden lg:table-cell text-muted">{q.categoryName}</Td>
-                  <Td>
-                    <span className="capitalize text-txt-soft">{q.difficulty}</span>
-                  </Td>
-                  <Td>
+                  </td>
+                  <td className="hidden md:table-cell text-muted">{q.subjectName}</td>
+                  <td className="hidden lg:table-cell text-muted">{q.categoryName}</td>
+                  <td>
+                    <DifficultyPill difficulty={q.difficulty} />
+                  </td>
+                  <td>
                     <StatusPill status={q.status} />
-                  </Td>
-                  <Td className="text-right">
+                  </td>
+                  <td className="text-right">
                     <Link
                       href={`/admin/questions/${q.id}/edit`}
-                      className="text-sm font-medium"
+                      className="text-sm font-medium hover:underline"
                       style={{ color: 'var(--green)' }}
                     >
                       Edit
                     </Link>
-                  </Td>
+                  </td>
                 </tr>
               ))
             )}
@@ -299,23 +283,21 @@ export function QuestionsTable({
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-4">
+        <div className="adm-pager">
           <button
             onClick={() => gotoPage(page - 1)}
             disabled={page <= 1}
-            className="rounded px-3 py-1.5 text-sm disabled:opacity-40"
-            style={{ background: 'var(--surf2)', color: 'var(--txt)', border: '1px solid var(--border)' }}
+            className="adm-btn secondary"
           >
             ← Prev
           </button>
-          <span className="text-sm text-muted">
-            Page {page} of {totalPages}
+          <span className="where">
+            Page {page} / {totalPages}
           </span>
           <button
             onClick={() => gotoPage(page + 1)}
             disabled={page >= totalPages}
-            className="rounded px-3 py-1.5 text-sm disabled:opacity-40"
-            style={{ background: 'var(--surf2)', color: 'var(--txt)', border: '1px solid var(--border)' }}
+            className="adm-btn secondary"
           >
             Next →
           </button>
@@ -337,8 +319,8 @@ function FilterSelect({
   options: FilterOption[];
 }) {
   return (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs font-semibold text-txt">{label}</span>
+    <div className="adm-filter">
+      <span>{label}</span>
       <select
         className="form-input"
         style={{ minWidth: 130 }}
@@ -365,39 +347,27 @@ function StatusPill({ status }: { status: string }) {
   const color = colors[status] ?? 'var(--muted)';
   return (
     <span
-      className="text-xs font-semibold capitalize px-2 py-0.5 rounded"
-      style={{
-        color,
-        background: `color-mix(in srgb, ${color} 12%, transparent)`,
-      }}
+      className="adm-pill"
+      style={{ color, background: `color-mix(in srgb, ${color} 12%, transparent)` }}
     >
       {status}
     </span>
   );
 }
 
-function Th({
-  children,
-  className = '',
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
+function DifficultyPill({ difficulty }: { difficulty: string }) {
+  const colors: Record<string, string> = {
+    easy: 'var(--ok)',
+    medium: 'var(--gold-d)',
+    hard: 'var(--err)',
+  };
+  const color = colors[difficulty] ?? 'var(--muted)';
   return (
-    <th
-      className={`text-left font-semibold text-xs uppercase tracking-wide px-3 py-2.5 text-muted ${className}`}
+    <span
+      className="adm-pill"
+      style={{ color, background: `color-mix(in srgb, ${color} 12%, transparent)` }}
     >
-      {children}
-    </th>
+      {difficulty}
+    </span>
   );
-}
-
-function Td({
-  children,
-  className = '',
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return <td className={`px-3 py-2.5 align-middle ${className}`}>{children}</td>;
 }

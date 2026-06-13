@@ -29,15 +29,22 @@ export default async function QODPage() {
 
   if (!schedule) {
     return (
-      <div className="wrap py-8">
-        <h1 className="font-serif text-3xl font-bold text-txt mb-4">Question of the Day</h1>
-        <div
-          className="rounded-l p-8 text-center max-w-lg"
-          style={{ background: 'var(--surf)', border: '1px dashed var(--border)' }}
-        >
-          <p className="text-2xl mb-3">📅</p>
-          <p className="text-sm font-medium text-txt mb-1">No question scheduled for today.</p>
-          <p className="text-xs text-muted">Check back tomorrow!</p>
+      <div className="wrap py-5">
+        <div className="app-head">
+          <h1>Daily Question</h1>
+          <p>One question, every day.</p>
+        </div>
+        <div className="prx-empty max-w-lg">
+          <div className="prx-idle-bubs" aria-hidden="true">
+            {['A', 'B', 'C', 'D'].map(l => (
+              <span key={l} className="prx-idle-bub">{l}</span>
+            ))}
+          </div>
+          <p className="prx-empty-title">Nothing scheduled today.</p>
+          <p className="prx-empty-sub mb-4">Check back tomorrow — or keep sharp meanwhile.</p>
+          <a href="/practice" className="prx-btn alt inline-block">
+            Practice instead →
+          </a>
         </div>
       </div>
     );
@@ -63,7 +70,11 @@ export default async function QODPage() {
   };
 
   return (
-    <div className="wrap py-8">
+    <div className="wrap py-5">
+      <div className="app-head">
+        <h1>Daily Question</h1>
+        <p>One question, every day. Protect the streak.</p>
+      </div>
       <QODShell qod={qod} priorAnswer={(priorAnswer as PriorAnswer | null) ?? null} />
     </div>
   );

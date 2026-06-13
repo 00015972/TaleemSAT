@@ -197,32 +197,51 @@ export function QuestionForm({
           />
         </Field>
 
-        {/* Options */}
+        {/* Options — pencil in the key */}
         <div className="flex flex-col gap-2">
-          <span className="text-xs font-semibold text-txt">Answer options</span>
-          {ANSWER_KEYS.map(key => (
-            <div key={key} className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => set('correctAnswer', key)}
-                title="Mark as correct answer"
-                className="w-7 h-7 rounded-full shrink-0 text-xs font-bold flex items-center justify-center transition-colors"
-                style={
-                  form.correctAnswer === key
-                    ? { background: 'var(--green)', color: '#fff' }
-                    : { background: 'var(--surf2)', color: 'var(--txt-soft)', border: '1px solid var(--border)' }
-                }
-              >
-                {key}
-              </button>
-              <input
-                className="form-input flex-1"
-                value={form.options[key]}
-                onChange={e => setOption(key, e.target.value)}
-                placeholder={`Option ${key}`}
-              />
-            </div>
-          ))}
+          <span className="adm-section-label" style={{ marginBottom: 0 }}>
+            Answer options
+          </span>
+          {ANSWER_KEYS.map(key => {
+            const isKey = form.correctAnswer === key;
+            return (
+              <div key={key} className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => set('correctAnswer', key)}
+                  title="Mark as the answer key"
+                  aria-pressed={isKey}
+                  className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center transition-all"
+                  style={{
+                    fontFamily: 'var(--mono)',
+                    fontSize: '0.7rem',
+                    fontWeight: 600,
+                    ...(isKey
+                      ? {
+                          background: 'var(--green)',
+                          color: '#fff',
+                          border: '1.6px solid var(--gold)',
+                          boxShadow:
+                            '0 0 0 2px color-mix(in srgb, var(--gold) 50%, transparent)',
+                        }
+                      : {
+                          background: 'transparent',
+                          color: 'var(--muted)',
+                          border: '1.6px solid var(--muted-l)',
+                        }),
+                  }}
+                >
+                  {key}
+                </button>
+                <input
+                  className="form-input flex-1"
+                  value={form.options[key]}
+                  onChange={e => setOption(key, e.target.value)}
+                  placeholder={`Option ${key}`}
+                />
+              </div>
+            );
+          })}
           {fieldError('option_A') ||
           fieldError('option_B') ||
           fieldError('option_C') ||
@@ -232,7 +251,7 @@ export function QuestionForm({
             </p>
           ) : null}
           <p className="text-xs text-muted">
-            Click a letter to mark the correct answer (currently{' '}
+            Click a bubble to set the answer key (currently{' '}
             <strong>{form.correctAnswer}</strong>).
           </p>
         </div>
@@ -278,18 +297,13 @@ export function QuestionForm({
         </div>
 
         {/* Errors + actions */}
-        {serverError && (
-          <p className="text-sm" style={{ color: 'var(--err)' }}>
-            {serverError}
-          </p>
-        )}
+        {serverError && <div className="adm-alert err">{serverError}</div>}
         <div className="flex flex-wrap gap-3 pt-1">
           <button
             type="button"
             onClick={() => save('draft')}
             disabled={saving !== null}
-            className="rounded px-5 py-2.5 text-sm font-semibold disabled:opacity-50"
-            style={{ background: 'var(--surf2)', color: 'var(--txt)', border: '1px solid var(--border)' }}
+            className="adm-btn secondary"
           >
             {saving === 'draft' ? 'Saving…' : 'Save as draft'}
           </button>
@@ -297,18 +311,17 @@ export function QuestionForm({
             type="button"
             onClick={() => save('published')}
             disabled={saving !== null}
-            className="rounded px-5 py-2.5 text-sm font-semibold disabled:opacity-50"
-            style={{ background: 'var(--green)', color: '#fff' }}
+            className="adm-btn"
           >
             {saving === 'published' ? 'Publishing…' : 'Save & publish'}
           </button>
         </div>
       </div>
 
-      {/* ─── Live preview ─── */}
+      {/* ─── Live preview — exactly what the student sees ─── */}
       <div className="lg:sticky lg:top-20 self-start w-full">
-        <p className="eyebrow mb-2">Student preview</p>
-        <QuestionPreview form={form} tags={tags} />
+        <span className="adm-section-label">Student preview</span>
+        <QuestionPreview form={form} />
       </div>
     </div>
   );
@@ -340,94 +353,68 @@ function Field({
   );
 }
 
-function QuestionPreview({
-  form,
-  tags,
-}: {
-  form: QuestionFormInitial;
-  tags: string[];
-}) {
+// Rendered with the real .prx-* classes so the preview IS the student card.
+function QuestionPreview({ form }: { form: QuestionFormInitial }) {
   return (
-    <div
-      className="rounded-l p-6 flex flex-col gap-5"
-      style={{ background: 'var(--surf)', border: '1px solid var(--border)' }}
-    >
-      <div className="flex items-center gap-2 flex-wrap">
-        <span
-          className="px-2 py-0.5 text-xs rounded-s font-semibold capitalize"
-          style={{ background: 'var(--bg)', color: 'var(--txt-soft)', border: '1px solid var(--border)' }}
-        >
-          {form.difficulty}
-        </span>
-        {tags.slice(0, 3).map(tag => (
+    <div className="prx-card">
+      <div className="prx-card-head">
+        <span className="prx-meta">
+          <span className="prx-qnum">Q</span>
+          Preview
           <span
-            key={tag}
-            className="px-2 py-0.5 text-xs rounded-s"
-            style={{ background: 'var(--bg)', color: 'var(--txt-soft)', border: '1px solid var(--border)' }}
+            className="prx-diff"
+            style={{
+              background: 'color-mix(in srgb, var(--gold-d) 14%, transparent)',
+              color: 'var(--gold-d)',
+            }}
           >
-            {tag}
+            {form.difficulty}
           </span>
-        ))}
+        </span>
       </div>
 
-      {form.passage.trim() && (
-        <div
-          className="rounded p-4 text-sm leading-relaxed font-serif-body max-h-40 overflow-y-auto"
-          style={{ background: 'var(--bg)', borderLeft: '3px solid var(--gold)', color: 'var(--txt)' }}
-        >
-          {form.passage}
-        </div>
-      )}
+      {form.passage.trim() && <div className="prx-passage">{form.passage}</div>}
 
-      <p className="text-base font-medium leading-relaxed" style={{ color: 'var(--txt)' }}>
+      <p className="prx-stem">
         {form.questionText.trim() || (
           <span className="text-muted italic">Question text appears here…</span>
         )}
       </p>
 
-      <div className="flex flex-col gap-2">
+      <div className="prx-opts">
         {ANSWER_KEYS.map(key => {
-          const isCorrect = form.correctAnswer === key;
+          const isKey = form.correctAnswer === key;
           return (
             <div
               key={key}
-              className="flex items-center gap-3 rounded p-3 text-sm"
-              style={{
-                background: isCorrect
-                  ? 'color-mix(in srgb, var(--ok) 12%, transparent)'
-                  : 'var(--bg)',
-                border: `1px solid ${isCorrect ? 'var(--ok)' : 'var(--border)'}`,
-                color: 'var(--txt)',
-              }}
+              className={`prx-opt${isKey ? ' key' : ''}`}
+              style={{ cursor: 'default' }}
             >
-              <span
-                className="w-6 h-6 rounded-full shrink-0 text-xs font-bold flex items-center justify-center"
-                style={
-                  isCorrect
-                    ? { background: 'var(--ok)', color: '#fff' }
-                    : { background: 'var(--surf2)', color: 'var(--txt-soft)' }
-                }
-              >
-                {key}
+              <span className="prx-opt-bub">
+                <span>{key}</span>
               </span>
-              <span>
+              <span className="prx-opt-text">
                 {form.options[key].trim() || (
                   <span className="text-muted italic">Option {key}…</span>
                 )}
               </span>
+              {isKey && (
+                <span className="prx-opt-flag" style={{ color: 'var(--ok)' }}>
+                  ✓
+                </span>
+              )}
             </div>
           );
         })}
       </div>
 
-      <div
-        className="rounded p-4 text-sm leading-relaxed"
-        style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--txt)' }}
-      >
-        <p className="eyebrow mb-2">Explanation</p>
-        <p className="font-serif-body">
+      <div className="prx-expl">
+        <p className="prx-expl-label">Explanation</p>
+        <p className="prx-expl-body">
           {form.explanation.trim() || (
-            <span className="text-muted italic">Explanation appears here after answering…</span>
+            <span className="text-muted italic">
+              Explanation appears here after answering…
+            </span>
           )}
         </p>
       </div>
