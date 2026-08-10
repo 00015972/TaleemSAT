@@ -21,7 +21,7 @@ export default async function QODPage() {
     .select(
       `id, scheduled_date,
        questions!inner(
-         id, passage, question_text, options, difficulty, tags
+         id, passage, question_text, chart_svg, options, difficulty, tags
        )`
     )
     .eq('scheduled_date', todayStr)
@@ -57,6 +57,13 @@ export default async function QODPage() {
     .eq('qod_id', schedule.id)
     .maybeSingle();
 
+  const { data: profile } = await supabase
+    .from('users')
+    .select('tier')
+    .eq('id', user.id)
+    .single();
+  const pro = profile?.tier === 'pro' || profile?.tier === 'elite';
+
   const rawQuestion = Array.isArray(schedule.questions)
     ? schedule.questions[0]
     : schedule.questions;
@@ -75,7 +82,7 @@ export default async function QODPage() {
         <h1>Daily Question</h1>
         <p>One question, every day. Protect the streak.</p>
       </div>
-      <QODShell qod={qod} priorAnswer={(priorAnswer as PriorAnswer | null) ?? null} />
+      <QODShell qod={qod} priorAnswer={(priorAnswer as PriorAnswer | null) ?? null} pro={pro} />
     </div>
   );
 }

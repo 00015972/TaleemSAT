@@ -86,6 +86,7 @@ export async function POST(request: NextRequest) {
     subject_id: string;
     category_id: string;
     question_text: string;
+    question_image_url: string | null;
     passage: string | null;
     options: { id: string; text: string }[];
     correct_answer: string;
@@ -143,6 +144,7 @@ export async function POST(request: NextRequest) {
       status: 'draft',
       tags,
     };
+    const questionImageUrl = (raw.question_image_url ?? '').trim() || null;
 
     const result = validateQuestion(input);
     if (!result.ok) {
@@ -174,6 +176,7 @@ export async function POST(request: NextRequest) {
       subject_id: subjectId,
       category_id: categoryId,
       question_text: questionText,
+      question_image_url: questionImageUrl,
       passage: input.passage,
       options: (['A', 'B', 'C', 'D'] as const).map(k => ({ id: k, text: input.options[k] })),
       correct_answer: correctAnswer,

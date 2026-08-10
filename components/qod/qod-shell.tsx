@@ -1,6 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { PassageReader } from '@/components/reading/passage-reader';
+import { WhyPanel } from '@/components/reading/why-panel';
+import { ChartFigure } from '@/components/reading/chart-figure';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -10,6 +13,7 @@ export type QODQuestion = {
   id: string;
   passage: string | null;
   question_text: string;
+  chart_svg: string | null;
   options: Option[];
   difficulty: 'easy' | 'medium' | 'hard';
   tags: string[];
@@ -48,9 +52,11 @@ type Phase =
 export function QODShell({
   qod,
   priorAnswer,
+  pro = false,
 }: {
   qod: QOD;
   priorAnswer: PriorAnswer | null;
+  pro?: boolean;
 }) {
   const [phase, setPhase] = useState<Phase>(
     priorAnswer ? { name: 'already_answered', answer: priorAnswer } : { name: 'question' }
@@ -145,8 +151,76 @@ export function QODShell({
 
   const wasCorrect = result?.isCorrect ?? prior?.is_correct ?? false;
 
+  // A passage question earns the two-pane reading layout; a bare stem stays in
+  // the narrow single column.
+  const hasPassage = Boolean(qod.question.passage);
+
+  const readSide = (
+    <>
+      {qod.question.passage && <PassageReader text={qod.question.passage} pro={pro} />}
+      <ChartFigure svg={qod.question.chart_svg} />
+      <p className={`prx-stem${qod.question.passage ? '' : ' prx-anim'}`}>
+        {qod.question.question_text}
+      </p>
+    </>
+  );
+
+  const answerSide = (
+    <>
+      <div className="prx-opts" role="group" aria-label="Answer choices">
+        {qod.question.options.map((opt, i) => (
+          <OptionButton
+            key={opt.id}
+            option={opt}
+            index={i}
+            selected={selected}
+            correctAnswer={
+              result?.correctAnswer ??
+              (prior?.is_correct ? prior.selected_answer : null)
+            }
+            scored={scored}
+            interactive={isInteractive}
+            onSelect={selectOption}
+          />
+        ))}
+      </div>
+
+      {scored && (
+        <div className="prx-anim" ref={verdictRef}>
+          <div className="prx-verdict">
+            <span className={`word ${wasCorrect ? 'good' : 'bad'}`}>
+              {wasCorrect ? 'Correct.' : 'Not quite.'}
+            </span>
+            <span className="sub">
+              {result
+                ? result.isCorrect
+                  ? `+${result.pointsAwarded} point · ${result.newPoints} total · ${result.newStreak}-day streak`
+                  : `the key was ${result.correctAnswer} · streak intact`
+                : wasCorrect
+                  ? `+${prior!.points_awarded} point earned today`
+                  : 'a fresh question lands tomorrow'}
+            </span>
+          </div>
+          {result && (
+            <div className="prx-expl">
+              <p className="prx-expl-label">Explanation</p>
+              <p className="prx-expl-body">{result.explanation}</p>
+            </div>
+          )}
+          <WhyPanel questionId={qod.question.id} pro={pro} />
+          <p
+            className="text-sm text-muted"
+            style={{ marginTop: '0.9rem', fontFamily: 'var(--serif-body)', fontStyle: 'italic' }}
+          >
+            Come back tomorrow for the next one.
+          </p>
+        </div>
+      )}
+    </>
+  );
+
   return (
-    <div className="max-w-2xl">
+    <div className={hasPassage ? 'max-w-5xl' : 'max-w-2xl'}>
       <div className="prx-card">
         <div className="prx-card-head">
           <span className="prx-meta">
@@ -165,61 +239,18 @@ export function QODShell({
           )}
         </div>
 
-        {qod.question.passage && (
-          <div className="prx-passage prx-anim">{qod.question.passage}</div>
-        )}
-
-        <p className="prx-stem prx-anim" style={{ animationDelay: '0.06s' }}>
-          {qod.question.question_text}
-        </p>
-
-        <div className="prx-opts" role="group" aria-label="Answer choices">
-          {qod.question.options.map((opt, i) => (
-            <OptionButton
-              key={opt.id}
-              option={opt}
-              index={i}
-              selected={selected}
-              correctAnswer={
-                result?.correctAnswer ??
-                (prior?.is_correct ? prior.selected_answer : null)
-              }
-              scored={scored}
-              interactive={isInteractive}
-              onSelect={selectOption}
-            />
-          ))}
-        </div>
-
-        {scored && (
-          <div className="prx-anim" ref={verdictRef}>
-            <div className="prx-verdict">
-              <span className={`word ${wasCorrect ? 'good' : 'bad'}`}>
-                {wasCorrect ? 'Correct.' : 'Not quite.'}
-              </span>
-              <span className="sub">
-                {result
-                  ? result.isCorrect
-                    ? `+${result.pointsAwarded} point · ${result.newPoints} total · ${result.newStreak}-day streak`
-                    : `the key was ${result.correctAnswer} · streak intact`
-                  : wasCorrect
-                    ? `+${prior!.points_awarded} point earned today`
-                    : 'a fresh question lands tomorrow'}
-              </span>
+        {qod.question.passage ? (
+          <div className="prx-split">
+            <div className="prx-split-read prx-anim">{readSide}</div>
+            <div className="prx-split-q prx-anim" style={{ animationDelay: '0.06s' }}>
+              {answerSide}
             </div>
-            {result && (
-              <div className="prx-expl">
-                <p className="prx-expl-label">Explanation</p>
-                <p className="prx-expl-body">{result.explanation}</p>
-              </div>
-            )}
-            <p
-              className="text-sm text-muted"
-              style={{ marginTop: '0.9rem', fontFamily: 'var(--serif-body)', fontStyle: 'italic' }}
-            >
-              Come back tomorrow for the next one.
-            </p>
           </div>
+        ) : (
+          <>
+            {readSide}
+            {answerSide}
+          </>
         )}
 
         {!scored && (

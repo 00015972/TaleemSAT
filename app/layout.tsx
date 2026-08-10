@@ -21,6 +21,16 @@ const themeScript = `
 })();
 `;
 
+const sidebarScript = `
+(function(){
+  try {
+    if (localStorage.getItem('taleem_sb_collapsed') === 'true') {
+      document.documentElement.setAttribute('data-sb-collapsed', 'true');
+    }
+  } catch (e) {}
+})();
+`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
@@ -28,8 +38,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Script id="theme-script" strategy="beforeInteractive">
           {themeScript}
         </Script>
+        <Script id="sidebar-script" strategy="beforeInteractive">
+          {sidebarScript}
+        </Script>
       </head>
-      <body>
+      <body suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>
     </html>

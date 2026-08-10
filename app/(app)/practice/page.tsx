@@ -1,27 +1,27 @@
 import { createClient } from '@/lib/supabase/server';
-import { PracticeShell, type Category } from '@/components/practice/practice-shell';
+import { PracticeShell } from '@/components/practice/practice-shell';
+import { computePracticeOverview, type PracticeOverview } from '@/lib/practice/overview';
 
 export const metadata = { title: 'Practice — Taleem SAT' };
 
 export default async function PracticePage() {
   const supabase = await createClient();
 
-  // Fetch categories with their subject info via a join
-  const { data: rows } = await supabase
-    .from('categories')
-    .select('id, slug, name, display_order, subjects!inner(slug, name)')
-    .order('display_order');
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  const categories: Category[] = (rows ?? []).map(row => {
-    const subject = Array.isArray(row.subjects) ? row.subjects[0] : row.subjects;
-    return {
-      id: row.id,
-      slug: row.slug,
-      name: row.name,
-      subject_slug: (subject as { slug: string; name: string }).slug,
-      subject_name: (subject as { slug: string; name: string }).name,
-    };
-  });
+  let pro = false;
+  let overview: PracticeOverview = { subjects: [] };
+
+  if (user) {
+    const [{ data: profile }, computed] = await Promise.all([
+      supabase.from('users').select('tier').eq('id', user.id).single(),
+      computePracticeOverview(supabase, user.id),
+    ]);
+    pro = profile?.tier === 'pro' || profile?.tier === 'elite';
+    overview = computed;
+  }
 
   return (
     <div className="wrap py-5">
@@ -31,7 +31,7 @@ export default async function PracticePage() {
           One question at a time, at your own pace.
         </p>
       </div>
-      <PracticeShell categories={categories} />
+      <PracticeShell overview={overview} pro={pro} />
     </div>
   );
 }

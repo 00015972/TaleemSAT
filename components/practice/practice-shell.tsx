@@ -1,6 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { PassageReader } from '@/components/reading/passage-reader';
+import { WhyPanel } from '@/components/reading/why-panel';
+import { ChartFigure } from '@/components/reading/chart-figure';
+import { PracticeBrowse, type PracticeScope } from '@/components/practice/practice-browse';
+import type { PracticeOverview } from '@/lib/practice/overview';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -10,6 +15,7 @@ type Question = {
   id: string;
   passage: string | null;
   question_text: string;
+  chart_svg: string | null;
   options: Option[];
   difficulty: 'easy' | 'medium' | 'hard';
   tags: string[];
@@ -30,29 +36,37 @@ type Phase =
   | { name: 'result'; question: Question; selected: string; result: AnswerResult }
   | { name: 'empty' };
 
-export type Category = {
-  id: string;
-  slug: string;
-  name: string;
-  subject_slug: string;
-  subject_name: string;
-};
-
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function PracticeShell({ categories }: { categories: Category[] }) {
-  const [activeCategorySlug, setActiveCategorySlug] = useState<string | null>(null);
+export function PracticeShell({
+  overview,
+  pro = false,
+}: {
+  overview: PracticeOverview;
+  pro?: boolean;
+}) {
+  // null while browsing; set once a topic or subject is chosen.
+  const [scope, setScope] = useState<PracticeScope | null>(null);
   const [phase, setPhase] = useState<Phase>({ name: 'idle' });
   const [seenIds, setSeenIds] = useState<string[]>([]);
   const [startTime, setStartTime] = useState<number | null>(null);
   // The session sheet: one entry per scored question this visit.
   const [sheet, setSheet] = useState<boolean[]>([]);
+  // Distraction-free reading: hides the category rail and widens the passage.
+  const [focus, setFocus] = useState(false);
 
   const fetchQuestion = useCallback(
-    async (categorySlug: string, exclude: string[]) => {
+    async (target: PracticeScope, exclude: string[]) => {
       setPhase({ name: 'loading' });
       try {
-        const params = new URLSearchParams({ categorySlug });
+        const scopeKey =
+          target.kind === 'topic'
+            ? 'topicSlug'
+            : target.kind === 'category'
+              ? 'categorySlug'
+              : 'subjectSlug';
+        const params = new URLSearchParams({ [scopeKey]: target.slug });
+        if (target.difficulty !== 'all') params.set('difficulty', target.difficulty);
         if (exclude.length > 0) params.set('exclude', exclude.join(','));
         const res = await fetch(`/api/practice/question?${params}`);
         const data = await res.json() as { question?: Question; error?: string };
@@ -70,10 +84,17 @@ export function PracticeShell({ categories }: { categories: Category[] }) {
     []
   );
 
-  function selectCategory(slug: string) {
-    setActiveCategorySlug(slug);
+  function startScope(target: PracticeScope) {
+    setScope(target);
     setSeenIds([]);
-    fetchQuestion(slug, []);
+    setSheet([]);
+    fetchQuestion(target, []);
+  }
+
+  function backToTopics() {
+    setScope(null);
+    setSeenIds([]);
+    setPhase({ name: 'idle' });
   }
 
   // Allow re-picking another option any time before the answer is checked.
@@ -108,9 +129,9 @@ export function PracticeShell({ categories }: { categories: Category[] }) {
   }, [phase, startTime]);
 
   const nextQuestion = useCallback(() => {
-    if (!activeCategorySlug) return;
-    fetchQuestion(activeCategorySlug, seenIds);
-  }, [activeCategorySlug, seenIds, fetchQuestion]);
+    if (!scope) return;
+    fetchQuestion(scope, seenIds);
+  }, [scope, seenIds, fetchQuestion]);
 
   // Answer with the keyboard: A–D (or 1–4) to choose, Enter to check / continue.
   useEffect(() => {
@@ -146,52 +167,45 @@ export function PracticeShell({ categories }: { categories: Category[] }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [phase, selectOption, submitAnswer, nextQuestion]);
 
-  const english = categories.filter(c => c.subject_slug === 'english');
-  const math = categories.filter(c => c.subject_slug === 'math');
-  const activeCategory = categories.find(c => c.slug === activeCategorySlug) ?? null;
-
   const onQuestion =
     phase.name === 'question' ||
     phase.name === 'selected' ||
     phase.name === 'submitting' ||
     phase.name === 'result';
 
-  return (
-    <div className="prx-layout">
-      {/* Category picker */}
-      <aside>
-        <CategoryGroup
-          label="Reading & Writing"
-          categories={english}
-          active={activeCategorySlug}
-          onSelect={selectCategory}
-        />
-        <CategoryGroup
-          label="Math"
-          categories={math}
-          active={activeCategorySlug}
-          onSelect={selectCategory}
-          className="prx-group-gap"
-        />
-      </aside>
+  // No scope chosen yet — browse the topics.
+  if (!scope) {
+    return <PracticeBrowse overview={overview} onStart={startScope} />;
+  }
 
-      {/* Question area */}
+  return (
+    <div className={focus ? 'prx-focus' : undefined}>
+      <div className="prx-scope">
+        <button type="button" className="prx-back" onClick={backToTopics}>
+          ← All topics
+        </button>
+        <span className="prx-scope-name">{scope.label}</span>
+        {scope.difficulty !== 'all' && (
+          <span className="prx-scope-diff">{scope.difficulty}</span>
+        )}
+      </div>
+
       <div className="min-w-0">
         {(sheet.length > 0 || onQuestion) && (
           <SessionRail sheet={sheet} live={onQuestion && phase.name !== 'result'} />
         )}
 
-        {phase.name === 'idle' && <IdleState />}
         {phase.name === 'loading' && <LoadingSkeleton />}
-        {phase.name === 'empty' && (
-          <EmptyState onReset={() => activeCategorySlug && selectCategory(activeCategorySlug)} />
-        )}
+        {phase.name === 'empty' && <EmptyState onReset={backToTopics} />}
         {onQuestion && (
           <QuestionCard
             key={(phase as Extract<Phase, { name: 'question' }>).question.id}
             phase={phase as Extract<Phase, { name: 'question' | 'selected' | 'submitting' | 'result' }>}
             seq={sheet.length + (phase.name === 'result' ? 0 : 1)}
-            categoryName={activeCategory?.name ?? ''}
+            categoryName={scope.label}
+            focus={focus}
+            pro={pro}
+            onToggleFocus={() => setFocus(f => !f)}
             onSelect={selectOption}
             onSubmit={submitAnswer}
             onNext={nextQuestion}
@@ -228,47 +242,15 @@ function SessionRail({ sheet, live }: { sheet: boolean[]; live: boolean }) {
   );
 }
 
-// ─── Category picker ──────────────────────────────────────────────────────────
-
-function CategoryGroup({
-  label,
-  categories,
-  active,
-  onSelect,
-  className = '',
-}: {
-  label: string;
-  categories: Category[];
-  active: string | null;
-  onSelect: (slug: string) => void;
-  className?: string;
-}) {
-  return (
-    <div className={className}>
-      <p className="eyebrow mb-2">{label}</p>
-      <ul className="prx-cat-list">
-        {categories.map(cat => (
-          <li key={cat.slug}>
-            <button
-              onClick={() => onSelect(cat.slug)}
-              className={`prx-cat${active === cat.slug ? ' on' : ''}`}
-            >
-              <span className="mark" />
-              {cat.name}
-            </button>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
 // ─── Question card ────────────────────────────────────────────────────────────
 
 function QuestionCard({
   phase,
   seq,
   categoryName,
+  focus,
+  pro,
+  onToggleFocus,
   onSelect,
   onSubmit,
   onNext,
@@ -276,6 +258,9 @@ function QuestionCard({
   phase: Extract<Phase, { name: 'question' | 'selected' | 'submitting' | 'result' }>;
   seq: number;
   categoryName: string;
+  focus: boolean;
+  pro: boolean;
+  onToggleFocus: () => void;
   onSelect: (id: string) => void;
   onSubmit: () => void;
   onNext: () => void;
@@ -306,6 +291,57 @@ function QuestionCard({
     });
   }, [hasResult]);
 
+  // Reading material and the question it asks go left, the choices go right —
+  // the way the real test sets a passage question, so neither half scrolls the
+  // other off screen.
+  const readSide = (
+    <>
+      {question.passage && <PassageReader text={question.passage} pro={pro} />}
+      <ChartFigure svg={question.chart_svg} />
+      <p className={`prx-stem${question.passage ? '' : ' prx-anim'}`}>
+        {question.question_text}
+      </p>
+    </>
+  );
+
+  const answerSide = (
+    <>
+      <div className="prx-opts" role="group" aria-label="Answer choices">
+        {question.options.map((opt, i) => (
+          <OptionButton
+            key={opt.id}
+            option={opt}
+            index={i}
+            selected={selected}
+            result={result}
+            interactive={isInteractive}
+            onSelect={onSelect}
+          />
+        ))}
+      </div>
+
+      {result && (
+        <div className="prx-anim">
+          <div className="prx-verdict">
+            <span className={`word ${result.isCorrect ? 'good' : 'bad'}`}>
+              {result.isCorrect ? 'Correct.' : 'Not quite.'}
+            </span>
+            <span className="sub">
+              {result.isCorrect
+                ? `answered in ${formatClock(secs)}`
+                : `the key was ${result.correctAnswer} · ${formatClock(secs)}`}
+            </span>
+          </div>
+          <div className="prx-expl">
+            <p className="prx-expl-label">Explanation</p>
+            <p className="prx-expl-body">{result.explanation}</p>
+          </div>
+          <WhyPanel questionId={question.id} pro={pro} />
+        </div>
+      )}
+    </>
+  );
+
   return (
     <div className="prx-card">
       <div>
@@ -315,48 +351,32 @@ function QuestionCard({
             {categoryName}
             <DifficultyBadge difficulty={question.difficulty} />
           </span>
-          <span className="prx-timer">{formatClock(secs)}</span>
+          <span className="prx-head-right">
+            <button
+              type="button"
+              className={`prx-focus-btn${focus ? ' on' : ''}`}
+              onClick={onToggleFocus}
+              title={focus ? 'Exit focus mode' : 'Focus mode — hide distractions'}
+              aria-pressed={focus}
+            >
+              {focus ? '◱ Exit focus' : '◳ Focus'}
+            </button>
+            <span className="prx-timer">{formatClock(secs)}</span>
+          </span>
         </div>
 
-        {question.passage && (
-          <div className="prx-passage prx-anim">{question.passage}</div>
-        )}
-
-        <p className="prx-stem prx-anim" style={{ animationDelay: '0.06s' }}>
-          {question.question_text}
-        </p>
-
-        <div className="prx-opts" role="group" aria-label="Answer choices">
-          {question.options.map((opt, i) => (
-            <OptionButton
-              key={opt.id}
-              option={opt}
-              index={i}
-              selected={selected}
-              result={result}
-              interactive={isInteractive}
-              onSelect={onSelect}
-            />
-          ))}
-        </div>
-
-        {result && (
-          <div className="prx-anim">
-            <div className="prx-verdict">
-              <span className={`word ${result.isCorrect ? 'good' : 'bad'}`}>
-                {result.isCorrect ? 'Correct.' : 'Not quite.'}
-              </span>
-              <span className="sub">
-                {result.isCorrect
-                  ? `answered in ${formatClock(secs)}`
-                  : `the key was ${result.correctAnswer} · ${formatClock(secs)}`}
-              </span>
-            </div>
-            <div className="prx-expl">
-              <p className="prx-expl-label">Explanation</p>
-              <p className="prx-expl-body">{result.explanation}</p>
+        {question.passage ? (
+          <div className="prx-split">
+            <div className="prx-split-read prx-anim">{readSide}</div>
+            <div className="prx-split-q prx-anim" style={{ animationDelay: '0.06s' }}>
+              {answerSide}
             </div>
           </div>
+        ) : (
+          <>
+            {readSide}
+            {answerSide}
+          </>
         )}
 
         <div className="prx-actions" ref={actionsRef}>
@@ -464,20 +484,6 @@ function DifficultyBadge({ difficulty }: { difficulty: string }) {
     >
       {difficulty}
     </span>
-  );
-}
-
-function IdleState() {
-  return (
-    <div className="prx-empty">
-      <div className="prx-idle-bubs" aria-hidden="true">
-        {['A', 'B', 'C', 'D'].map(l => (
-          <span key={l} className="prx-idle-bub">{l}</span>
-        ))}
-      </div>
-      <p className="prx-empty-title">Your sheet is blank.</p>
-      <p className="prx-empty-sub">Choose a category to open your first question.</p>
-    </div>
   );
 }
 

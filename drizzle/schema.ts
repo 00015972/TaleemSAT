@@ -33,6 +33,22 @@ export const questionStatusEnum = pgEnum('question_status', [
   'archived',
 ]);
 export const difficultyEnum = pgEnum('difficulty', ['easy', 'medium', 'hard']);
+export const questionTypeEnum = pgEnum('question_type', ['mcq', 'grid_in']);
+export const examStatusEnum = pgEnum('exam_status', ['draft', 'published', 'archived']);
+export const moduleVariantEnum = pgEnum('module_variant', ['easy', 'hard']);
+export const importJobTypeEnum = pgEnum('import_job_type', ['extract', 'generate']);
+export const importJobStatusEnum = pgEnum('import_job_status', [
+  'queued',
+  'running',
+  'completed',
+  'failed',
+]);
+export const importItemStatusEnum = pgEnum('import_item_status', [
+  'pending_review',
+  'verification_failed',
+  'approved',
+  'rejected',
+]);
 export const attemptContextEnum = pgEnum('attempt_context', [
   'practice',
   'qod',
@@ -111,12 +127,21 @@ export const questions = pgTable(
       .references(() => categories.id),
     passage: text('passage'),
     questionText: text('question_text').notNull(),
-    options: jsonb('options').notNull(), // { A: '...', B: '...', C: '...', D: '...' }
-    correctAnswer: text('correct_answer').notNull(), // 'A' | 'B' | 'C' | 'D'
+    questionImageUrl: text('question_image_url'),
+    // Sanitized inline <svg> chart markup — see lib/import/svg-sanitize.ts.
+    // Mutually exclusive with questionImageUrl in practice: a figure is
+    // either a code-generated chart or a pasted image, never both.
+    chartSvg: text('chart_svg'),
+    questionType: questionTypeEnum('question_type').notNull().default('mcq'),
+    options: jsonb('options').notNull(), // [{ id: 'A', text: '...' }, ...]; [] for grid_in
+    correctAnswer: text('correct_answer').notNull(), // 'A'-'D' for mcq; canonical value for grid_in
+    // Grid-in only: every accepted written form, e.g. ['3/2', '1.5'].
+    acceptedAnswers: text('accepted_answers').array().notNull().default(sql`'{}'::text[]`),
     explanation: text('explanation').notNull(),
     difficulty: difficultyEnum('difficulty').notNull(),
     status: questionStatusEnum('status').notNull().default('draft'),
     tags: text('tags').array().notNull().default(sql`'{}'::text[]`),
+    topicId: uuid('topic_id'),
     createdBy: uuid('created_by').references(() => users.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -308,5 +333,181 @@ export const emailSubscriptions = pgTable(
   (t) => [
     uniqueIndex('email_subs_email_category_unique_idx').on(t.email, t.category),
     index('email_subs_user_id_idx').on(t.userId),
+  ]
+);
+
+// ─── Import pipeline ────────────────────────────────────────────────
+// Staging for the admin question-import pipeline (PDF extraction + AI
+// generation). Output lands in `import_job_items` for human review; only
+// approved items are promoted into `questions` as drafts.
+export const importJobs = pgTable(
+  'import_jobs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    type: importJobTypeEnum('type').notNull(),
+    status: importJobStatusEnum('status').notNull().default('queued'),
+    // extract: {}. generate: { subjectSlug, categorySlug, difficulty, count }.
+    config: jsonb('config').notNull().default(sql`'{}'::jsonb`),
+    // 'pdf' (vision transcription) or 'html' (deterministic DOM parse, no AI).
+    sourceFormat: text('source_format').notNull().default('pdf'),
+    sourcePdfPath: text('source_pdf_path'),
+    // Path within the `source-html` bucket. Null for pdf-sourced jobs.
+    sourceHtmlPath: text('source_html_path'),
+    sourceFilename: text('source_filename'),
+    triggerRunId: text('trigger_run_id'),
+    totalCount: integer('total_count').notNull().default(0),
+    successCount: integer('success_count').notNull().default(0),
+    failedCount: integer('failed_count').notNull().default(0),
+    error: text('error'),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+  },
+  (t) => [
+    index('import_jobs_status_idx').on(t.status),
+    index('import_jobs_created_by_idx').on(t.createdBy),
+    index('import_jobs_created_at_idx').on(t.createdAt),
+    index('import_jobs_source_format_idx').on(t.sourceFormat),
+  ]
+);
+
+export const importJobItems = pgTable(
+  'import_job_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    jobId: uuid('job_id')
+      .notNull()
+      .references(() => importJobs.id, { onDelete: 'cascade' }),
+    status: importItemStatusEnum('status').notNull().default('pending_review'),
+    // PDF page number, College Board Question ID, or batch index.
+    sourceRef: text('source_ref'),
+    subjectId: uuid('subject_id').references(() => subjects.id),
+    categoryId: uuid('category_id').references(() => categories.id),
+    questionType: questionTypeEnum('question_type').notNull().default('mcq'),
+    questionText: text('question_text'),
+    passage: text('passage'),
+    options: jsonb('options').notNull().default(sql`'[]'::jsonb`),
+    correctAnswer: text('correct_answer'),
+    acceptedAnswers: text('accepted_answers').array().notNull().default(sql`'{}'::text[]`),
+    explanation: text('explanation'),
+    difficulty: difficultyEnum('difficulty'),
+    questionImageUrl: text('question_image_url'),
+    chartSvg: text('chart_svg'),
+    // Why the item passed/failed its answer check (solver vs verifier model).
+    verificationNotes: jsonb('verification_notes'),
+    // validateQuestion() output at staging time, so reviewers see blockers.
+    validationErrors: jsonb('validation_errors'),
+    // Set on promotion; also guards against double-promotion.
+    questionId: uuid('question_id').references(() => questions.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('import_job_items_job_id_idx').on(t.jobId),
+    index('import_job_items_status_idx').on(t.status),
+    index('import_job_items_job_status_idx').on(t.jobId, t.status),
+  ]
+);
+
+
+// ─── Topics ─────────────────────────────────────────────────────────
+// Third taxonomy tier (subject -> category -> topic). Drives the Practice
+// page's per-topic cards; the 8 categories remain the College Board domains
+// used for analytics and AI weakness insights.
+export const topics = pgTable(
+  'topics',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    categoryId: uuid('category_id')
+      .notNull()
+      .references(() => categories.id, { onDelete: 'cascade' }),
+    slug: text('slug').notNull().unique(),
+    name: text('name').notNull(),
+    description: text('description'),
+    displayOrder: integer('display_order').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('topics_category_id_idx').on(t.categoryId),
+    index('topics_display_order_idx').on(t.displayOrder),
+  ]
+);
+
+// ─── Exams (mock tests) ─────────────────────────────────────────────
+// A named, versioned mock test - e.g. "March 2026, Version A" - built from
+// four fixed modules. Module 2's easy/hard variant is fixed per version
+// rather than chosen adaptively from Module 1 performance.
+export const exams = pgTable(
+  'exams',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    title: text('title').notNull(), // 'March 2026'
+    version: text('version').notNull(), // 'A'
+    year: integer('year').notNull(), // groups the card rows
+    status: examStatusEnum('status').notNull().default('draft'),
+    displayOrder: integer('display_order').notNull().default(0),
+    createdBy: uuid('created_by').references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('exams_title_version_unique').on(t.title, t.version),
+    index('exams_year_idx').on(t.year),
+    index('exams_status_idx').on(t.status),
+  ]
+);
+
+// One row per section-module: RW M1, RW M2, Math M1, Math M2.
+export const examModules = pgTable(
+  'exam_modules',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    examId: uuid('exam_id')
+      .notNull()
+      .references(() => exams.id, { onDelete: 'cascade' }),
+    subjectId: uuid('subject_id')
+      .notNull()
+      .references(() => subjects.id),
+    moduleNumber: integer('module_number').notNull(), // 1 | 2
+    // null for Module 1; 'easy' | 'hard' for Module 2.
+    variant: moduleVariantEnum('variant'),
+    timeLimitSeconds: integer('time_limit_seconds'),
+    displayOrder: integer('display_order').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('exam_modules_exam_subject_number_unique').on(
+      t.examId,
+      t.subjectId,
+      t.moduleNumber
+    ),
+    index('exam_modules_exam_id_idx').on(t.examId),
+  ]
+);
+
+export const examQuestions = pgTable(
+  'exam_questions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    moduleId: uuid('module_id')
+      .notNull()
+      .references(() => examModules.id, { onDelete: 'cascade' }),
+    // restrict: a question in a published exam must not silently vanish.
+    questionId: uuid('question_id')
+      .notNull()
+      .references(() => questions.id, { onDelete: 'restrict' }),
+    position: integer('position').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('exam_questions_module_position_unique').on(t.moduleId, t.position),
+    uniqueIndex('exam_questions_module_question_unique').on(t.moduleId, t.questionId),
+    index('exam_questions_module_id_idx').on(t.moduleId),
+    index('exam_questions_question_id_idx').on(t.questionId),
   ]
 );

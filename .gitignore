@@ -253,3 +253,5 @@ Thumbs.db
 
 # Drizzle
 drizzle/meta/
+
+.trigger
