@@ -15,6 +15,7 @@ import {
   X,
 } from 'lucide-react';
 import { SignOutButton } from '@/components/sign-out-button';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 const SB_COLLAPSE_KEY = 'taleem_sb_collapsed';
 
@@ -29,7 +30,7 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', exact: true, icon: IconGrid, chip: 'green' },
-  { href: '/practice', label: 'Practice', icon: IconBubble, chip: 'gold' },
+  { href: '/question-bank', label: 'Question Bank', icon: IconBubble, chip: 'gold' },
   { href: '/mock', label: 'Mock Test', icon: IconClock, chip: 'green' },
   { href: '/qod', label: 'Daily Question', icon: IconCalendar, chip: 'gold' },
   { href: '/analytics', label: 'Analytics', icon: IconChart, chip: 'green' },
@@ -73,7 +74,7 @@ export function AppSidebar({
 }: {
   onNavigate: () => void;
   onCloseMobile: () => void;
-  user: { name: string; email: string; initials: string };
+  user: { name: string; email: string; initials: string; points: number; streak: number };
 }) {
   const pathname = usePathname();
   const collapsed = useSyncExternalStore(
@@ -141,6 +142,22 @@ export function AppSidebar({
             );
           })}
         </nav>
+
+        <div className="sb-stats" title={`${user.streak} day streak · ${user.points} points earned`}>
+          <span className="sb-stat" data-tone="gold">
+            <span className="sb-stat-bub" data-lit={user.streak > 0 ? '' : undefined} aria-hidden="true" />
+            <span className="sb-label sb-stat-text">
+              <strong>{user.streak}</strong> day{user.streak === 1 ? '' : 's'}
+            </span>
+          </span>
+          <span className="sb-stat" data-tone="green">
+            <span className="sb-stat-dot" aria-hidden="true" />
+            <span className="sb-label sb-stat-text">
+              <strong>{user.points}</strong> pts
+            </span>
+          </span>
+        </div>
+
         <div className="sb-div" />
         <nav className="sb-nav" aria-label="Account">
           {UTIL_ITEMS.map(item => {
@@ -162,6 +179,7 @@ export function AppSidebar({
               </Link>
             );
           })}
+          <ThemeToggle variant="row" />
         </nav>
       </div>
 

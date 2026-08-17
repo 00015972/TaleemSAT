@@ -14,6 +14,7 @@ import {
 import { PassageReader } from '@/components/reading/passage-reader';
 import { WhyPanel } from '@/components/reading/why-panel';
 import { ChartFigure } from '@/components/reading/chart-figure';
+import { QuestionBody } from '@/components/reading/question-body';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -24,6 +25,7 @@ type MockQuestion = {
   passage: string | null;
   question_text: string;
   chart_svg: string | null;
+  tables: string[] | null;
   options: Option[];
   difficulty: 'easy' | 'medium' | 'hard';
   tags: string[];
@@ -800,7 +802,7 @@ function QuestionSide({
         <PassageReader text={q.passage} pro={pro} marks={marks} onMarksChange={onMarksChange} />
       )}
       <ChartFigure svg={q.chart_svg} />
-      <p className="ex-stem">{q.question_text}</p>
+      <QuestionBody text={q.question_text} tables={q.tables} className="ex-stem" />
     </>
   );
 }

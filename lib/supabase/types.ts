@@ -411,6 +411,7 @@ export type Database = {
           source_ref: string | null
           status: Database["public"]["Enums"]["import_item_status"]
           subject_id: string | null
+          tables: string[]
           topic_id: string | null
           updated_at: string
           validation_errors: Json | null
@@ -435,6 +436,7 @@ export type Database = {
           source_ref?: string | null
           status?: Database["public"]["Enums"]["import_item_status"]
           subject_id?: string | null
+          tables?: string[]
           topic_id?: string | null
           updated_at?: string
           validation_errors?: Json | null
@@ -459,6 +461,7 @@ export type Database = {
           source_ref?: string | null
           status?: Database["public"]["Enums"]["import_item_status"]
           subject_id?: string | null
+          tables?: string[]
           topic_id?: string | null
           updated_at?: string
           validation_errors?: Json | null
@@ -726,6 +729,7 @@ export type Database = {
           question_type: Database["public"]["Enums"]["question_type"]
           status: Database["public"]["Enums"]["question_status"]
           subject_id: string
+          tables: string[]
           tags: string[]
           topic_id: string | null
           updated_at: string
@@ -747,6 +751,7 @@ export type Database = {
           question_type?: Database["public"]["Enums"]["question_type"]
           status?: Database["public"]["Enums"]["question_status"]
           subject_id: string
+          tables?: string[]
           tags?: string[]
           topic_id?: string | null
           updated_at?: string
@@ -768,6 +773,7 @@ export type Database = {
           question_type?: Database["public"]["Enums"]["question_type"]
           status?: Database["public"]["Enums"]["question_status"]
           subject_id?: string
+          tables?: string[]
           tags?: string[]
           topic_id?: string | null
           updated_at?: string

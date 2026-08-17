@@ -47,7 +47,7 @@ export function AppShell({
         user={user}
       />
       <div className="app-main">
-        <AppTopbar onMenuClick={() => setMobileOpen(true)} user={user} />
+        <AppTopbar onMenuClick={() => setMobileOpen(true)} />
         <main className="app-content">{children}</main>
       </div>
     </div>

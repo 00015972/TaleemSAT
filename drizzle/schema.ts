@@ -132,6 +132,10 @@ export const questions = pgTable(
     // Mutually exclusive with questionImageUrl in practice: a figure is
     // either a code-generated chart or a pasted image, never both.
     chartSvg: text('chart_svg'),
+    // Sanitized <table> markup, in document order — see
+    // lib/import/table-sanitize.ts. questionText carries a `[[table:N]]`
+    // token at each table's original position.
+    tables: text('tables').array().notNull().default(sql`'{}'::text[]`),
     questionType: questionTypeEnum('question_type').notNull().default('mcq'),
     options: jsonb('options').notNull(), // [{ id: 'A', text: '...' }, ...]; [] for grid_in
     correctAnswer: text('correct_answer').notNull(), // 'A'-'D' for mcq; canonical value for grid_in
@@ -396,6 +400,7 @@ export const importJobItems = pgTable(
     difficulty: difficultyEnum('difficulty'),
     questionImageUrl: text('question_image_url'),
     chartSvg: text('chart_svg'),
+    tables: text('tables').array().notNull().default(sql`'{}'::text[]`),
     // Why the item passed/failed its answer check (solver vs verifier model).
     verificationNotes: jsonb('verification_notes'),
     // validateQuestion() output at staging time, so reviewers see blockers.

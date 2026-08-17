@@ -207,6 +207,7 @@ async function buildRow(
     difficulty: q.difficulty,
     question_image_url: questionImageUrl,
     chart_svg: q.chartSvgs[0] ?? null,
+    tables: q.tables,
     verification_notes: verification as unknown as Json,
     validation_errors: issues.length > 0 ? issues : null,
   };

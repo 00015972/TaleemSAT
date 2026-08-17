@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import Script from 'next/script';
 import { Providers } from './providers';
 import './globals.css';
 
@@ -35,12 +34,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
       <head>
-        <Script id="theme-script" strategy="beforeInteractive">
-          {themeScript}
-        </Script>
-        <Script id="sidebar-script" strategy="beforeInteractive">
-          {sidebarScript}
-        </Script>
+        {/* Plain <script> tags, not next/script's <Script strategy="beforeInteractive">:
+            these must block paint (set data-theme before first render, no FOUC), and
+            next/script's beforeInteractive path re-renders this exact element on the
+            client on every Fast Refresh, which trips React 19's "script tag rendered
+            on the client" dev warning. A server-rendered inline script has no such
+            problem — it's real static HTML the browser executes on initial parse. */}
+        <script id="theme-script" dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script id="sidebar-script" dangerouslySetInnerHTML={{ __html: sidebarScript }} />
       </head>
       <body suppressHydrationWarning>
         <Providers>{children}</Providers>

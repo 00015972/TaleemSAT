@@ -1,9 +1,18 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  ExamRoot,
+  ExamTopBar,
+  ExamSplit,
+  ExamFooter,
+  ExamNavigator,
+} from '@/components/exam/exam-chrome';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { PassageReader } from '@/components/reading/passage-reader';
 import { WhyPanel } from '@/components/reading/why-panel';
 import { ChartFigure } from '@/components/reading/chart-figure';
+import { QuestionBody } from '@/components/reading/question-body';
 import { PracticeBrowse, type PracticeScope } from '@/components/practice/practice-browse';
 import type { PracticeOverview } from '@/lib/practice/overview';
 
@@ -16,25 +25,15 @@ type Question = {
   passage: string | null;
   question_text: string;
   chart_svg: string | null;
+  tables: string[] | null;
   options: Option[];
   difficulty: 'easy' | 'medium' | 'hard';
   tags: string[];
 };
 
-type AnswerResult = {
-  isCorrect: boolean;
-  correctAnswer: string;
-  explanation: string;
-};
+type ManifestEntry = { id: string; difficulty: 'easy' | 'medium' | 'hard' };
 
-type Phase =
-  | { name: 'idle' }
-  | { name: 'loading' }
-  | { name: 'question'; question: Question }
-  | { name: 'selected'; question: Question; selected: string }
-  | { name: 'submitting'; question: Question; selected: string }
-  | { name: 'result'; question: Question; selected: string; result: AnswerResult }
-  | { name: 'empty' };
+type Status = 'loading' | 'ready' | 'empty' | 'error';
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -45,104 +44,206 @@ export function PracticeShell({
   overview: PracticeOverview;
   pro?: boolean;
 }) {
-  // null while browsing; set once a topic or subject is chosen.
   const [scope, setScope] = useState<PracticeScope | null>(null);
-  const [phase, setPhase] = useState<Phase>({ name: 'idle' });
-  const [seenIds, setSeenIds] = useState<string[]>([]);
-  const [startTime, setStartTime] = useState<number | null>(null);
-  // The session sheet: one entry per scored question this visit.
-  const [sheet, setSheet] = useState<boolean[]>([]);
-  // Distraction-free reading: hides the category rail and widens the passage.
-  const [focus, setFocus] = useState(false);
+  const [status, setStatus] = useState<Status>('loading');
 
-  const fetchQuestion = useCallback(
-    async (target: PracticeScope, exclude: string[]) => {
-      setPhase({ name: 'loading' });
-      try {
-        const scopeKey =
-          target.kind === 'topic'
-            ? 'topicSlug'
-            : target.kind === 'category'
-              ? 'categorySlug'
-              : 'subjectSlug';
-        const params = new URLSearchParams({ [scopeKey]: target.slug });
-        if (target.difficulty !== 'all') params.set('difficulty', target.difficulty);
-        if (exclude.length > 0) params.set('exclude', exclude.join(','));
-        const res = await fetch(`/api/practice/question?${params}`);
-        const data = await res.json() as { question?: Question; error?: string };
-        if (!res.ok || !data.question) {
-          setPhase({ name: 'empty' });
-          return;
-        }
-        setSeenIds(prev => [...prev, data.question!.id]);
-        setStartTime(Date.now());
-        setPhase({ name: 'question', question: data.question });
-      } catch {
-        setPhase({ name: 'empty' });
-      }
+  // The ordered set for this scope — walked sequentially, not re-fetched.
+  const [manifest, setManifest] = useState<ManifestEntry[] | null>(null);
+  const [index, setIndex] = useState(0);
+  const [current, setCurrent] = useState<Question | null>(null);
+  const [currentLoading, setCurrentLoading] = useState(false);
+  const cacheRef = useRef<Map<string, Question>>(new Map());
+
+  // Per-question outcomes, keyed by question id so they survive paging away
+  // and back via the navigator.
+  const [tries, setTries] = useState<Record<string, string[]>>({});
+  const [solvedAnswer, setSolvedAnswer] = useState<Record<string, string>>({});
+  const [firstResult, setFirstResult] = useState<Record<string, boolean>>({});
+  const [flagged, setFlagged] = useState<Set<string>>(new Set());
+  const [eliminated, setEliminated] = useState<Record<string, string[]>>({});
+  const [elimMode, setElimMode] = useState(false);
+
+  // Transient, current-question-only state.
+  const [picked, setPicked] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [qStartedAt, setQStartedAt] = useState<number | null>(null);
+
+  const loadQuestion = useCallback(async (id: string): Promise<Question | null> => {
+    const hit = cacheRef.current.get(id);
+    if (hit) return hit;
+    try {
+      const res = await fetch(`/api/practice/question?id=${id}`);
+      const data = (await res.json()) as { question?: Question };
+      if (!res.ok || !data.question) return null;
+      cacheRef.current.set(id, data.question);
+      return data.question;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const prefetch = useCallback(
+    (id: string | undefined) => {
+      if (!id || cacheRef.current.has(id)) return;
+      void loadQuestion(id);
     },
-    []
+    [loadQuestion]
   );
 
-  function startScope(target: PracticeScope) {
+  const goTo = useCallback(
+    async (i: number, manifestOverride?: ManifestEntry[]) => {
+      const list = manifestOverride ?? manifest;
+      if (!list) return;
+      const clamped = Math.min(Math.max(i, 0), list.length - 1);
+      // Re-landing on the question already on screen (boundary Next/Back, or
+      // re-clicking the current bubble) shouldn't clobber an in-progress pick.
+      if (!manifestOverride && clamped === index) return;
+      const entry = list[clamped];
+      setIndex(clamped);
+      setPicked(null);
+
+      const hit = cacheRef.current.get(entry.id);
+      if (hit) {
+        setCurrent(hit);
+        setQStartedAt(Date.now());
+      } else {
+        setCurrentLoading(true);
+        setCurrent(null);
+        const q = await loadQuestion(entry.id);
+        setCurrentLoading(false);
+        setCurrent(q);
+        setQStartedAt(Date.now());
+      }
+      prefetch(list[clamped + 1]?.id);
+      prefetch(list[clamped - 1]?.id);
+    },
+    [manifest, index, loadQuestion, prefetch]
+  );
+
+  async function startScope(target: PracticeScope) {
     setScope(target);
-    setSeenIds([]);
-    setSheet([]);
-    fetchQuestion(target, []);
+    setStatus('loading');
+    setManifest(null);
+    setIndex(0);
+    setCurrent(null);
+    cacheRef.current = new Map();
+    setTries({});
+    setSolvedAnswer({});
+    setFirstResult({});
+    setFlagged(new Set());
+    setEliminated({});
+    setElimMode(false);
+
+    try {
+      const scopeKey =
+        target.kind === 'topic'
+          ? 'topicSlug'
+          : target.kind === 'category'
+            ? 'categorySlug'
+            : 'subjectSlug';
+      const params = new URLSearchParams({ [scopeKey]: target.slug });
+      if (target.difficulty !== 'all') params.set('difficulty', target.difficulty);
+      const res = await fetch(`/api/practice/manifest?${params}`);
+      const data = (await res.json()) as { ids?: ManifestEntry[] };
+      if (!res.ok || !data.ids || data.ids.length === 0) {
+        setStatus('empty');
+        return;
+      }
+      setManifest(data.ids);
+      setStatus('ready');
+      await goTo(0, data.ids);
+    } catch {
+      setStatus('error');
+    }
   }
 
   function backToTopics() {
     setScope(null);
-    setSeenIds([]);
-    setPhase({ name: 'idle' });
   }
 
-  // Allow re-picking another option any time before the answer is checked.
-  const selectOption = useCallback((optionId: string) => {
-    setPhase(p =>
-      p.name === 'question' || p.name === 'selected'
-        ? { name: 'selected', question: p.question, selected: optionId }
-        : p
-    );
+  const toggleFlag = useCallback((id: string) => {
+    setFlagged(f => {
+      const next = new Set(f);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }, []);
 
-  const submitAnswer = useCallback(async () => {
-    if (phase.name !== 'selected') return;
-    const { question, selected } = phase;
-    const timeTakenMs = startTime ? Date.now() - startTime : null;
+  const toggleElim = useCallback((id: string, optionId: string) => {
+    setEliminated(cur => {
+      const list = cur[id] ?? [];
+      return {
+        ...cur,
+        [id]: list.includes(optionId) ? list.filter(x => x !== optionId) : [...list, optionId],
+      };
+    });
+  }, []);
 
-    setPhase({ name: 'submitting', question, selected });
+  const selectOption = useCallback(
+    (id: string, optionId: string) => {
+      if (solvedAnswer[id] !== undefined) return;
+      if ((tries[id] ?? []).includes(optionId)) return;
+      setPicked(optionId);
+    },
+    [solvedAnswer, tries]
+  );
 
+  const checkAnswer = useCallback(async () => {
+    if (!manifest || !current || !picked) return;
+    const id = manifest[index].id;
+    const isFirst = firstResult[id] === undefined;
+    setChecking(true);
     try {
       const res = await fetch('/api/practice/answer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ questionId: question.id, selectedAnswer: selected, timeTakenMs }),
+        body: JSON.stringify({
+          questionId: id,
+          selectedAnswer: picked,
+          timeTakenMs: isFirst && qStartedAt ? Date.now() - qStartedAt : undefined,
+          recordAttempt: isFirst,
+        }),
       });
-      const result = await res.json() as AnswerResult;
-      setSheet(prev => [...prev, result.isCorrect]);
-      setPhase({ name: 'result', question, selected, result });
+      const data = (await res.json()) as { isCorrect: boolean };
+      if (isFirst) setFirstResult(r => ({ ...r, [id]: data.isCorrect }));
+      if (data.isCorrect) {
+        setSolvedAnswer(s => ({ ...s, [id]: picked }));
+      } else {
+        setTries(t => ({ ...t, [id]: [...(t[id] ?? []), picked] }));
+      }
+      // Either way the pick has been consumed: correct is now redundant with
+      // solvedAnswer, wrong needs a fresh pick before Check re-enables.
+      setPicked(null);
     } catch {
-      // Revert to selected state so user can retry
-      setPhase({ name: 'selected', question, selected });
+      // leave the pick in place so the student can just retry Check
+    } finally {
+      setChecking(false);
     }
-  }, [phase, startTime]);
+  }, [manifest, current, picked, index, firstResult, qStartedAt]);
 
-  const nextQuestion = useCallback(() => {
-    if (!scope) return;
-    fetchQuestion(scope, seenIds);
-  }, [scope, seenIds, fetchQuestion]);
+  const goNext = useCallback(() => goTo(index + 1), [goTo, index]);
+  const goBack = useCallback(() => goTo(index - 1), [goTo, index]);
 
-  // Answer with the keyboard: A–D (or 1–4) to choose, Enter to check / continue.
+  const currentId = manifest?.[index]?.id;
+  const resolved = currentId !== undefined && solvedAnswer[currentId] !== undefined;
+
+  // A–D/1–4 to pick, Enter to check-or-continue, ←/→ to page, F to flag.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (!manifest || !current || !currentId) return;
 
-      if (phase.name === 'question' || phase.name === 'selected') {
-        const letter = e.key.toUpperCase();
-        const opts = phase.question.options;
+      const letter = e.key.toUpperCase();
+      if (letter === 'F') {
+        e.preventDefault();
+        toggleFlag(currentId);
+        return;
+      }
+      if (!resolved) {
+        const opts = current.options;
         let id: string | undefined;
         if (letter >= 'A' && letter <= 'D') {
           id = opts.find(o => o.id === letter)?.id ?? opts[letter.charCodeAt(0) - 65]?.id;
@@ -151,268 +252,368 @@ export function PracticeShell({
         }
         if (id) {
           e.preventDefault();
-          selectOption(id);
+          selectOption(currentId, id);
           return;
         }
-        if (e.key === 'Enter' && phase.name === 'selected') {
-          e.preventDefault();
-          submitAnswer();
-        }
-      } else if (phase.name === 'result' && e.key === 'Enter') {
+      }
+      if ((e.target as HTMLElement | null)?.closest('button, [role="button"]')) return;
+      if (e.key === 'Enter') {
         e.preventDefault();
-        nextQuestion();
+        if (!resolved && picked) checkAnswer();
+        else if (resolved) goNext();
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        goNext();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        goBack();
       }
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [phase, selectOption, submitAnswer, nextQuestion]);
+  }, [manifest, current, currentId, resolved, picked, selectOption, checkAnswer, goNext, goBack, toggleFlag]);
 
-  const onQuestion =
-    phase.name === 'question' ||
-    phase.name === 'selected' ||
-    phase.name === 'submitting' ||
-    phase.name === 'result';
-
-  // No scope chosen yet — browse the topics.
+  // No scope chosen yet — browse the topics, sidebar and all.
   if (!scope) {
     return <PracticeBrowse overview={overview} onStart={startScope} />;
   }
 
   return (
-    <div className={focus ? 'prx-focus' : undefined}>
-      <div className="prx-scope">
-        <button type="button" className="prx-back" onClick={backToTopics}>
-          ← All topics
-        </button>
-        <span className="prx-scope-name">{scope.label}</span>
-        {scope.difficulty !== 'all' && (
-          <span className="prx-scope-diff">{scope.difficulty}</span>
-        )}
-      </div>
+    <ExamRoot>
+      <ExamTopBar
+        title={scope.label}
+        subtitle={scope.difficulty !== 'all' ? `${scope.difficulty} difficulty` : undefined}
+        onExit={backToTopics}
+        exitLabel="All topics"
+        center={
+          status !== 'ready' ? undefined : currentLoading || !current ? (
+            <span className="ex-clock big">--:--</span>
+          ) : (
+            <QuestionTimer key={currentId} startedAt={qStartedAt} frozen={resolved} />
+          )
+        }
+        right={<ThemeToggle />}
+      />
 
-      <div className="min-w-0">
-        {(sheet.length > 0 || onQuestion) && (
-          <SessionRail sheet={sheet} live={onQuestion && phase.name !== 'result'} />
-        )}
-
-        {phase.name === 'loading' && <LoadingSkeleton />}
-        {phase.name === 'empty' && <EmptyState onReset={backToTopics} />}
-        {onQuestion && (
-          <QuestionCard
-            key={(phase as Extract<Phase, { name: 'question' }>).question.id}
-            phase={phase as Extract<Phase, { name: 'question' | 'selected' | 'submitting' | 'result' }>}
-            seq={sheet.length + (phase.name === 'result' ? 0 : 1)}
-            categoryName={scope.label}
-            focus={focus}
-            pro={pro}
-            onToggleFocus={() => setFocus(f => !f)}
-            onSelect={selectOption}
-            onSubmit={submitAnswer}
-            onNext={nextQuestion}
-          />
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── Session rail ─────────────────────────────────────────────────────────────
-
-function SessionRail({ sheet, live }: { sheet: boolean[]; live: boolean }) {
-  const correct = sheet.filter(Boolean).length;
-  return (
-    <div className="prx-rail">
-      <span className="prx-rail-label">Session sheet</span>
-      <div className="prx-rail-bubs">
-        {sheet.map((hit, i) => (
-          <span
-            key={i}
-            className={`prx-rail-bub ${hit ? 'hit' : 'miss'}`}
-            title={`Q${i + 1}: ${hit ? 'correct' : 'missed'}`}
-          />
-        ))}
-        {live && <span className="prx-rail-bub now" title="Current question" />}
-      </div>
-      {sheet.length > 0 && (
-        <span className="prx-rail-stat">
-          {correct}/{sheet.length} correct
-        </span>
+      {status === 'loading' && (
+        <CenteredStage>
+          <LoadingSkeleton />
+        </CenteredStage>
       )}
-    </div>
+      {(status === 'empty' || status === 'error') && (
+        <CenteredStage>
+          <EmptyState
+            title={status === 'error' ? "Couldn't load this set." : 'Nothing here yet.'}
+            body={
+              status === 'error'
+                ? 'Something went wrong reaching the question bank. Try again.'
+                : "No questions match this difficulty yet. Try a different difficulty, or another topic."
+            }
+            onReset={backToTopics}
+          />
+        </CenteredStage>
+      )}
+
+      {status === 'ready' && manifest && currentId && (
+        <ExamSplit
+          storageKey="taleem_practice_split"
+          left={
+            <QuestionPane
+              seq={index + 1}
+              question={current}
+              loading={currentLoading}
+              pro={pro}
+            />
+          }
+          right={
+            <ChoicesPane
+              question={current}
+              loading={currentLoading}
+              picked={picked}
+              tries={tries[currentId] ?? []}
+              solvedAnswer={solvedAnswer[currentId]}
+              firstCorrect={firstResult[currentId]}
+              flagged={flagged.has(currentId)}
+              eliminated={eliminated[currentId] ?? []}
+              elimMode={elimMode}
+              checking={checking}
+              pro={pro}
+              onSelect={optId => selectOption(currentId, optId)}
+              onCheck={checkAnswer}
+              onToggleFlag={() => toggleFlag(currentId)}
+              onToggleElim={optId => toggleElim(currentId, optId)}
+              onToggleElimMode={() => setElimMode(m => !m)}
+            />
+          }
+        />
+      )}
+
+      <ExamFooter
+        left={
+          <span className="ex-hint">
+            A–D to choose · Enter to check · ←/→ to page · F to flag
+          </span>
+        }
+        center={
+          status === 'ready' && manifest ? (
+            <ExamNavigator
+              index={index}
+              total={manifest.length}
+              onJump={goTo}
+              bubbleClass={i => {
+                const m = manifest[i];
+                const r = firstResult[m.id];
+                const cls = r === true ? 'ok' : r === false ? 'bad' : '';
+                return `${cls}${flagged.has(m.id) ? ' flag' : ''}`;
+              }}
+              legend={
+                <>
+                  <span className="ex-lg"><i className="ex-lg-dot ok" /> Correct</span>
+                  <span className="ex-lg"><i className="ex-lg-dot bad" /> Incorrect</span>
+                  <span className="ex-lg"><i className="ex-lg-dot flag" /> Marked</span>
+                </>
+              }
+            />
+          ) : undefined
+        }
+        right={
+          status === 'ready' && manifest ? (
+            <div className="ex-pager">
+              <button className="ex-page-btn" onClick={goBack} disabled={index === 0}>
+                <span aria-hidden="true">‹</span> Back
+              </button>
+              <button
+                className="ex-page-btn next"
+                onClick={goNext}
+                disabled={index === manifest.length - 1}
+              >
+                Next <span aria-hidden="true">›</span>
+              </button>
+            </div>
+          ) : undefined
+        }
+      />
+    </ExamRoot>
   );
 }
 
-// ─── Question card ────────────────────────────────────────────────────────────
+// ─── Question pane (left) ──────────────────────────────────────────────────────
 
-function QuestionCard({
-  phase,
+function QuestionPane({
   seq,
-  categoryName,
-  focus,
+  question,
+  loading,
   pro,
-  onToggleFocus,
-  onSelect,
-  onSubmit,
-  onNext,
 }: {
-  phase: Extract<Phase, { name: 'question' | 'selected' | 'submitting' | 'result' }>;
   seq: number;
-  categoryName: string;
-  focus: boolean;
+  question: Question | null;
+  loading: boolean;
   pro: boolean;
-  onToggleFocus: () => void;
-  onSelect: (id: string) => void;
-  onSubmit: () => void;
-  onNext: () => void;
 }) {
-  const { question } = phase;
-  const selected =
-    phase.name === 'selected' || phase.name === 'submitting' || phase.name === 'result'
-      ? phase.selected
-      : null;
-  const result = phase.name === 'result' ? phase.result : null;
-  const isSubmitting = phase.name === 'submitting';
-  const isInteractive = phase.name === 'question' || phase.name === 'selected';
-
-  // The card is keyed by question id in the shell, so all local state —
-  // including this stopwatch — resets by remount on every new question.
-  const secs = useElapsed(isInteractive || isSubmitting);
-
-  // If a long question pushes the verdict below the fold, glide it into view.
-  // `nearest` is a no-op when everything already fits on screen.
-  const actionsRef = useRef<HTMLDivElement | null>(null);
-  const hasResult = result !== null;
-  useEffect(() => {
-    if (!hasResult) return;
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    actionsRef.current?.scrollIntoView({
-      block: 'nearest',
-      behavior: reduce ? 'auto' : 'smooth',
-    });
-  }, [hasResult]);
-
-  // Reading material and the question it asks go left, the choices go right —
-  // the way the real test sets a passage question, so neither half scrolls the
-  // other off screen.
-  const readSide = (
+  if (loading || !question) return <PaneSkeleton />;
+  return (
     <>
+      <div className="ex-q-head">
+        <span className="ex-qnum">{seq}</span>
+        <DifficultyBadge difficulty={question.difficulty} />
+      </div>
       {question.passage && <PassageReader text={question.passage} pro={pro} />}
       <ChartFigure svg={question.chart_svg} />
-      <p className={`prx-stem${question.passage ? '' : ' prx-anim'}`}>
-        {question.question_text}
-      </p>
+      <QuestionBody text={question.question_text} tables={question.tables} className="ex-stem" />
     </>
   );
+}
 
-  const answerSide = (
-    <>
-      <div className="prx-opts" role="group" aria-label="Answer choices">
-        {question.options.map((opt, i) => (
-          <OptionButton
-            key={opt.id}
-            option={opt}
-            index={i}
-            selected={selected}
-            result={result}
-            interactive={isInteractive}
-            onSelect={onSelect}
-          />
-        ))}
-      </div>
+// ─── Choices pane (right) ──────────────────────────────────────────────────────
 
-      {result && (
-        <div className="prx-anim">
-          <div className="prx-verdict">
-            <span className={`word ${result.isCorrect ? 'good' : 'bad'}`}>
-              {result.isCorrect ? 'Correct.' : 'Not quite.'}
-            </span>
-            <span className="sub">
-              {result.isCorrect
-                ? `answered in ${formatClock(secs)}`
-                : `the key was ${result.correctAnswer} · ${formatClock(secs)}`}
-            </span>
-          </div>
-          <div className="prx-expl">
-            <p className="prx-expl-label">Explanation</p>
-            <p className="prx-expl-body">{result.explanation}</p>
-          </div>
-          <WhyPanel questionId={question.id} pro={pro} />
-        </div>
-      )}
-    </>
-  );
+function ChoicesPane({
+  question,
+  loading,
+  picked,
+  tries,
+  solvedAnswer,
+  firstCorrect,
+  flagged,
+  eliminated,
+  elimMode,
+  checking,
+  pro,
+  onSelect,
+  onCheck,
+  onToggleFlag,
+  onToggleElim,
+  onToggleElimMode,
+}: {
+  question: Question | null;
+  loading: boolean;
+  picked: string | null;
+  tries: string[];
+  solvedAnswer: string | undefined;
+  firstCorrect: boolean | undefined;
+  flagged: boolean;
+  eliminated: string[];
+  elimMode: boolean;
+  checking: boolean;
+  pro: boolean;
+  onSelect: (optionId: string) => void;
+  onCheck: () => void;
+  onToggleFlag: () => void;
+  onToggleElim: (optionId: string) => void;
+  onToggleElimMode: () => void;
+}) {
+  if (loading || !question) return <PaneSkeleton />;
+
+  const resolved = solvedAnswer !== undefined;
+  const canCheck = !!picked && !resolved && !tries.includes(picked) && !checking;
 
   return (
-    <div className="prx-card">
-      <div>
-        <div className="prx-card-head">
-          <span className="prx-meta">
-            <span className="prx-qnum">Q{seq}</span>
-            {categoryName}
-            <DifficultyBadge difficulty={question.difficulty} />
-          </span>
-          <span className="prx-head-right">
-            <button
-              type="button"
-              className={`prx-focus-btn${focus ? ' on' : ''}`}
-              onClick={onToggleFocus}
-              title={focus ? 'Exit focus mode' : 'Focus mode — hide distractions'}
-              aria-pressed={focus}
-            >
-              {focus ? '◱ Exit focus' : '◳ Focus'}
-            </button>
-            <span className="prx-timer">{formatClock(secs)}</span>
-          </span>
-        </div>
-
-        {question.passage ? (
-          <div className="prx-split">
-            <div className="prx-split-read prx-anim">{readSide}</div>
-            <div className="prx-split-q prx-anim" style={{ animationDelay: '0.06s' }}>
-              {answerSide}
-            </div>
-          </div>
-        ) : (
-          <>
-            {readSide}
-            {answerSide}
-          </>
-        )}
-
-        <div className="prx-actions" ref={actionsRef}>
-          {!result ? (
-            <button
-              onClick={onSubmit}
-              disabled={!selected || isSubmitting}
-              className="prx-btn"
-            >
-              {isSubmitting ? 'Checking…' : 'Check answer'}
-            </button>
+    <>
+      <div className="ex-toolbar">
+        <button
+          type="button"
+          className={`ex-mark${flagged ? ' on' : ''}`}
+          onClick={onToggleFlag}
+          aria-pressed={flagged}
+        >
+          <span aria-hidden="true">⚑</span> {flagged ? 'Marked' : 'Mark for review'}
+        </button>
+        <div className="ex-toolbar-right">
+          <button
+            type="button"
+            className={`ex-tool${elimMode ? ' on' : ''}`}
+            onClick={onToggleElimMode}
+            disabled={resolved}
+            aria-pressed={elimMode}
+            title="Cross out answer choices"
+          >
+            <span className="ex-abc">ABC</span>
+          </button>
+          {resolved ? (
+            <span className="ex-solved-pill">{firstCorrect ? '✓ Correct' : '✓ Found it'}</span>
           ) : (
-            <button onClick={onNext} className="prx-btn">
-              Next question →
+            <button type="button" className="prx-btn" onClick={onCheck} disabled={!canCheck}>
+              {checking ? 'Checking…' : 'Check answer'}
             </button>
           )}
-          <span className="prx-kbd-hint">
-            {!result ? 'A–D to choose · Enter to check' : 'Enter for the next one'}
-          </span>
         </div>
       </div>
+
+      <ChoiceList
+        options={question.options}
+        picked={picked}
+        tries={tries}
+        solvedAnswer={solvedAnswer ?? null}
+        eliminated={eliminated}
+        elimMode={elimMode && !resolved}
+        interactive={!resolved}
+        onSelect={onSelect}
+        onElim={onToggleElim}
+      />
+
+      {resolved && <WhyPanel questionId={question.id} pro={pro} />}
+    </>
+  );
+}
+
+function ChoiceList({
+  options,
+  picked,
+  tries,
+  solvedAnswer,
+  eliminated,
+  elimMode,
+  interactive,
+  onSelect,
+  onElim,
+}: {
+  options: Option[];
+  picked: string | null;
+  tries: string[];
+  solvedAnswer: string | null;
+  eliminated: string[];
+  elimMode: boolean;
+  interactive: boolean;
+  onSelect: (id: string) => void;
+  onElim: (id: string) => void;
+}) {
+  return (
+    <div className="prx-opts" role="group" aria-label="Answer choices">
+      {options.map((opt, i) => {
+        const isTried = tries.includes(opt.id);
+        const isKey = solvedAnswer === opt.id;
+        const isElim = eliminated.includes(opt.id);
+        const isPicked = picked === opt.id;
+        const selectable = interactive && !isTried;
+
+        let cls = '';
+        if (isKey) cls = ' key';
+        else if (isTried) cls = ' tried';
+        else if (isPicked) cls = ' sel';
+        if (isElim && !isTried) cls += ' elim';
+
+        return (
+          <div
+            key={opt.id}
+            role="button"
+            tabIndex={selectable ? 0 : -1}
+            aria-disabled={!selectable}
+            className={`prx-opt prx-anim${cls}`}
+            style={{ animationDelay: `${0.08 + i * 0.04}s` }}
+            onClick={() => selectable && onSelect(opt.id)}
+            onKeyDown={e => {
+              if (!selectable) return;
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onSelect(opt.id);
+              }
+            }}
+            aria-pressed={isPicked}
+          >
+            <span className="prx-opt-bub">
+              <span>{opt.id}</span>
+            </span>
+            <span className="prx-opt-text">{opt.text}</span>
+            {isKey && <span className="prx-opt-flag" style={{ color: 'var(--ok)' }}>✓</span>}
+            {isTried && <span className="prx-opt-flag" style={{ color: 'var(--err)' }}>✗</span>}
+            {interactive && elimMode && !isTried && (
+              <button
+                type="button"
+                className="mk-elim-btn show"
+                onClick={e => {
+                  e.stopPropagation();
+                  onElim(opt.id);
+                }}
+                aria-label={isElim ? 'Restore choice' : 'Eliminate choice'}
+                title="Cross out"
+              >
+                {isElim ? '↺' : '✕'}
+              </button>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
 
-// Per-question stopwatch: ticks while answering, freezes once scored.
-function useElapsed(running: boolean) {
-  const [secs, setSecs] = useState(0);
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Ticks once a second while the question is unsolved; freezes once it's not.
+ * Mounted fresh per question (keyed by question id in the caller) so its
+ * clock naturally starts at zero — no reset-on-prop-change effect needed.
+ */
+function QuestionTimer({ startedAt, frozen }: { startedAt: number | null; frozen: boolean }) {
+  const [now, setNow] = useState(() => startedAt ?? Date.now());
 
   useEffect(() => {
-    if (!running) return;
-    const t = setInterval(() => setSecs(s => s + 1), 1000);
+    if (frozen || startedAt == null) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
-  }, [running]);
+  }, [frozen, startedAt]);
 
-  return secs;
+  const elapsed = startedAt == null ? 0 : Math.max(0, Math.floor((now - startedAt) / 1000));
+  return <span className="ex-clock big">{formatClock(elapsed)}</span>;
 }
 
 function formatClock(secs: number) {
@@ -420,59 +621,6 @@ function formatClock(secs: number) {
   const s = secs % 60;
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
-
-// ─── Option button ────────────────────────────────────────────────────────────
-
-function OptionButton({
-  option,
-  index,
-  selected,
-  result,
-  interactive,
-  onSelect,
-}: {
-  option: Option;
-  index: number;
-  selected: string | null;
-  result: AnswerResult | null;
-  interactive: boolean;
-  onSelect: (id: string) => void;
-}) {
-  const isSelected = selected === option.id;
-  const isKey = result?.correctAnswer === option.id;
-  const isMiss = isSelected && result !== null && !result.isCorrect;
-
-  let state = '';
-  if (result) {
-    if (isKey) state = ' key';
-    else if (isMiss) state = ' missed';
-  } else if (isSelected) {
-    state = ' sel';
-  }
-
-  return (
-    <button
-      onClick={() => interactive && onSelect(option.id)}
-      disabled={!interactive}
-      className={`prx-opt prx-anim${state}`}
-      style={{ animationDelay: `${0.12 + index * 0.05}s` }}
-      aria-pressed={isSelected}
-    >
-      <span className="prx-opt-bub">
-        <span>{option.id}</span>
-      </span>
-      <span className="prx-opt-text">{option.text}</span>
-      {isKey && result && (
-        <span className="prx-opt-flag" style={{ color: 'var(--ok)' }}>✓</span>
-      )}
-      {isMiss && (
-        <span className="prx-opt-flag" style={{ color: 'var(--err)' }}>✗</span>
-      )}
-    </button>
-  );
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function DifficultyBadge({ difficulty }: { difficulty: string }) {
   const color =
@@ -487,12 +635,17 @@ function DifficultyBadge({ difficulty }: { difficulty: string }) {
   );
 }
 
+function CenteredStage({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0, padding: '1.5rem' }}>
+      <div style={{ width: '100%', maxWidth: '42rem' }}>{children}</div>
+    </div>
+  );
+}
+
 function LoadingSkeleton() {
   return (
-    <div
-      className="prx-card flex flex-col gap-4 animate-pulse"
-      aria-label="Loading question"
-    >
+    <div className="prx-card flex flex-col gap-4 animate-pulse" aria-label="Loading question set">
       <div className="h-4 w-32 rounded" style={{ background: 'var(--border)' }} />
       <div className="h-20 rounded" style={{ background: 'var(--bg)' }} />
       <div className="h-5 w-3/4 rounded" style={{ background: 'var(--border)' }} />
@@ -503,7 +656,27 @@ function LoadingSkeleton() {
   );
 }
 
-function EmptyState({ onReset }: { onReset: () => void }) {
+/** Lightweight per-pane placeholder while a prefetch-miss loads. */
+function PaneSkeleton() {
+  return (
+    <div className="flex flex-col gap-3 animate-pulse" aria-label="Loading">
+      <div className="h-4 w-24 rounded" style={{ background: 'var(--border)' }} />
+      <div className="h-4 w-full rounded" style={{ background: 'var(--border)' }} />
+      <div className="h-4 w-5/6 rounded" style={{ background: 'var(--border)' }} />
+      <div className="h-4 w-2/3 rounded" style={{ background: 'var(--border)' }} />
+    </div>
+  );
+}
+
+function EmptyState({
+  title,
+  body,
+  onReset,
+}: {
+  title: string;
+  body: string;
+  onReset: () => void;
+}) {
   return (
     <div className="prx-empty">
       <div className="prx-idle-bubs" aria-hidden="true">
@@ -511,12 +684,10 @@ function EmptyState({ onReset }: { onReset: () => void }) {
           <span key={l} className="prx-idle-bub done">{l}</span>
         ))}
       </div>
-      <p className="prx-empty-title">Category cleared.</p>
-      <p className="prx-empty-sub mb-4">
-        You&apos;ve answered every question here. New ones are added regularly.
-      </p>
+      <p className="prx-empty-title">{title}</p>
+      <p className="prx-empty-sub mb-4">{body}</p>
       <button onClick={onReset} className="prx-btn">
-        Practice again from the start
+        Back to topics
       </button>
     </div>
   );

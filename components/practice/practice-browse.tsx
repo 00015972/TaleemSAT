@@ -51,18 +51,24 @@ export function PracticeBrowse({
 
   return (
     <div className="pbr">
-      <div className="pbr-filters" role="group" aria-label="Filter by difficulty">
-        {FILTERS.map(f => (
-          <button
-            key={f.id}
-            type="button"
-            className={`pbr-chip${difficulty === f.id ? ' on' : ''}`}
-            aria-pressed={difficulty === f.id}
-            onClick={() => setDifficulty(f.id)}
-          >
-            {f.label}
-          </button>
-        ))}
+      <div className="pbr-head">
+        <div>
+          <h1 className="pbr-title">Question Bank</h1>
+          <p className="pbr-sub">Browse every skill, filter by difficulty, and start practicing.</p>
+        </div>
+        <div className="pbr-filters" role="group" aria-label="Filter by difficulty">
+          {FILTERS.map(f => (
+            <button
+              key={f.id}
+              type="button"
+              className={`pbr-chip${difficulty === f.id ? ' on' : ''}`}
+              aria-pressed={difficulty === f.id}
+              onClick={() => setDifficulty(f.id)}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="pbr-cols">

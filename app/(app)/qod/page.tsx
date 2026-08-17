@@ -21,7 +21,7 @@ export default async function QODPage() {
     .select(
       `id, scheduled_date,
        questions!inner(
-         id, passage, question_text, chart_svg, options, difficulty, tags
+         id, passage, question_text, chart_svg, tables, options, difficulty, tags
        )`
     )
     .eq('scheduled_date', todayStr)
@@ -42,7 +42,7 @@ export default async function QODPage() {
           </div>
           <p className="prx-empty-title">Nothing scheduled today.</p>
           <p className="prx-empty-sub mb-4">Check back tomorrow — or keep sharp meanwhile.</p>
-          <a href="/practice" className="prx-btn alt inline-block">
+          <a href="/question-bank" className="prx-btn alt inline-block">
             Practice instead →
           </a>
         </div>

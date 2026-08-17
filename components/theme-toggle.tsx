@@ -23,13 +23,34 @@ function getServerSnapshot(): 'light' | 'dark' {
   return 'light';
 }
 
-export function ThemeToggle() {
+/**
+ * `variant="row"` renders a full-width, labeled control matching the
+ * sidebar's `.sb-link` rows — used in AppSidebar instead of the bare icon
+ * button used everywhere else (landing/admin/public headers).
+ */
+export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'row' }) {
   const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   function toggle() {
     const next = theme === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', next);
     localStorage.setItem(STORAGE_KEY, next);
+  }
+
+  if (variant === 'row') {
+    return (
+      <button
+        type="button"
+        onClick={toggle}
+        aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+        className="sb-link sb-theme-row"
+      >
+        <span className="sb-ico" aria-hidden="true">
+          {theme === 'dark' ? <SunIcon size={18} /> : <MoonIcon size={18} />}
+        </span>
+        <span className="sb-label">Appearance</span>
+      </button>
+    );
   }
 
   return (
@@ -45,11 +66,11 @@ export function ThemeToggle() {
   );
 }
 
-function SunIcon() {
+function SunIcon({ size = 16 }: { size?: number }) {
   return (
     <svg
-      width="16"
-      height="16"
+      width={size}
+      height={size}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -63,11 +84,11 @@ function SunIcon() {
   );
 }
 
-function MoonIcon() {
+function MoonIcon({ size = 16 }: { size?: number }) {
   return (
     <svg
-      width="16"
-      height="16"
+      width={size}
+      height={size}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"

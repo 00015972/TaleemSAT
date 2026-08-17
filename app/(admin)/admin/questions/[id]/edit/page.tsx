@@ -24,7 +24,7 @@ export default async function EditQuestionPage({
       supabase
         .from('questions')
         .select(
-          'id, subject_id, category_id, question_text, passage, options, correct_answer, explanation, difficulty, status, tags'
+          'id, subject_id, category_id, question_text, passage, options, correct_answer, explanation, difficulty, status, tags, tables'
         )
         .eq('id', id)
         .single(),
@@ -58,6 +58,7 @@ export default async function EditQuestionPage({
     difficulty: question.difficulty,
     status: question.status,
     tags: question.tags ?? [],
+    tables: question.tables ?? [],
   };
 
   return (

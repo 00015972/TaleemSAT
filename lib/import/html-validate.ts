@@ -62,7 +62,7 @@ export function validateHtmlItem(
   }
   if (q.hasComplexTable) {
     issues.push(
-      'Table has merged cells, is nested, or its rows don’t line up with its headers — verify the flattened table text is accurate.'
+      'Table has merged cells, is nested, or its rows don’t line up with its headers — verify it renders correctly before publishing.'
     );
   }
 

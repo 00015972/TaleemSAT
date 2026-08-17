@@ -158,7 +158,7 @@ export default async function DashboardPage() {
               </p>
             </div>
           </div>
-          <Link href="/practice" className="prx-btn shrink-0">
+          <Link href="/question-bank" className="prx-btn shrink-0">
             Start practicing →
           </Link>
         </div>

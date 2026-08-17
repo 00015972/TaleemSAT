@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { PassageReader } from '@/components/reading/passage-reader';
 import { WhyPanel } from '@/components/reading/why-panel';
 import { ChartFigure } from '@/components/reading/chart-figure';
+import { QuestionBody } from '@/components/reading/question-body';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -14,6 +15,7 @@ export type QODQuestion = {
   passage: string | null;
   question_text: string;
   chart_svg: string | null;
+  tables: string[] | null;
   options: Option[];
   difficulty: 'easy' | 'medium' | 'hard';
   tags: string[];
@@ -159,9 +161,11 @@ export function QODShell({
     <>
       {qod.question.passage && <PassageReader text={qod.question.passage} pro={pro} />}
       <ChartFigure svg={qod.question.chart_svg} />
-      <p className={`prx-stem${qod.question.passage ? '' : ' prx-anim'}`}>
-        {qod.question.question_text}
-      </p>
+      <QuestionBody
+        text={qod.question.question_text}
+        tables={qod.question.tables}
+        className={`prx-stem${qod.question.passage ? '' : ' prx-anim'}`}
+      />
     </>
   );
 

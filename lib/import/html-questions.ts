@@ -18,6 +18,7 @@ import * as cheerio from 'cheerio';
 import type { Element } from 'domhandler';
 import { normalizeWhitespace } from './pdf-text';
 import { sanitizeChartSvg } from './svg-sanitize';
+import { sanitizeTableHtml } from './table-sanitize';
 
 export type ParsedQuestion = {
   /** College Board's own ID pulled from the .qid span, e.g. "0147b080". */
@@ -47,6 +48,12 @@ export type ParsedQuestion = {
   figureDataUrls: string[];
   /** Sanitized inline `<svg>` chart markup — a code-generated chart rather than a pasted image. */
   chartSvgs: string[];
+  /**
+   * Sanitized `<table>` markup, in document order. `questionText` carries a
+   * `[[table:N]]` token at each table's original position — the renderer
+   * (components/reading/question-body.tsx) swaps it back in.
+   */
+  tables: string[];
   /** Human-readable, parser-level issues — folded into validation `issues[]` by the caller. */
   structuralFlags: string[];
 };
@@ -120,6 +127,7 @@ function parseOne(
   let hasComplexTable = false;
   const figureDataUrls: string[] = [];
   const chartSvgs: string[] = [];
+  const tables: string[] = [];
 
   if (bodyEl.length === 0) {
     flags.push('Missing .question-body — question text is empty.');
@@ -130,8 +138,12 @@ function parseOne(
     hasComplexTable = body.hasComplexTable;
     figureDataUrls.push(...body.figureDataUrls);
     chartSvgs.push(...body.chartSvgs);
+    tables.push(...body.tables);
     if (body.svgSanitizeFailed) {
       flags.push('Embedded <svg> chart could not be sanitized — could not attach it automatically.');
+    }
+    if (body.tableSanitizeFailed) {
+      flags.push('A <table> could not be parsed — could not attach it automatically.');
     }
   }
   if (!questionText) flags.push('Question body produced no text.');
@@ -208,6 +220,7 @@ function parseOne(
     hasComplexTable,
     figureDataUrls,
     chartSvgs,
+    tables,
     structuralFlags: flags,
   };
 }
@@ -230,8 +243,11 @@ function flattenParagraphs($: cheerio.CheerioAPI, container: cheerio.Cheerio<Ele
 
 /**
  * Walk a .question-body's direct children in document order, turning
- * <p>/<table>/<img>/<svg>/<figure> into one plain-text block. Tables and
- * figures need special handling; everything else falls back to its own text.
+ * <p>/<table>/<img>/<svg>/<figure> into one text block, joined by blank
+ * lines so the renderer (components/reading/question-body.tsx) can split it
+ * back into paragraphs. A <table> becomes a `[[table:N]]` token at its
+ * original position — the real, sanitized markup lives in `tables[N]` since
+ * a <table> can't be embedded in a plain-text string.
  */
 function flattenBody(
   $: cheerio.CheerioAPI,
@@ -242,14 +258,18 @@ function flattenBody(
   hasComplexTable: boolean;
   figureDataUrls: string[];
   chartSvgs: string[];
+  tables: string[];
   svgSanitizeFailed: boolean;
+  tableSanitizeFailed: boolean;
 } {
   const parts: string[] = [];
   let hasFigure = false;
   let hasComplexTable = false;
   let svgSanitizeFailed = false;
+  let tableSanitizeFailed = false;
   const figureDataUrls: string[] = [];
   const chartSvgs: string[] = [];
+  const tables: string[] = [];
 
   body.contents().each((_, node) => {
     if (node.type !== 'tag') return; // skip bare whitespace text nodes between elements
@@ -264,8 +284,14 @@ function flattenBody(
     }
 
     if (tag === 'table') {
-      const { text, complex } = flattenTable($, $node);
-      parts.push(text);
+      const { html, complex } = extractTable($, $node);
+      if (html) {
+        tables.push(html);
+        parts.push(`[[table:${tables.length - 1}]]`);
+      } else {
+        tableSanitizeFailed = true;
+        parts.push('[Table — see original source]');
+      }
       if (complex) hasComplexTable = true;
       return;
     }
@@ -307,56 +333,44 @@ function flattenBody(
     hasComplexTable,
     figureDataUrls,
     chartSvgs,
+    tables,
     svgSanitizeFailed,
+    tableSanitizeFailed,
   };
 }
 
 /**
- * Render a <table> as "Row N: Header: value; Header: value" lines. Legible
- * even fully collapsed onto one line by a renderer that ignores whitespace
- * (the practice UI does today — see docs/15-html-import-schema.md), since
- * every fact stays attributable to its column without relying on line breaks.
+ * Sanitize a <table> into real markup for direct rendering
+ * (components/reading/table-figure.tsx), and flag it `complex` — merged
+ * cells, a nested table, or a row whose cell count doesn't match its
+ * headers — so a human confirms it renders correctly before publishing.
  */
-function flattenTable(
+function extractTable(
   $: cheerio.CheerioAPI,
   table: cheerio.Cheerio<Element>
-): { text: string; complex: boolean } {
-  let headers = table
-    .find('thead th')
-    .map((_, el) => normalizeWhitespace($(el).text()))
-    .get();
-
+): { html: string | null; complex: boolean } {
   const hasMergedCells = table.find('[colspan], [rowspan]').length > 0;
   const hasNestedTable = table.find('table').length > 0;
 
+  let headerCount = table.find('thead th').length;
   let rows = table.find('tbody tr').length > 0 ? table.find('tbody tr') : table.find('tr');
 
   // No <thead>: if the first row is all <th>, treat it as the header row.
-  if (headers.length === 0 && rows.length > 0) {
-    const firstRow = rows.first();
-    const firstCells = firstRow.find('th');
+  if (headerCount === 0 && rows.length > 0) {
+    const firstCells = rows.first().find('th');
     if (firstCells.length > 0) {
-      headers = firstCells.map((_, el) => normalizeWhitespace($(el).text())).get();
+      headerCount = firstCells.length;
       rows = rows.slice(1);
     }
   }
 
   let mismatch = false;
-  const lines = rows
-    .map((i, tr) => {
-      const cells = $(tr)
-        .find('td, th')
-        .map((_, td) => normalizeWhitespace($(td).text()))
-        .get();
-      if (headers.length !== cells.length) mismatch = true;
-      const paired =
-        headers.length === cells.length ? cells.map((c, idx) => `${headers[idx]}: ${c}`) : cells;
-      return `Row ${i + 1}: ${paired.join('; ')}`;
-    })
-    .get();
+  if (headerCount > 0) {
+    rows.each((_, tr) => {
+      if ($(tr).find('td, th').length !== headerCount) mismatch = true;
+    });
+  }
 
-  const caption = normalizeWhitespace(table.find('caption').first().text());
-  const text = (caption ? `Table — ${caption}\n` : 'Table:\n') + lines.join('\n');
-
-  return { text, complex: hasMergedCells || hasNestedTable || mismatch };
+  const html = sanitizeTableHtml($.html(table));
+  return { html, complex: hasMergedCells || hasNestedTable || mismatch };
 }

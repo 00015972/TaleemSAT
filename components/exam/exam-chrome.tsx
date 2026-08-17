@@ -1,6 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react';
 
 /**
  * Test-taking chrome — the shell a timed section runs inside.
@@ -124,11 +131,127 @@ export function ExamStage({
 }
 
 /** The crest and wordmark, printed faintly under the blocks. Decorative only. */
-function ExamWatermark() {
+export function ExamWatermark() {
   return (
     <div className="ex-wm" aria-hidden="true">
       <div className="ex-wm-tile" />
       <div className="ex-wm-logo" />
+    </div>
+  );
+}
+
+// ─── Split: two borderless, independently-scrolling panes with a drag handle ──
+
+const SPLIT_MIN = 25;
+const SPLIT_MAX = 75;
+const SPLIT_DEFAULT = 50;
+
+function clampSplit(n: number) {
+  return Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, n));
+}
+
+function readSplitPct(storageKey: string): number {
+  if (typeof window === 'undefined') return SPLIT_DEFAULT;
+  try {
+    const saved = Number(localStorage.getItem(storageKey));
+    return saved >= SPLIT_MIN && saved <= SPLIT_MAX ? saved : SPLIT_DEFAULT;
+  } catch {
+    return SPLIT_DEFAULT;
+  }
+}
+function getSplitServerSnapshot() {
+  return SPLIT_DEFAULT;
+}
+/** The stored ratio never changes except through our own drag/key handlers
+ * below, which re-render locally — so there's nothing external to subscribe to. */
+function subscribeNever() {
+  return () => {};
+}
+
+/**
+ * A resizable two-pane layout — no card chrome, just a hairline divider you
+ * can drag. The ratio is remembered (localStorage) across questions and
+ * visits until dragged again. Reads the persisted value via
+ * useSyncExternalStore (not an effect) so it's SSR-safe without a
+ * hydration-mismatch flash — same pattern as the sidebar's collapsed state.
+ */
+export function ExamSplit({
+  left,
+  right,
+  storageKey = 'taleem_exam_split',
+}: {
+  left: ReactNode;
+  right: ReactNode;
+  storageKey?: string;
+}) {
+  const persistedPct = useSyncExternalStore(
+    subscribeNever,
+    () => readSplitPct(storageKey),
+    getSplitServerSnapshot
+  );
+  // Non-null while the user is actively overriding the persisted ratio
+  // (dragging, or just finished a keyboard nudge).
+  const [livePct, setLivePct] = useState<number | null>(null);
+  const pct = livePct ?? persistedPct;
+
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const draggingRef = useRef(false);
+
+  const dragTo = useCallback((clientX: number) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setLivePct(clampSplit(((clientX - rect.left) / rect.width) * 100));
+  }, []);
+
+  const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    draggingRef.current = true;
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }, []);
+
+  const onPointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!draggingRef.current) return;
+      dragTo(e.clientX);
+    },
+    [dragTo]
+  );
+
+  const endDrag = useCallback(() => {
+    if (!draggingRef.current) return;
+    draggingRef.current = false;
+    setLivePct(p => {
+      if (p != null) localStorage.setItem(storageKey, String(Math.round(p)));
+      return p;
+    });
+  }, [storageKey]);
+
+  return (
+    <div className="ex-split" ref={containerRef}>
+      <ExamWatermark />
+      <div className="ex-split-pane" style={{ flexBasis: `${pct}%` }}>
+        {left}
+      </div>
+      <div
+        className="ex-split-handle"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize the question and answer panels"
+        tabIndex={0}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        onKeyDown={e => {
+          if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+          e.preventDefault();
+          const next = clampSplit(pct + (e.key === 'ArrowLeft' ? -2 : 2));
+          localStorage.setItem(storageKey, String(Math.round(next)));
+          setLivePct(next);
+        }}
+      />
+      <div className="ex-split-pane" style={{ flexBasis: `${100 - pct}%` }}>
+        {right}
+      </div>
     </div>
   );
 }

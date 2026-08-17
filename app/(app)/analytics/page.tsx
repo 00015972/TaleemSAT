@@ -321,7 +321,7 @@ function EmptyState() {
         <p className="text-sm mb-4" style={{ color: 'var(--txt-soft)' }}>
           Answer some practice questions and your accuracy breakdown will appear here.
         </p>
-        <Link href="/practice" className="prx-btn inline-block">
+        <Link href="/question-bank" className="prx-btn inline-block">
           Start practicing →
         </Link>
       </div>

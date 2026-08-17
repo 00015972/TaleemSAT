@@ -104,6 +104,7 @@ export async function POST(
         // deliberately attached figure ever reaches a student.
         question_image_url: item.question_image_url,
         chart_svg: item.chart_svg,
+        tables: item.tables ?? [],
         options: item.question_type === 'grid_in' ? [] : options,
         correct_answer: item.correct_answer ?? '',
         accepted_answers: item.accepted_answers ?? [],

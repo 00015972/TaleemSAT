@@ -25,7 +25,8 @@
   --txt: #1a1a1a;
   --txt-soft: #2d2d2a;
   --muted: #6b6962;
-  --muted-l: #94918a;
+  /* was #94918a — 3.1:1 on --surf, fails WCAG AA body text. Darkened to ~4.8:1. */
+  --muted-l: #767268;
   --border: #ddd8cc;
   --border-l: #e8e4d7;
   --ok: #1a6b35;
@@ -43,9 +44,9 @@
   --sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
-  --sb-w: 17rem;
-  --sb-w-c: 4.75rem;
-  --tb-h: 4rem;
+  --sb-w: 14.5rem;
+  --sb-w-c: 4.25rem;
+  --tb-h: 3rem;
 }
 
 [data-theme='dark'] {
@@ -329,11 +330,23 @@ input[type='date'].form-input::-webkit-inner-spin-button {
   flex-wrap: wrap;
 }
 .prx-rail-bub {
+  position: relative;
   width: 13px;
   height: 13px;
   border-radius: 50%;
   border: 1.4px solid var(--border);
   animation: prx-pop 0.35s var(--ease) both;
+}
+.prx-rail-bub.flag::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--gold);
+  border: 1px solid var(--surf);
 }
 .prx-rail-bub.hit {
   background: var(--green);
@@ -508,6 +521,62 @@ input[type='date'].form-input::-webkit-inner-spin-button {
   margin: 0 auto;
 }
 
+/* A question's paragraphs + any real <table> markup (components/reading/
+   question-body.tsx), replacing what used to be one flattened blob of text. */
+.qbody p + p {
+  margin-top: 0.85em;
+}
+.qbody .q-table {
+  margin: 0.9em 0;
+}
+
+/* Tables extracted from an HTML import (lib/import/table-sanitize.ts) — real
+   markup, not the flattened "Row 1: Column: value" text the parser used to
+   produce. Follows the site theme (unlike .q-chart, which locks light for
+   its baked-in SVG colors) since this is just structured text. */
+.q-table {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--rad-s);
+}
+.q-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--sans);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+.q-table caption {
+  caption-side: top;
+  text-align: left;
+  font-weight: 600;
+  padding: 0.55rem 0.7rem;
+  color: var(--txt);
+  background: var(--surf);
+  border-bottom: 1px solid var(--border);
+}
+.q-table th,
+.q-table td {
+  padding: 0.5rem 0.7rem;
+  text-align: left;
+  vertical-align: top;
+  color: var(--txt);
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+.q-table th:last-child,
+.q-table td:last-child {
+  border-right: 0;
+}
+.q-table tbody tr:last-child > td,
+.q-table tbody tr:last-child > th {
+  border-bottom: 0;
+}
+.q-table thead th {
+  background: var(--surf);
+  font-weight: 600;
+}
+
 /* options — pencil the bubble */
 .prx-opts {
   display: flex;
@@ -527,10 +596,20 @@ input[type='date'].form-input::-webkit-inner-spin-button {
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
 }
-.prx-opt:disabled {
+.prx-opt:disabled,
+.prx-opt[aria-disabled='true'] {
   cursor: default;
 }
+/* once solved, whatever was never tried and isn't the key just fades —
+   there's nothing left to do with it */
+.prx-opt[aria-disabled='true']:not(.key):not(.tried) {
+  opacity: 0.5;
+}
 .prx-opt:not(:disabled):hover {
+  border-color: var(--green2);
+  background: color-mix(in srgb, var(--green) 5%, var(--surf));
+}
+.prx-opt:not([aria-disabled='true']):hover {
   border-color: var(--green2);
   background: color-mix(in srgb, var(--green) 5%, var(--surf));
 }
@@ -616,6 +695,18 @@ input[type='date'].form-input::-webkit-inner-spin-button {
 .prx-opt.missed .prx-opt-bub::before {
   background: var(--err);
   transform: scale(1);
+}
+/* crossed out — the exam-mode elimination tool, same button as Mock */
+.prx-opt.elim {
+  opacity: 0.5;
+}
+.prx-opt.elim .prx-opt-text {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+.prx-opt.elim .mk-elim-btn {
+  opacity: 1;
+  color: var(--err);
 }
 
 /* verdict + explanation */
@@ -2813,16 +2904,154 @@ html[data-exam='on'] .sb-backdrop {
   flex-direction: column;
   gap: 0.6rem;
 }
-.ex-panel .mk-opt {
+.ex-panel .mk-opt,
+.ex-split-pane .mk-opt {
   padding: 0.8rem 1rem;
   border-radius: var(--rad-l);
 }
-.ex-panel .mk-opt-text {
+.ex-panel .mk-opt-text,
+.ex-split-pane .mk-opt-text {
   font-size: 1rem;
 }
-.ex-panel .mk-opt-bub {
+.ex-panel .mk-opt-bub,
+.ex-split-pane .mk-opt-bub {
   width: 26px;
   height: 26px;
+}
+/* Practice keeps its own pencil-fill bubble (.prx-opt) inside the exam
+   panel, sized to match — everything else about the panel is shared. */
+.ex-panel .prx-opt,
+.ex-split-pane .prx-opt {
+  padding: 0.8rem 1rem;
+  border-radius: var(--rad-l);
+}
+.ex-panel .prx-opt-text,
+.ex-split-pane .prx-opt-text {
+  font-size: 1rem;
+}
+.ex-panel .prx-opt-bub,
+.ex-split-pane .prx-opt-bub {
+  width: 26px;
+  height: 26px;
+}
+/* tried-and-locked: server confirmed this pick is wrong. Distinct from
+   .elim (the student's own reversible scratch-work) — this one won't undo. */
+.prx-opt.tried {
+  border-color: var(--err);
+  background: color-mix(in srgb, var(--err) 7%, var(--surf));
+  cursor: default;
+}
+.prx-opt.tried .prx-opt-bub {
+  border-color: var(--err);
+  color: #fff;
+}
+.prx-opt.tried .prx-opt-bub::before {
+  background: var(--err);
+  transform: scale(1);
+}
+
+/* ─ split layout: borderless panes + a draggable divider ─ */
+.ex-split {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+}
+.ex-split-pane {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1rem 1.5rem 1.1rem;
+}
+.ex-split-pane .prx-passage {
+  max-height: none;
+  overflow: visible;
+  background: transparent;
+  border-left: 0;
+  border-radius: 0;
+  padding: 0;
+  font-size: 1.06rem;
+  line-height: 1.85;
+  margin-bottom: 0;
+}
+.ex-split-handle {
+  flex-shrink: 0;
+  width: 15px;
+  margin: 0 -7px;
+  position: relative;
+  z-index: 2;
+  cursor: col-resize;
+  touch-action: none;
+}
+.ex-split-handle::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 4%;
+  bottom: 4%;
+  width: 1px;
+  background: var(--border);
+  transform: translateX(-50%);
+  transition: background 0.15s, width 0.15s;
+}
+.ex-split-handle:hover::before,
+.ex-split-handle:focus-visible::before {
+  width: 2px;
+  background: var(--gold);
+}
+.ex-split-handle:focus-visible {
+  outline: none;
+}
+
+/* question pane: number + difficulty sit above the passage, not in a bar */
+.ex-q-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+/* choices pane: mark / cross-out / check, right above the answer keys */
+.ex-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 2px dashed var(--border);
+}
+.ex-toolbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.ex-solved-pill {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+  color: var(--ok);
+}
+.ex-clock.big {
+  font-size: 1.7rem;
+}
+@media (max-width: 900px) {
+  .ex-split {
+    flex-direction: column;
+  }
+  .ex-split-pane {
+    flex-basis: auto !important;
+  }
+  .ex-split-handle {
+    display: none;
+  }
 }
 .ex-conf {
   display: flex;
@@ -3348,54 +3577,6 @@ html[data-exam='on'] .sb-backdrop {
   }
 }
 
-/* focus mode toggle + the head cluster it lives in */
-.prx-head-right {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.6rem;
-}
-.prx-focus-btn {
-  font-family: var(--mono);
-  font-size: 0.6rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 0.26rem 0.58rem;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surf);
-  color: var(--muted);
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
-}
-.prx-focus-btn:hover {
-  border-color: var(--green);
-  color: var(--green);
-}
-.prx-focus-btn.on {
-  background: var(--green);
-  border-color: var(--green);
-  color: #fff;
-}
-
-/* focus mode: hide the syllabus rail, center + widen the reading column */
-.prx-layout.prx-focus {
-  grid-template-columns: 1fr;
-}
-.prx-layout.prx-focus > aside {
-  display: none;
-}
-.prx-layout.prx-focus .prx-card {
-  max-width: 46rem;
-  margin-inline: auto;
-}
-.prx-layout.prx-focus .prx-passage {
-  max-height: clamp(10rem, 55vh, 32rem);
-}
-/* a split reading question wants the width back, not a narrower measure */
-.prx-layout.prx-focus .prx-card:has(.prx-split) {
-  max-width: 72rem;
-}
-
 /* AI "Why is this the answer?" */
 .why {
   margin-top: 0.95rem;
@@ -3647,7 +3828,7 @@ html[data-sb-collapsed='true'] .app-sb {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 1.1rem 1rem 0.9rem;
+  padding: 1rem 0.85rem 0.8rem;
   flex-shrink: 0;
 }
 .sb-logo {
@@ -3731,7 +3912,7 @@ html[data-sb-collapsed='true'] .sb-collapse-btn svg {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 0.5rem 0.8rem;
+  padding: 0.5rem 0.65rem;
 }
 .sb-nav {
   display: flex;
@@ -3741,21 +3922,30 @@ html[data-sb-collapsed='true'] .sb-collapse-btn svg {
 .sb-div {
   height: 1px;
   background: var(--border-l);
-  margin: 0.7rem 0.45rem;
+  margin: 0.65rem 0.4rem;
 }
 
 .sb-link {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.62rem 0.75rem;
+  gap: 0.65rem;
+  padding: 0.56rem 0.65rem;
   border-radius: var(--rad);
   color: var(--txt-soft);
-  font-size: 0.9rem;
+  font-size: 0.86rem;
   font-weight: 500;
   white-space: nowrap;
   transition: background 0.15s, color 0.15s;
+}
+/* ThemeToggle's row variant reuses .sb-link but is a <button>, not a <Link> */
+.sb-theme-row {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 .sb-link:hover {
   background: var(--bg);
@@ -3793,8 +3983,8 @@ html[data-sb-collapsed='true'] .sb-collapse-btn svg {
    brand hues, alternating, so it reads as a rhythm not a rainbow */
 .sb-ico-chip {
   flex-shrink: 0;
-  width: 30px;
-  height: 30px;
+  width: 27px;
+  height: 27px;
   border-radius: 8px;
   display: inline-flex;
   align-items: center;
@@ -3804,8 +3994,8 @@ html[data-sb-collapsed='true'] .sb-collapse-btn svg {
   transition: background 0.15s, color 0.15s;
 }
 .sb-ico-chip svg {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
 }
 .sb-ico-chip.gold {
   background: color-mix(in srgb, var(--gold) 16%, transparent);
@@ -3841,9 +4031,63 @@ html[data-sb-collapsed='true'] .sb-label {
   opacity: 0;
 }
 
+/* Streak + points — relocated from the old topbar pills. The streak chip
+   carries the answer-sheet bubble motif (penciled when a streak is active)
+   instead of a generic flame, so it reads as this app's, not a stock widget. */
+.sb-stats {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.5rem 0 0.15rem;
+}
+.sb-stat {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.42rem 0.5rem;
+  border-radius: var(--rad-s);
+  background: var(--bg);
+  border: 1px solid var(--border-l);
+}
+.sb-stat-bub {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid var(--gold);
+  background: transparent;
+  transition: background 0.15s;
+}
+.sb-stat-bub[data-lit] {
+  background: var(--gold);
+}
+.sb-stat-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  margin: 0 1.5px;
+  border-radius: 50%;
+  background: var(--green);
+}
+.sb-stat-text {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  letter-spacing: 0.01em;
+}
+.sb-stat-text strong {
+  font-weight: 700;
+  color: var(--txt);
+  margin-right: 0.2rem;
+}
+html[data-sb-collapsed='true'] .sb-stats {
+  display: none;
+}
+
 .sb-foot {
   flex-shrink: 0;
-  padding: 0.7rem 0.8rem 0.9rem;
+  padding: 0.6rem 0.65rem 0.75rem;
   border-top: 1px solid var(--border-l);
   display: flex;
   flex-direction: column;
@@ -3852,8 +4096,8 @@ html[data-sb-collapsed='true'] .sb-label {
 .sb-account {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
-  padding: 0.45rem;
+  gap: 0.6rem;
+  padding: 0.4rem;
   border-radius: var(--rad);
   min-width: 0;
   transition: background 0.15s;
@@ -3863,8 +4107,8 @@ html[data-sb-collapsed='true'] .sb-label {
 }
 .sb-avatar {
   flex-shrink: 0;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
@@ -3937,7 +4181,9 @@ html[data-sb-collapsed='true'] .sb-logout .sb-label {
   display: none;
 }
 
-/* ─ Right column: topbar + content ─ */
+/* ─ Right column: topbar + content ─
+   Desktop has no top chrome — .app-tb is a mobile-only drawer trigger, see
+   the max-width:900px block below. Every page owns its own heading now. */
 .app-main {
   flex: 1;
   min-width: 0;
@@ -3945,15 +4191,14 @@ html[data-sb-collapsed='true'] .sb-logout .sb-label {
   flex-direction: column;
 }
 .app-tb {
+  display: none;
   position: sticky;
   top: 0;
   z-index: 40;
   height: var(--tb-h);
   flex-shrink: 0;
-  display: flex;
   align-items: center;
-  gap: 0.9rem;
-  padding: 0 1.25rem;
+  padding: 0 1rem;
   background: color-mix(in srgb, var(--surf) 88%, transparent);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
@@ -3973,60 +4218,6 @@ html[data-sb-collapsed='true'] .sb-logout .sb-label {
 }
 .tb-menu-btn:hover {
   background: var(--surf2);
-}
-.tb-title {
-  font-family: var(--serif);
-  font-weight: 700;
-  font-size: 1.05rem;
-  color: var(--txt);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.tb-right {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-}
-.tb-pill {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.3rem;
-  font-family: var(--mono);
-  font-size: 0.68rem;
-  letter-spacing: 0.03em;
-  padding: 0.34rem 0.7rem;
-  border-radius: 999px;
-  background: var(--surf2);
-  color: var(--muted);
-  white-space: nowrap;
-}
-.tb-pill strong {
-  font-weight: 700;
-  color: var(--txt);
-}
-.tb-pill.streak strong {
-  color: var(--gold-d);
-}
-.tb-avatar {
-  flex-shrink: 0;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--sans);
-  font-size: 0.68rem;
-  font-weight: 700;
-  color: #fff;
-  background: linear-gradient(135deg, var(--green) 0%, var(--green2) 100%);
-  border: 2px solid var(--border-l);
-  transition: border-color 0.15s;
-}
-.tb-avatar:hover {
-  border-color: var(--gold);
 }
 
 .app-content {
@@ -4109,6 +4300,9 @@ html[data-sb-collapsed='true'] .sb-logout .sb-label {
   .tb-menu-btn {
     display: inline-flex;
   }
+  .app-tb {
+    display: flex;
+  }
 }
 
 @media (min-width: 901px) {
@@ -4117,19 +4311,12 @@ html[data-sb-collapsed='true'] .sb-logout .sb-label {
   }
 }
 
-@media (max-width: 480px) {
-  .tb-pill.points {
-    display: none;
-  }
-}
-
 .sb-link:focus-visible,
 .sb-collapse-btn:focus-visible,
 .sb-close-btn:focus-visible,
 .sb-logout:focus-visible,
 .sb-account:focus-visible,
-.tb-menu-btn:focus-visible,
-.tb-avatar:focus-visible {
+.tb-menu-btn:focus-visible {
   outline: 2px solid var(--gold);
   outline-offset: 2px;
 }
@@ -4151,31 +4338,69 @@ html[data-sb-collapsed='true'] .sb-logout .sb-label {
    The topic picker: subject columns -> domain groups -> skill rows. Carries
    the answer-sheet metaphor from the question view — each skill row leads with
    a bubble that fills as the topic gets completed. */
-.pbr-filters {
+.pbr-head {
   display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
   flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.75rem;
+}
+.pbr-title {
+  font-family: var(--serif);
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--txt);
+  line-height: 1.15;
+}
+.pbr-sub {
+  margin-top: 0.3rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+/* Segmented control, not a loose row of pills — bigger targets, one clear
+   raised state, tucked beside the title instead of floating above the grid. */
+.pbr-filters {
+  flex-shrink: 0;
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--surf2);
+  border: 1px solid var(--border-l);
 }
 .pbr-chip {
-  padding: 0.35rem 0.85rem;
+  padding: 0.5rem 1.15rem;
   border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surf);
-  font-size: 0.8125rem;
+  border: 0;
+  background: transparent;
+  font-size: 0.85rem;
+  font-weight: 500;
   color: var(--muted);
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
 }
 .pbr-chip:hover {
   color: var(--txt-soft);
-  border-color: var(--muted-l);
 }
 .pbr-chip.on {
-  background: var(--green-xl);
-  border-color: color-mix(in srgb, var(--green) 30%, transparent);
+  background: var(--surf);
   color: var(--green);
-  font-weight: 600;
+  font-weight: 700;
+  box-shadow: var(--shad-s);
+}
+@media (max-width: 560px) {
+  .pbr-head {
+    align-items: stretch;
+  }
+  .pbr-filters {
+    justify-content: space-between;
+  }
+  .pbr-chip {
+    flex: 1;
+    padding-inline: 0.6rem;
+  }
 }
 
 .pbr-cols {
@@ -4377,47 +4602,6 @@ html[data-sb-collapsed='true'] .sb-logout .sb-label {
   .pbr-track-fill {
     transition: none;
   }
-}
-
-/* Scope header shown above the question once a topic is chosen. */
-.prx-scope {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-bottom: 1.1rem;
-}
-.prx-back {
-  padding: 0.3rem 0.7rem;
-  border-radius: var(--rad-s);
-  border: 1px solid var(--border);
-  background: var(--surf);
-  font-size: 0.8125rem;
-  color: var(--muted);
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
-}
-.prx-back:hover {
-  color: var(--txt-soft);
-  border-color: var(--muted-l);
-}
-.prx-scope-name {
-  font-family: var(--serif-body);
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--txt);
-}
-.prx-scope-diff {
-  padding: 0.1rem 0.5rem;
-  border-radius: 999px;
-  background: var(--surf2);
-  font-size: 0.6875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted);
-}
-.prx-focus .prx-scope {
-  display: none;
 }
 
 /* ── Import review ─────────────────────────────────────────────────────────

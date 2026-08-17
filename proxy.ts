@@ -47,7 +47,7 @@ export async function proxy(request: NextRequest) {
   const isProtectedRoute =
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/settings') ||
-    pathname.startsWith('/practice') ||
+    pathname.startsWith('/question-bank') ||
     pathname.startsWith('/qod') ||
     pathname.startsWith('/analytics') ||
     pathname.startsWith('/certificates');

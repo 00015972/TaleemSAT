@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ItemStatusPill, StatusPill } from '@/components/admin/import-status-pill';
 import { ChartFigure } from '@/components/reading/chart-figure';
+import { QuestionBody } from '@/components/reading/question-body';
 
 export type ImportItem = {
   id: string;
@@ -20,6 +21,7 @@ export type ImportItem = {
   page_image_url: string | null;
   question_image_url: string | null;
   chart_svg: string | null;
+  tables: string[] | null;
   verification_notes: Record<string, unknown> | null;
   validation_errors: string[] | null;
   question_id: string | null;
@@ -393,7 +395,11 @@ function ItemCard({
         <div className="imp-body">
           <ChartFigure svg={item.chart_svg} />
           {item.passage && <p className="imp-passage">{item.passage}</p>}
-          <p className="imp-q">{item.question_text ?? <em>No question text</em>}</p>
+          {item.question_text ? (
+            <QuestionBody text={item.question_text} tables={item.tables} className="imp-q" />
+          ) : (
+            <p className="imp-q"><em>No question text</em></p>
+          )}
 
           {item.question_type === 'mcq' ? (
             <ul className="imp-opts">

@@ -10,6 +10,7 @@ import {
   type Difficulty,
   type QuestionOptions,
 } from '@/lib/admin/question-validation';
+import { QuestionBody } from '@/components/reading/question-body';
 
 export type SubjectOption = { id: string; name: string };
 export type CategoryOption = { id: string; name: string; subjectId: string };
@@ -25,6 +26,10 @@ export type QuestionFormInitial = {
   difficulty: string;
   status: string;
   tags: string[];
+  /** Sanitized <table> markup, read-only here — see lib/import/table-sanitize.ts.
+   * There's no table editor; `questionText`'s `[[table:N]]` tokens just need
+   * to survive editing so the preview (and the live question) keep the table. */
+  tables?: string[];
 };
 
 const EMPTY: QuestionFormInitial = {
@@ -38,6 +43,7 @@ const EMPTY: QuestionFormInitial = {
   difficulty: 'medium',
   status: 'draft',
   tags: [],
+  tables: [],
 };
 
 export function QuestionForm({
@@ -187,7 +193,15 @@ export function QuestionForm({
         </Field>
 
         {/* Question text */}
-        <Field label="Question" error={fieldError('questionText')}>
+        <Field
+          label="Question"
+          hint={
+            form.tables && form.tables.length > 0
+              ? `Includes ${form.tables.length === 1 ? 'a table' : `${form.tables.length} tables`} — keep the [[table:N]] marker${form.tables.length === 1 ? '' : 's'} in place; only edit the surrounding text.`
+              : undefined
+          }
+          error={fieldError('questionText')}
+        >
           <textarea
             className="form-input"
             rows={3}
@@ -375,11 +389,13 @@ function QuestionPreview({ form }: { form: QuestionFormInitial }) {
 
       {form.passage.trim() && <div className="prx-passage">{form.passage}</div>}
 
-      <p className="prx-stem">
-        {form.questionText.trim() || (
+      {form.questionText.trim() ? (
+        <QuestionBody text={form.questionText} tables={form.tables} className="prx-stem" />
+      ) : (
+        <p className="prx-stem">
           <span className="text-muted italic">Question text appears here…</span>
-        )}
-      </p>
+        </p>
+      )}
 
       <div className="prx-opts">
         {ANSWER_KEYS.map(key => {
