@@ -13,6 +13,7 @@ const PAGE_SIZE = 50;
 type SearchParams = {
   subject?: string;
   category?: string;
+  topic?: string;
   difficulty?: string;
   status?: string;
   q?: string;
@@ -32,15 +33,16 @@ export default async function QuestionsPage({
   const to = from + PAGE_SIZE - 1;
 
   // Filter option sources
-  const [{ data: subjectRows }, { data: categoryRows }] = await Promise.all([
+  const [{ data: subjectRows }, { data: categoryRows }, { data: topicRows }] = await Promise.all([
     admin.from('subjects').select('id, name').order('display_order'),
     admin.from('categories').select('id, name, subject_id').order('display_order'),
+    admin.from('topics').select('id, name, category_id').order('display_order'),
   ]);
 
   let query = admin
     .from('questions')
     .select(
-      'id, question_text, difficulty, status, created_at, subject_id, category_id, categories(name), subjects(name)',
+      'id, question_text, difficulty, status, created_at, subject_id, category_id, source_ref, categories(name), subjects(name)',
       { count: 'exact' }
     )
     .order('created_at', { ascending: false })
@@ -48,9 +50,18 @@ export default async function QuestionsPage({
 
   if (sp.subject) query = query.eq('subject_id', sp.subject);
   if (sp.category) query = query.eq('category_id', sp.category);
+  if (sp.topic) query = query.eq('topic_id', sp.topic);
   if (sp.difficulty) query = query.eq('difficulty', sp.difficulty as 'easy' | 'medium' | 'hard');
   if (sp.status) query = query.eq('status', sp.status as 'draft' | 'published' | 'archived');
-  if (sp.q) query = query.ilike('question_text', `%${sp.q}%`);
+  // A search term matches either the question text or its College Board
+  // source ID — the ID printed above each question in the source bank, which
+  // is what an admin chasing a specific question actually has in hand.
+  // Quoted per PostgREST's or() syntax so a comma/paren in the search text
+  // isn't parsed as a filter separator.
+  if (sp.q) {
+    const escaped = sp.q.replace(/"/g, '\\"');
+    query = query.or(`question_text.ilike."%${escaped}%",source_ref.ilike."%${escaped}%"`);
+  }
 
   const { data: rows, count } = await query;
 
@@ -59,6 +70,7 @@ export default async function QuestionsPage({
     const subject = Array.isArray(r.subjects) ? r.subjects[0] : r.subjects;
     return {
       id: r.id,
+      sourceRef: r.source_ref,
       preview: r.question_text.slice(0, 80),
       subjectName: (subject as { name: string } | null)?.name ?? '—',
       categoryName: (category as { name: string } | null)?.name ?? '—',
@@ -74,6 +86,11 @@ export default async function QuestionsPage({
     label: c.name,
     subjectId: c.subject_id,
   }));
+  const topics = (topicRows ?? []).map(t => ({
+    value: t.id,
+    label: t.name,
+    categoryId: t.category_id,
+  }));
 
   const total = count ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -84,12 +101,14 @@ export default async function QuestionsPage({
         questions={questions}
         subjects={subjects}
         categories={categories}
+        topics={topics}
         total={total}
         page={page}
         totalPages={totalPages}
         filters={{
           subject: sp.subject ?? '',
           category: sp.category ?? '',
+          topic: sp.topic ?? '',
           difficulty: sp.difficulty ?? '',
           status: sp.status ?? '',
           q: sp.q ?? '',

@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { validateQuestion } from '@/lib/admin/question-validation';
+import { sanitizeQuestionTextBlocks, sanitizeRichText } from '@/lib/import/richtext-sanitize';
 
 export const dynamic = 'force-dynamic';
 
@@ -103,7 +104,13 @@ export async function PATCH(
     subjectId = cat?.subject_id ?? subjectId;
   }
 
-  const options = merged.options ?? [];
+  // Sanitize here regardless of source: content already parsed by
+  // lib/import/html-questions.ts is already sanitized (re-sanitizing is a
+  // no-op), but an admin free-typing into the review editor bypasses that
+  // parser entirely and must not reach `dangerouslySetInnerHTML` unsanitized.
+  merged.questionText = sanitizeQuestionTextBlocks(merged.questionText);
+  merged.explanation = sanitizeQuestionTextBlocks(merged.explanation);
+  const options = (merged.options ?? []).map(o => ({ ...o, text: sanitizeRichText(o.text) }));
   const validation = validateQuestion({
     subjectId: subjectId ?? '',
     categoryId: categoryId ?? '',

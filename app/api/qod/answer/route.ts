@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { NextRequest } from 'next/server';
+import { gridInAnswerMatches } from '@/lib/grading/grid-in';
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
   // Fetch correct answer (server-side only)
   const { data: question } = await admin
     .from('questions')
-    .select('correct_answer, explanation')
+    .select('correct_answer, accepted_answers, explanation, question_type')
     .eq('id', schedule.question_id)
     .single();
 
@@ -63,7 +64,10 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: 'QUESTION_NOT_FOUND' }, { status: 404 });
   }
 
-  const isCorrect = selectedAnswer === question.correct_answer;
+  const isCorrect =
+    question.question_type === 'grid_in'
+      ? gridInAnswerMatches(selectedAnswer, question.accepted_answers ?? [])
+      : selectedAnswer === question.correct_answer;
   const pointsAwarded = isCorrect ? 1 : 0;
 
   // Record QOD answer

@@ -7,6 +7,15 @@ import { validateQuestion } from '@/lib/admin/question-validation';
 export const dynamic = 'force-dynamic';
 
 /**
+ * `unknown-<index>` is html-questions.ts's fallback when a source page has no
+ * parseable ID — an index, not an identity, so two different uploads reuse
+ * the same values and must never be treated as a dedup match.
+ */
+function isReliableSourceRef(ref: string | null): ref is string {
+  return Boolean(ref) && !ref!.startsWith('unknown-');
+}
+
+/**
  * Promote staged items into `questions` as drafts.
  *
  * This is the only path from staging into the real bank, so it re-validates
@@ -91,6 +100,30 @@ export async function POST(
       continue;
     }
 
+    // The same question can arrive in more than one upload (e.g. a re-export
+    // that overlaps an earlier one). Its source_ref is College Board's own
+    // question ID, so a match here means the bank already has this question
+    // — link this item to it instead of inserting a second copy.
+    if (isReliableSourceRef(item.source_ref)) {
+      const { data: existing } = await admin
+        .from('questions')
+        .select('id')
+        .eq('source_ref', item.source_ref)
+        .maybeSingle();
+
+      if (existing) {
+        await admin
+          .from('import_job_items')
+          .update({ status: 'approved', question_id: existing.id })
+          .eq('id', item.id);
+        skipped.push({
+          itemId: item.id,
+          reason: `Duplicate — already in the bank (ID ${item.source_ref})`,
+        });
+        continue;
+      }
+    }
+
     const { data: question, error: insertError } = await admin
       .from('questions')
       .insert({
@@ -112,6 +145,7 @@ export async function POST(
         difficulty: item.difficulty!,
         status: 'draft',
         tags: [],
+        source_ref: isReliableSourceRef(item.source_ref) ? item.source_ref : null,
         created_by: user.id,
       })
       .select('id')

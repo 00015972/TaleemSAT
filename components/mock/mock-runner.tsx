@@ -15,6 +15,7 @@ import { PassageReader } from '@/components/reading/passage-reader';
 import { WhyPanel } from '@/components/reading/why-panel';
 import { ChartFigure } from '@/components/reading/chart-figure';
 import { QuestionBody } from '@/components/reading/question-body';
+import { GridInInput } from '@/components/reading/grid-in-input';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -26,6 +27,7 @@ type MockQuestion = {
   question_text: string;
   chart_svg: string | null;
   tables: string[] | null;
+  question_type: 'mcq' | 'grid_in';
   options: Option[];
   difficulty: 'easy' | 'medium' | 'hard';
   tags: string[];
@@ -456,7 +458,7 @@ export function MockRunner({ pro = false }: { pro?: boolean }) {
                     {r.explanation && (
                       <div className="prx-expl">
                         <p className="prx-expl-label">Explanation</p>
-                        <p className="prx-expl-body">{r.explanation}</p>
+                        <QuestionBody text={r.explanation} className="prx-expl-body" />
                       </div>
                     )}
                     <WhyPanel questionId={q.id} pro={pro} />
@@ -828,6 +830,17 @@ function ChoiceSide({
 }) {
   const scored = result !== null;
 
+  if (q.question_type === 'grid_in') {
+    return (
+      <GridInInput
+        value={selected ?? ''}
+        onChange={v => onSelect(q.id, v)}
+        disabled={scored}
+        state={scored ? (result?.isCorrect ? 'key' : 'missed') : undefined}
+      />
+    );
+  }
+
   return (
     <>
       <div className="ex-opts" role="group" aria-label="Answer choices">
@@ -860,7 +873,7 @@ function ChoiceSide({
               aria-pressed={isSel}
             >
               <span className="mk-opt-bub">{opt.id}</span>
-              <span className="mk-opt-text">{opt.text}</span>
+              <span className="mk-opt-text" dangerouslySetInnerHTML={{ __html: opt.text }} />
               {isKey && <span className="mk-opt-flag ok">✓</span>}
               {isMiss && <span className="mk-opt-flag err">✗</span>}
               {!scored && elimMode && (

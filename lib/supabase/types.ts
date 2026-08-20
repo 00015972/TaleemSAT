@@ -727,6 +727,7 @@ export type Database = {
           question_image_url: string | null
           question_text: string
           question_type: Database["public"]["Enums"]["question_type"]
+          source_ref: string | null
           status: Database["public"]["Enums"]["question_status"]
           subject_id: string
           tables: string[]
@@ -749,6 +750,7 @@ export type Database = {
           question_image_url?: string | null
           question_text: string
           question_type?: Database["public"]["Enums"]["question_type"]
+          source_ref?: string | null
           status?: Database["public"]["Enums"]["question_status"]
           subject_id: string
           tables?: string[]
@@ -771,6 +773,7 @@ export type Database = {
           question_image_url?: string | null
           question_text?: string
           question_type?: Database["public"]["Enums"]["question_type"]
+          source_ref?: string | null
           status?: Database["public"]["Enums"]["question_status"]
           subject_id?: string
           tables?: string[]

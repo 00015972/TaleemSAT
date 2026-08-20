@@ -27,7 +27,18 @@ const STRUCTURAL_TAGS = new Set([
   'td',
 ]);
 const INLINE_TAGS = new Set(['strong', 'em', 'b', 'i', 'sup', 'sub', 'br', 'span']);
-const ALLOWED_TAGS = new Set([...STRUCTURAL_TAGS, ...INLINE_TAGS]);
+// A table cell can hold a formula (e.g. a "which table satisfies this
+// equation" Math question) — allow MathML structurally; attributes still get
+// stripped below like everywhere else, which every construct here renders
+// fine without. Kept as its own list rather than importing
+// richtext-sanitize.ts's, to avoid a circular import (that module calls back
+// into this one for tables nested inside rich text).
+const MATHML_TAGS = new Set([
+  'math', 'mrow', 'mi', 'mn', 'mo', 'mtext', 'mspace', 'mfrac', 'msqrt',
+  'mroot', 'msup', 'msub', 'msubsup', 'munder', 'mover', 'munderover',
+  'mfenced', 'mpadded', 'mstyle', 'menclose', 'semantics', 'annotation',
+]);
+const ALLOWED_TAGS = new Set([...STRUCTURAL_TAGS, ...INLINE_TAGS, ...MATHML_TAGS]);
 
 const POSITIVE_INT = /^[1-9]\d*$/;
 const SCOPE_VALUES = new Set(['col', 'row', 'colgroup', 'rowgroup']);

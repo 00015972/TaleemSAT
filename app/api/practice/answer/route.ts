@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { NextRequest } from 'next/server';
+import { gridInAnswerMatches } from '@/lib/grading/grid-in';
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
   // Fetch question server-side — correct_answer never leaves the server
   const { data: question } = await supabase
     .from('questions')
-    .select('correct_answer, explanation, status')
+    .select('correct_answer, accepted_answers, explanation, status, question_type')
     .eq('id', questionId)
     .single();
 
@@ -41,7 +42,10 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: 'QUESTION_NOT_FOUND' }, { status: 404 });
   }
 
-  const isCorrect = selectedAnswer === question.correct_answer;
+  const isCorrect =
+    question.question_type === 'grid_in'
+      ? gridInAnswerMatches(selectedAnswer, question.accepted_answers ?? [])
+      : selectedAnswer === question.correct_answer;
 
   // The student gets unlimited tries and finds the key themselves — only the
   // *first* check of a question is a scored attempt (recordAttempt is false

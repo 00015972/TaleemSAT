@@ -22,7 +22,7 @@ export async function GET() {
     .select(
       `id, scheduled_date,
        questions!inner(
-         id, passage, question_text, options, difficulty, tags
+         id, passage, question_text, chart_svg, tables, question_type, options, difficulty, tags
        )`
     )
     .eq('scheduled_date', todayStr)

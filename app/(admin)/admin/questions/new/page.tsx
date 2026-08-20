@@ -24,7 +24,7 @@ export default async function NewQuestionPage() {
   }));
 
   return (
-    <div className="p-6 md:p-8 max-w-6xl">
+    <div className="p-6 md:p-8 max-w-[96rem]">
       <div className="adm-crumbs">
         <Link href="/admin/questions">Questions</Link>
         <span>/</span>

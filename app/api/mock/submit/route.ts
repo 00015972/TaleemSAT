@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { NextRequest } from 'next/server';
+import { gridInAnswerMatches } from '@/lib/grading/grid-in';
 
 /**
  * Scores a finished mock test. The client sends its answers; the server is the
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
   const ids = [...new Set(answers.map(a => a.questionId).filter(Boolean))];
   const { data: qs } = await supabase
     .from('questions')
-    .select('id, correct_answer, explanation, status')
+    .select('id, correct_answer, accepted_answers, explanation, status, question_type')
     .in('id', ids);
 
   const map = new Map((qs ?? []).map(q => [q.id, q]));
@@ -56,7 +57,12 @@ export async function POST(request: NextRequest) {
     const q = map.get(a.questionId);
     const correctAnswer = q?.correct_answer ?? null;
     const answered = a.selectedAnswer ?? null;
-    const isCorrect = answered !== null && answered === correctAnswer;
+    const isCorrect =
+      answered !== null &&
+      q !== undefined &&
+      (q.question_type === 'grid_in'
+        ? gridInAnswerMatches(answered, q.accepted_answers ?? [])
+        : answered === correctAnswer);
 
     if (q && q.status === 'published' && answered) {
       inserts.push({

@@ -15,6 +15,7 @@ type Row = {
   question_text: string;
   chart_svg: string | null;
   tables: string[] | null;
+  question_type: 'mcq' | 'grid_in';
   options: unknown;
   difficulty: string;
   tags: string[] | null;
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
   let query = supabase
     .from('questions')
     .select(
-      'id, passage, question_text, chart_svg, tables, options, difficulty, tags, categories(name), subjects(slug, name)'
+      'id, passage, question_text, chart_svg, tables, question_type, options, difficulty, tags, categories(name), subjects(slug, name)'
     )
     .eq('status', 'published');
 
@@ -74,6 +75,7 @@ export async function GET(request: NextRequest) {
     question_text: r.question_text,
     chart_svg: r.chart_svg,
     tables: r.tables,
+    question_type: r.question_type,
     options: r.options,
     difficulty: r.difficulty,
     tags: r.tags ?? [],

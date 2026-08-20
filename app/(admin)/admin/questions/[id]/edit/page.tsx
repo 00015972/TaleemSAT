@@ -7,7 +7,19 @@ import {
   type CategoryOption,
   type QuestionFormInitial,
 } from '@/components/admin/question-form';
-import type { QuestionOptions } from '@/lib/admin/question-validation';
+import { ANSWER_KEYS, type QuestionOptions } from '@/lib/admin/question-validation';
+
+/** Options are stored as [{ id: 'A', text }, ...] — see app/api/admin/questions/route.ts. */
+function toOptionsMap(raw: unknown): QuestionOptions {
+  const map: QuestionOptions = { A: '', B: '', C: '', D: '' };
+  if (Array.isArray(raw)) {
+    for (const entry of raw) {
+      const key = entry?.id as keyof QuestionOptions | undefined;
+      if (key && ANSWER_KEYS.includes(key)) map[key] = entry?.text ?? '';
+    }
+  }
+  return map;
+}
 
 export const metadata = { title: 'Edit question — Taleem SAT Admin' };
 
@@ -24,7 +36,7 @@ export default async function EditQuestionPage({
       supabase
         .from('questions')
         .select(
-          'id, subject_id, category_id, question_text, passage, options, correct_answer, explanation, difficulty, status, tags, tables'
+          'id, subject_id, category_id, question_text, passage, question_type, options, correct_answer, accepted_answers, explanation, difficulty, status, tags, tables, chart_svg'
         )
         .eq('id', id)
         .single(),
@@ -41,28 +53,25 @@ export default async function EditQuestionPage({
     subjectId: c.subject_id,
   }));
 
-  const opts = (question.options ?? {}) as Partial<QuestionOptions>;
   const initial: QuestionFormInitial = {
     subjectId: question.subject_id,
     categoryId: question.category_id,
     questionText: question.question_text,
     passage: question.passage ?? '',
-    options: {
-      A: opts.A ?? '',
-      B: opts.B ?? '',
-      C: opts.C ?? '',
-      D: opts.D ?? '',
-    },
+    questionType: question.question_type,
+    options: toOptionsMap(question.options),
     correctAnswer: question.correct_answer,
+    acceptedAnswers: question.accepted_answers ?? [],
     explanation: question.explanation,
     difficulty: question.difficulty,
     status: question.status,
     tags: question.tags ?? [],
     tables: question.tables ?? [],
+    chartSvg: question.chart_svg ?? null,
   };
 
   return (
-    <div className="p-6 md:p-8 max-w-6xl">
+    <div className="p-6 md:p-8 max-w-[96rem]">
       <div className="adm-crumbs">
         <Link href="/admin/questions">Questions</Link>
         <span>/</span>

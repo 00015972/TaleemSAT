@@ -13,6 +13,7 @@ import { PassageReader } from '@/components/reading/passage-reader';
 import { WhyPanel } from '@/components/reading/why-panel';
 import { ChartFigure } from '@/components/reading/chart-figure';
 import { QuestionBody } from '@/components/reading/question-body';
+import { GridInInput } from '@/components/reading/grid-in-input';
 import { PracticeBrowse, type PracticeScope } from '@/components/practice/practice-browse';
 import type { PracticeOverview } from '@/lib/practice/overview';
 
@@ -26,6 +27,7 @@ type Question = {
   question_text: string;
   chart_svg: string | null;
   tables: string[] | null;
+  question_type: 'mcq' | 'grid_in';
   options: Option[];
   difficulty: 'easy' | 'medium' | 'hard';
   tags: string[];
@@ -463,8 +465,9 @@ function ChoicesPane({
 }) {
   if (loading || !question) return <PaneSkeleton />;
 
+  const isGridIn = question.question_type === 'grid_in';
   const resolved = solvedAnswer !== undefined;
-  const canCheck = !!picked && !resolved && !tries.includes(picked) && !checking;
+  const canCheck = !!picked?.trim() && !resolved && !tries.includes(picked ?? '') && !checking;
 
   return (
     <>
@@ -478,16 +481,18 @@ function ChoicesPane({
           <span aria-hidden="true">⚑</span> {flagged ? 'Marked' : 'Mark for review'}
         </button>
         <div className="ex-toolbar-right">
-          <button
-            type="button"
-            className={`ex-tool${elimMode ? ' on' : ''}`}
-            onClick={onToggleElimMode}
-            disabled={resolved}
-            aria-pressed={elimMode}
-            title="Cross out answer choices"
-          >
-            <span className="ex-abc">ABC</span>
-          </button>
+          {!isGridIn && (
+            <button
+              type="button"
+              className={`ex-tool${elimMode ? ' on' : ''}`}
+              onClick={onToggleElimMode}
+              disabled={resolved}
+              aria-pressed={elimMode}
+              title="Cross out answer choices"
+            >
+              <span className="ex-abc">ABC</span>
+            </button>
+          )}
           {resolved ? (
             <span className="ex-solved-pill">{firstCorrect ? '✓ Correct' : '✓ Found it'}</span>
           ) : (
@@ -498,17 +503,28 @@ function ChoicesPane({
         </div>
       </div>
 
-      <ChoiceList
-        options={question.options}
-        picked={picked}
-        tries={tries}
-        solvedAnswer={solvedAnswer ?? null}
-        eliminated={eliminated}
-        elimMode={elimMode && !resolved}
-        interactive={!resolved}
-        onSelect={onSelect}
-        onElim={onToggleElim}
-      />
+      {isGridIn ? (
+        <GridInInput
+          value={resolved ? (solvedAnswer ?? '') : (picked ?? '')}
+          onChange={onSelect}
+          onEnter={canCheck ? onCheck : undefined}
+          disabled={resolved}
+          state={resolved ? 'key' : undefined}
+          tries={tries}
+        />
+      ) : (
+        <ChoiceList
+          options={question.options}
+          picked={picked}
+          tries={tries}
+          solvedAnswer={solvedAnswer ?? null}
+          eliminated={eliminated}
+          elimMode={elimMode && !resolved}
+          interactive={!resolved}
+          onSelect={onSelect}
+          onElim={onToggleElim}
+        />
+      )}
 
       {resolved && <WhyPanel questionId={question.id} pro={pro} />}
     </>
@@ -572,7 +588,7 @@ function ChoiceList({
             <span className="prx-opt-bub">
               <span>{opt.id}</span>
             </span>
-            <span className="prx-opt-text">{opt.text}</span>
+            <span className="prx-opt-text" dangerouslySetInnerHTML={{ __html: opt.text }} />
             {isKey && <span className="prx-opt-flag" style={{ color: 'var(--ok)' }}>✓</span>}
             {isTried && <span className="prx-opt-flag" style={{ color: 'var(--err)' }}>✗</span>}
             {interactive && elimMode && !isTried && (

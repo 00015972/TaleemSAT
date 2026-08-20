@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, Json } from '@/lib/supabase/types';
 import { generateJSON, AiError } from './client';
+import { blocksToPlainText, htmlFragmentToPlainText } from '@/lib/import/richtext-sanitize';
 
 /**
  * AI "Why is this the answer?" deep explanations. The question content is the
@@ -72,7 +73,7 @@ function optionsToText(options: Json): string {
     return options
       .map(o =>
         o && typeof o === 'object' && 'id' in o && 'text' in o
-          ? `${String((o as Record<string, unknown>).id)}. ${String((o as Record<string, unknown>).text)}`
+          ? `${String((o as Record<string, unknown>).id)}. ${htmlFragmentToPlainText(String((o as Record<string, unknown>).text))}`
           : ''
       )
       .filter(Boolean)
@@ -82,7 +83,7 @@ function optionsToText(options: Json): string {
     const rec = options as Record<string, unknown>;
     return ['A', 'B', 'C', 'D']
       .filter(k => k in rec)
-      .map(k => `${k}. ${String(rec[k])}`)
+      .map(k => `${k}. ${htmlFragmentToPlainText(String(rec[k]))}`)
       .join('\n');
   }
   return '';
@@ -97,11 +98,11 @@ export async function getExplanation(
   if (cached) return cached;
 
   const userText = [
-    question.passage ? `Passage:\n${question.passage}` : null,
-    `Question:\n${question.question_text}`,
+    question.passage ? `Passage:\n${blocksToPlainText(question.passage)}` : null,
+    `Question:\n${blocksToPlainText(question.question_text)}`,
     `Options:\n${optionsToText(question.options)}`,
     `Correct answer: ${question.correct_answer}`,
-    `Author's note: ${question.explanation}`,
+    `Author's note: ${blocksToPlainText(question.explanation)}`,
   ]
     .filter(Boolean)
     .join('\n\n');

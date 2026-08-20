@@ -6,6 +6,7 @@ import {
   validateQuestion,
   type QuestionInput,
 } from '@/lib/admin/question-validation';
+import { sanitizeQuestionTextBlocks, sanitizeRichText } from '@/lib/import/richtext-sanitize';
 
 export async function PATCH(
   request: NextRequest,
@@ -45,16 +46,25 @@ export async function PATCH(
     return Response.json({ error: 'QUESTION_NOT_FOUND' }, { status: 404 });
   }
 
+  const questionType = (body.questionType ?? 'mcq') as 'mcq' | 'grid_in';
   const { error } = await admin
     .from('questions')
     .update({
       subject_id: body.subjectId,
       category_id: body.categoryId,
-      question_text: body.questionText.trim(),
+      question_text: sanitizeQuestionTextBlocks(body.questionText.trim()),
       passage: body.passage?.trim() || null,
-      options: (['A', 'B', 'C', 'D'] as const).map(k => ({ id: k, text: body.options[k] })),
+      question_type: questionType,
+      options:
+        questionType === 'grid_in'
+          ? []
+          : (['A', 'B', 'C', 'D'] as const).map(k => ({
+              id: k,
+              text: sanitizeRichText(body.options[k]),
+            })),
       correct_answer: body.correctAnswer,
-      explanation: body.explanation.trim(),
+      accepted_answers: questionType === 'grid_in' ? (body.acceptedAnswers ?? []) : [],
+      explanation: sanitizeQuestionTextBlocks(body.explanation.trim()),
       difficulty: body.difficulty as 'easy' | 'medium' | 'hard',
       status: body.status as 'draft' | 'published' | 'archived',
       tags: body.tags ?? [],

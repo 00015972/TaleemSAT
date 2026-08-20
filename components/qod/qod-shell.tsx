@@ -5,6 +5,7 @@ import { PassageReader } from '@/components/reading/passage-reader';
 import { WhyPanel } from '@/components/reading/why-panel';
 import { ChartFigure } from '@/components/reading/chart-figure';
 import { QuestionBody } from '@/components/reading/question-body';
+import { GridInInput } from '@/components/reading/grid-in-input';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -16,6 +17,7 @@ export type QODQuestion = {
   question_text: string;
   chart_svg: string | null;
   tables: string[] | null;
+  question_type: 'mcq' | 'grid_in';
   options: Option[];
   difficulty: 'easy' | 'medium' | 'hard';
   tags: string[];
@@ -74,7 +76,7 @@ export function QODShell({
   }, []);
 
   const submit = useCallback(async () => {
-    if (phase.name !== 'selected') return;
+    if (phase.name !== 'selected' || !phase.selected.trim()) return;
     const { selected } = phase;
     setPhase({ name: 'submitting', selected });
 
@@ -169,25 +171,38 @@ export function QODShell({
     </>
   );
 
+  const isGridIn = qod.question.question_type === 'grid_in';
+
   const answerSide = (
     <>
-      <div className="prx-opts" role="group" aria-label="Answer choices">
-        {qod.question.options.map((opt, i) => (
-          <OptionButton
-            key={opt.id}
-            option={opt}
-            index={i}
-            selected={selected}
-            correctAnswer={
-              result?.correctAnswer ??
-              (prior?.is_correct ? prior.selected_answer : null)
-            }
-            scored={scored}
-            interactive={isInteractive}
-            onSelect={selectOption}
-          />
-        ))}
-      </div>
+      {isGridIn ? (
+        <GridInInput
+          value={selected ?? ''}
+          onChange={selectOption}
+          onEnter={isInteractive && selected?.trim() ? submit : undefined}
+          disabled={!isInteractive}
+          state={scored ? (wasCorrect ? 'key' : 'missed') : undefined}
+          autoFocus
+        />
+      ) : (
+        <div className="prx-opts" role="group" aria-label="Answer choices">
+          {qod.question.options.map((opt, i) => (
+            <OptionButton
+              key={opt.id}
+              option={opt}
+              index={i}
+              selected={selected}
+              correctAnswer={
+                result?.correctAnswer ??
+                (prior?.is_correct ? prior.selected_answer : null)
+              }
+              scored={scored}
+              interactive={isInteractive}
+              onSelect={selectOption}
+            />
+          ))}
+        </div>
+      )}
 
       {scored && (
         <div className="prx-anim" ref={verdictRef}>
@@ -199,7 +214,9 @@ export function QODShell({
               {result
                 ? result.isCorrect
                   ? `+${result.pointsAwarded} point · ${result.newPoints} total · ${result.newStreak}-day streak`
-                  : `the key was ${result.correctAnswer} · streak intact`
+                  : isGridIn
+                    ? `the answer was ${result.correctAnswer} · streak intact`
+                    : `the key was ${result.correctAnswer} · streak intact`
                 : wasCorrect
                   ? `+${prior!.points_awarded} point earned today`
                   : 'a fresh question lands tomorrow'}
@@ -208,7 +225,7 @@ export function QODShell({
           {result && (
             <div className="prx-expl">
               <p className="prx-expl-label">Explanation</p>
-              <p className="prx-expl-body">{result.explanation}</p>
+              <QuestionBody text={result.explanation} className="prx-expl-body" />
             </div>
           )}
           <WhyPanel questionId={qod.question.id} pro={pro} />
@@ -261,7 +278,7 @@ export function QODShell({
           <div className="prx-actions">
             <button
               onClick={submit}
-              disabled={phase.name !== 'selected' || isSubmitting}
+              disabled={phase.name !== 'selected' || !selected?.trim() || isSubmitting}
               className="prx-btn"
             >
               {isSubmitting ? 'Checking…' : 'Check answer'}
@@ -316,7 +333,7 @@ function OptionButton({
       <span className="prx-opt-bub">
         <span>{option.id}</span>
       </span>
-      <span className="prx-opt-text">{option.text}</span>
+      <span className="prx-opt-text" dangerouslySetInnerHTML={{ __html: option.text }} />
       {isKey && (
         <span className="prx-opt-flag" style={{ color: 'var(--ok)' }}>✓</span>
       )}
