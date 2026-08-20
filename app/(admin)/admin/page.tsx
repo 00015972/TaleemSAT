@@ -214,8 +214,8 @@ export default async function AdminDashboardPage() {
         <Link href="/admin/questions/new" className="adm-btn">
           New question
         </Link>
-        <Link href="/admin/questions/import" className="adm-btn secondary">
-          Import CSV
+        <Link href="/admin/import-jobs/new" className="adm-btn secondary">
+          Import HTML
         </Link>
         <Link href="/admin/qod" className="adm-btn secondary">
           Schedule daily question

@@ -219,7 +219,7 @@ Run via a small script that runs each SQL test and asserts expected results.
 2. **QOD ritual** — student answers QOD, earns point, sees points update.
 3. **Upgrade flow** — student clicks upgrade, completes Stripe Checkout (test card), lands as Pro.
 4. **Certificate earning** — student earns 25 points, downloads PDF.
-5. **Admin imports CSV** — admin uploads CSV, sees questions in list.
+5. **Admin imports HTML question bank** — admin uploads an HTML file, reviews staged items, approves them, sees questions in list.
 6. **Cancel subscription** — Pro user cancels via portal, retains access until period end.
 
 ### Example
@@ -283,8 +283,8 @@ Some things are hard or expensive to automate. Manual QA checklist before every 
 - [ ] Edit the question
 - [ ] Preview matches student view
 - [ ] Archive question
-- [ ] Import CSV (sample 5-row file)
-- [ ] Errors in CSV are reported correctly
+- [ ] Import HTML question bank (sample file)
+- [ ] Flagged/unparseable questions are reported correctly in the review queue
 - [ ] Schedule a QOD
 - [ ] Unschedule a QOD
 - [ ] View a user's profile

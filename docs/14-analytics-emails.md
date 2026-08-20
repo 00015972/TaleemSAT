@@ -94,7 +94,7 @@ Names are `category.action` lowercase with underscores. **Properties** are liste
 #### Admin
 - `admin.question_created`
 - `admin.question_published`
-- `admin.csv_imported` — `{ imported, skipped, errors }`
+- `admin.html_imported` — `{ imported, flagged }`
 - `admin.qod_scheduled` — `{ for_date }`
 
 #### Marketing pages

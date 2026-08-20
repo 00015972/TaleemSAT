@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 
 export type QuestionRow = {
   id: string;
+  sourceRef: string | null;
   preview: string;
   subjectName: string;
   categoryName: string;
@@ -16,10 +17,12 @@ export type QuestionRow = {
 
 export type FilterOption = { value: string; label: string };
 export type CategoryFilterOption = FilterOption & { subjectId: string };
+export type TopicFilterOption = FilterOption & { categoryId: string };
 
 type Filters = {
   subject: string;
   category: string;
+  topic: string;
   difficulty: string;
   status: string;
   q: string;
@@ -29,6 +32,7 @@ export function QuestionsTable({
   questions,
   subjects,
   categories,
+  topics,
   total,
   page,
   totalPages,
@@ -37,6 +41,7 @@ export function QuestionsTable({
   questions: QuestionRow[];
   subjects: FilterOption[];
   categories: CategoryFilterOption[];
+  topics: TopicFilterOption[];
   total: number;
   page: number;
   totalPages: number;
@@ -50,11 +55,15 @@ export function QuestionsTable({
   const visibleCategories = local.subject
     ? categories.filter(c => c.subjectId === local.subject)
     : categories;
+  const visibleTopics = local.category
+    ? topics.filter(t => t.categoryId === local.category)
+    : topics;
 
   function applyFilters(next: Filters) {
     const params = new URLSearchParams();
     if (next.subject) params.set('subject', next.subject);
     if (next.category) params.set('category', next.category);
+    if (next.topic) params.set('topic', next.topic);
     if (next.difficulty) params.set('difficulty', next.difficulty);
     if (next.status) params.set('status', next.status);
     if (next.q) params.set('q', next.q);
@@ -63,8 +72,10 @@ export function QuestionsTable({
 
   function setFilter(patch: Partial<Filters>) {
     const next = { ...local, ...patch };
-    // Reset category when subject changes.
+    // Reset category when subject changes, and topic when category changes —
+    // each tier only makes sense scoped to its parent.
     if (patch.subject !== undefined) next.category = '';
+    if (patch.subject !== undefined || patch.category !== undefined) next.topic = '';
     setLocal(next);
     if (!('q' in patch)) applyFilters(next); // selects apply immediately
   }
@@ -106,6 +117,7 @@ export function QuestionsTable({
     const params = new URLSearchParams();
     if (local.subject) params.set('subject', local.subject);
     if (local.category) params.set('category', local.category);
+    if (local.topic) params.set('topic', local.topic);
     if (local.difficulty) params.set('difficulty', local.difficulty);
     if (local.status) params.set('status', local.status);
     if (local.q) params.set('q', local.q);
@@ -124,9 +136,6 @@ export function QuestionsTable({
           <p>{total.toLocaleString('en-US')} in the bank</p>
         </div>
         <div className="flex gap-2">
-          <Link href="/admin/questions/import" className="adm-btn secondary">
-            Import CSV
-          </Link>
           <Link href="/admin/questions/new" className="adm-btn">
             New question
           </Link>
@@ -140,12 +149,21 @@ export function QuestionsTable({
           value={local.subject}
           onChange={v => setFilter({ subject: v })}
           options={subjects}
+          width={100}
         />
         <FilterSelect
           label="Category"
           value={local.category}
           onChange={v => setFilter({ category: v })}
           options={visibleCategories}
+          width={130}
+        />
+        <FilterSelect
+          label="Skill"
+          value={local.topic}
+          onChange={v => setFilter({ topic: v })}
+          options={visibleTopics}
+          width={140}
         />
         <FilterSelect
           label="Difficulty"
@@ -156,6 +174,7 @@ export function QuestionsTable({
             { value: 'medium', label: 'Medium' },
             { value: 'hard', label: 'Hard' },
           ]}
+          width={95}
         />
         <FilterSelect
           label="Status"
@@ -166,13 +185,14 @@ export function QuestionsTable({
             { value: 'published', label: 'Published' },
             { value: 'archived', label: 'Archived' },
           ]}
+          width={100}
         />
-        <div className="adm-filter flex-1 min-w-[180px]">
+        <div className="adm-filter flex-1 min-w-[140px]">
           <span>Search</span>
           <input
             className="form-input"
             value={local.q}
-            placeholder="Search question text…"
+            placeholder="Search question text or ID…"
             onChange={e => setLocal({ ...local, q: e.target.value })}
             onKeyDown={e => {
               if (e.key === 'Enter') applyFilters(local);
@@ -223,6 +243,7 @@ export function QuestionsTable({
               <th className="w-10">
                 <input type="checkbox" checked={allSelected} onChange={toggleAll} />
               </th>
+              <th className="hidden sm:table-cell">ID</th>
               <th>Question</th>
               <th className="hidden md:table-cell">Subject</th>
               <th className="hidden lg:table-cell">Category</th>
@@ -234,7 +255,7 @@ export function QuestionsTable({
           <tbody>
             {questions.length === 0 ? (
               <tr>
-                <td colSpan={7} className="text-center py-12 text-muted text-sm">
+                <td colSpan={8} className="text-center py-12 text-muted text-sm">
                   No questions match these filters.
                 </td>
               </tr>
@@ -247,6 +268,11 @@ export function QuestionsTable({
                       checked={selected.has(q.id)}
                       onChange={() => toggle(q.id)}
                     />
+                  </td>
+                  <td className="hidden sm:table-cell">
+                    <code className="text-xs text-muted" style={{ fontFamily: 'var(--mono)' }}>
+                      {q.sourceRef ?? '—'}
+                    </code>
                   </td>
                   <td>
                     <Link
@@ -312,18 +338,20 @@ function FilterSelect({
   value,
   onChange,
   options,
+  width = 120,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   options: FilterOption[];
+  width?: number;
 }) {
   return (
     <div className="adm-filter">
       <span>{label}</span>
       <select
         className="form-input"
-        style={{ minWidth: 130 }}
+        style={{ width }}
         value={value}
         onChange={e => onChange(e.target.value)}
       >

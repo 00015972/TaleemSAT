@@ -10,13 +10,10 @@ import type { Json } from '@/lib/supabase/types';
 /**
  * Upload a hand-converted HTML question-bank export and stage its questions.
  *
- * Unlike the PDF path (app/api/admin/import-jobs/route.ts → the extract-pdf
- * Trigger.dev task), everything here is deterministic DOM parsing — no vision
- * model, no page rendering — so the whole job runs synchronously in this
- * request instead of being handed off to a background task. Every downstream
- * step (staging, review, promote) is the same `import_job_items` pipeline the
- * PDF path already uses; see docs/15-html-import-schema.md for the HTML
- * contract this route expects.
+ * Everything here is deterministic DOM parsing — no AI model, no page
+ * rendering — so the whole job runs synchronously in this request. Staging,
+ * review, and promote all go through the same `import_job_items` pipeline;
+ * see docs/15-html-import-schema.md for the HTML contract this route expects.
  */
 
 export const dynamic = 'force-dynamic';
@@ -102,9 +99,7 @@ export async function POST(request: NextRequest) {
   await admin.from('import_jobs').update({ source_html_path: htmlPath }).eq('id', job.id);
 
   try {
-    // Resolve the taxonomy once — same query shape src/trigger/extract-pdf.ts
-    // uses, duplicated deliberately rather than shared so that working file
-    // stays untouched.
+    // Resolve the taxonomy once for the whole file.
     const { data: topicRows } = await admin
       .from('topics')
       .select('id, slug, category_id, categories(id, subject_id)');

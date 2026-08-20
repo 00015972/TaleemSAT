@@ -100,15 +100,15 @@
 | Admin route group + role gate | `(admin)/` layout, middleware enforces |
 | Admin question list | Paginated table, filter by subject/category/status, search |
 | Add/edit question form | All fields, with a "Preview" button that renders the question as a student would see it |
-| CSV import endpoint | Validates row-by-row, returns errors |
-| CSV import UI | Drag-drop, progress, error summary |
+| HTML import endpoint | Parses a hand-converted question-bank HTML file, stages rows for review |
+| HTML import UI | Drag-drop, upload, hand off to the review queue |
 | Bulk load the 200 questions | Real content |
 | Admin QOD scheduling UI | Calendar view of past + future scheduled QODs |
 | Admin dashboard | Top-line metrics from `/api/admin/stats` |
 
 **Done when:** Tutor can log in to `/admin` and run the whole content side without me. 200 questions are live.
 
-See [11-content-pipeline.md](11-content-pipeline.md) for CSV spec.
+See [11-content-pipeline.md](11-content-pipeline.md) for the HTML import spec.
 
 ---
 

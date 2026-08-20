@@ -18,7 +18,6 @@ export type ImportItem = {
   accepted_answers: string[];
   explanation: string | null;
   difficulty: string | null;
-  page_image_url: string | null;
   question_image_url: string | null;
   chart_svg: string | null;
   tables: string[] | null;
@@ -160,7 +159,7 @@ export function ImportReview({
 
       {items.length === 0 ? (
         <div className="adm-empty">
-          <p>{inFlight ? 'Reading the PDF…' : 'Nothing was extracted from this file.'}</p>
+          <p>{inFlight ? 'Reading the file…' : 'Nothing was extracted from this file.'}</p>
         </div>
       ) : (
         <div className="imp-list">
@@ -205,7 +204,6 @@ function ItemCard({
 }) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [showPage, setShowPage] = useState(false);
   const [draft, setDraft] = useState({
     questionText: item.question_text ?? '',
     explanation: item.explanation ?? '',
@@ -277,15 +275,6 @@ function ItemCard({
           {item.topics?.name && ` · ${item.topics.name}`}
         </span>
         <div className="imp-item-actions">
-          {item.page_image_url && (
-            <button
-              type="button"
-              className="adm-btn secondary sm"
-              onClick={() => setShowPage(s => !s)}
-            >
-              {showPage ? 'Hide source' : 'Source page'}
-            </button>
-          )}
           {!done && (
             <>
               <button
@@ -405,7 +394,8 @@ function ItemCard({
             <ul className="imp-opts">
               {(item.options ?? []).map(o => (
                 <li key={o.id} className={o.id === item.correct_answer ? 'right' : undefined}>
-                  <b>{o.id}</b> {o.text}
+                  <b className="imp-opt-letter">{o.id}</b>{' '}
+                  <span className="imp-opt-text" dangerouslySetInnerHTML={{ __html: o.text }} />
                 </li>
               ))}
             </ul>
@@ -415,19 +405,8 @@ function ItemCard({
             </p>
           )}
 
-          {item.explanation && <p className="imp-expl">{item.explanation}</p>}
+          {item.explanation && <QuestionBody text={item.explanation} className="imp-expl" />}
         </div>
-      )}
-
-      {showPage && item.page_image_url && (
-        <figure className="imp-page">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={item.page_image_url} alt={`Source page for ${item.source_ref}`} />
-          <figcaption>
-            Source page, for checking the transcription. It includes the rationale, so it is
-            never shown to students.
-          </figcaption>
-        </figure>
       )}
     </article>
   );

@@ -19,12 +19,6 @@ const BUCKETS: Array<{
     allowedMimeTypes: ['image/png', 'image/jpeg', 'image/webp'],
   },
   {
-    id: 'source-pdfs',
-    public: false,
-    fileSizeLimit: 50 * 1024 * 1024, // 50MB
-    allowedMimeTypes: ['application/pdf'],
-  },
-  {
     id: 'source-html',
     public: false,
     fileSizeLimit: 20 * 1024 * 1024, // 20MB — HTML itself is small, but embedded base64 figures inflate it

@@ -22,7 +22,7 @@ Each numbered file covers a single concern. They are designed to be read indepen
 | 08 | [admin-panel.md](08-admin-panel.md) | Admin features, content ops, permissions | You're working on the admin side |
 | 09 | [ai-features.md](09-ai-features.md) | Claude API usage, prompts, caching, costs | You're building AI features |
 | 10 | [monetization-payments.md](10-monetization-payments.md) | Tiers, Stripe, subscription lifecycle | You're touching billing |
-| 11 | [content-pipeline.md](11-content-pipeline.md) | Question authoring, CSV import, QA | You're adding/editing questions |
+| 11 | [content-pipeline.md](11-content-pipeline.md) | Question authoring, HTML import, QA | You're adding/editing questions |
 | 12 | [testing-strategy.md](12-testing-strategy.md) | Unit, integration, e2e, manual QA | You're writing tests or planning QA |
 | 13 | [deployment-ops.md](13-deployment-ops.md) | Hosting, CI/CD, monitoring, runbooks | You're shipping or debugging prod |
 | 14 | [analytics-emails.md](14-analytics-emails.md) | Event tracking, email flows, deliverability | You're measuring or notifying users |
@@ -67,7 +67,7 @@ When we make a significant architectural decision, we record it here as a one-li
 | 2026-05-20 | Keep `/api/` prefix in URL (standard Next.js); add `/v1/` versioning before mobile launch | [03-api-reference.md](03-api-reference.md) |
 | 2026-05-11 | Use Supabase over self-hosted Postgres | [01-architecture.md](01-architecture.md) |
 | 2026-05-11 | Three subscription tiers: Free / Pro $12 / Elite $25 | [10-monetization-payments.md](10-monetization-payments.md) |
-| 2026-05-11 | CSV bulk import + admin CRUD for question pipeline | [11-content-pipeline.md](11-content-pipeline.md) |
+| 2026-05-11 | HTML bulk import (hand-converted question banks) + admin CRUD for question pipeline | [11-content-pipeline.md](11-content-pipeline.md) |
 | 2026-05-11 | Claude API as AI provider | [09-ai-features.md](09-ai-features.md) |
 | 2026-05-11 | Design language: emerald + antique gold, Playfair + DM Sans | [06-design-system.md](06-design-system.md) |
 | 2026-05-11 | English (R&W) + Math both in scope | [04-feature-roadmap.md](04-feature-roadmap.md) |

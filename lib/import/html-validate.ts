@@ -1,19 +1,19 @@
 import { validateQuestion } from '@/lib/admin/question-validation';
-import type { ItemStatus, Taxonomy } from './reconcile';
 import type { ParsedQuestion } from './html-questions';
+
+export type ItemStatus = 'pending_review' | 'verification_failed';
+export type Taxonomy = { topicId: string; categoryId: string; subjectId: string | null };
 
 /**
  * Verification rules for the HTML import path.
  *
- * There is no second AI reading to cross-check against here — unlike the PDF
- * path (see lib/import/reconcile.ts), everything the HTML explicitly tagged
- * either parsed cleanly or surfaces as a specific, actionable issue.
- * "Reconciliation" is therefore structural: did the source itself supply a
- * usable answer key, options, and taxonomy. Same policy as the PDF path —
- * any issue blocks the fast path and routes the item to a human.
+ * There is no second AI reading to cross-check against — everything the HTML
+ * explicitly tagged either parsed cleanly or surfaces as a specific,
+ * actionable issue. "Reconciliation" is therefore structural: did the source
+ * itself supply a usable answer key, options, and taxonomy. Any issue blocks
+ * the fast path and routes the item to a human.
  *
- * Pure — no I/O — mirrors lib/import/reconcile.ts's contract, and reuses its
- * exported types so both pipelines' staged items are interchangeable.
+ * Pure — no I/O.
  */
 export function validateHtmlItem(
   q: ParsedQuestion,

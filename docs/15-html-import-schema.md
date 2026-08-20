@@ -1,6 +1,6 @@
 # 15. HTML Import Schema
 
-The admin import pipeline (`docs/11-content-pipeline.md`) accepts two source formats for a question bank: a College Board PDF (transcribed by a vision model — costs a small amount of AI spend per question) and a hand-converted **HTML** file (parsed deterministically — `lib/import/html-questions.ts` — no AI at all).
+The admin import pipeline (`docs/11-content-pipeline.md`) accepts a hand-converted **HTML** file for a question bank, parsed deterministically (`lib/import/html-questions.ts`) — no AI involved.
 
 The HTML path only works because the file is fully tagged. This document is the contract: convert a PDF into HTML that follows this shape exactly, and the parser needs zero guessing. Deviate from it and the affected question gets flagged for manual review instead of silently mis-imported — but staying close to this shape means most of a bank imports clean on the first try.
 
@@ -68,11 +68,11 @@ Central Ideas and Details · Inferences · Command of Evidence · Words in Conte
 **Skills (Math, 19):**
 Linear equations in one variable · Linear functions · Linear equations in two variables · Systems of two linear equations in two variables · Linear inequalities in one or two variables · Equivalent expressions · Nonlinear equations in one variable and systems of equations in two variables · Nonlinear functions · Ratios, rates, proportional relationships, and units · Percentages · One-variable data: Distributions and measures of center and spread · Two-variable data: Models and scatterplots · Probability and conditional probability · Inference from sample statistics and margin of error · Evaluating statistical claims: Observational studies and experiments · Area and volume · Lines, angles, and triangles · Right triangles and trigonometry · Circles
 
-## Math — write it as LaTeX text, not images
+## Math — write it as real markup, not an image
 
-Whenever a formula appears, write it as literal LaTeX in the surrounding text — `$x^2 + 3x - 4 = 0$` inline, `$$...$$` for a standalone/display equation. Never render math as an image, `<sup>`/`<sub>` fragments, or MathML — the parser only extracts plain text, so anything that isn't literal text is lost.
+Formulas survive as sanitized rich HTML, not flattened plain text — `<b>`/`<i>` emphasis, `<sup>`/`<sub>`, and real MathML (`<math><mfrac>...`, `<msqrt>...`, `<msup>...`) all render, using the browser's native MathML support. This is what a Question Bank scrape actually produces, so there's no LaTeX-conversion step to get wrong: paste the source markup through as-is.
 
-This is the one convention that makes Math-domain banks import as cheaply as Reading & Writing ones: if the math survives as text, the HTML path needs no AI for Math either. If a question can't be transcribed this way (a genuine diagram, not a formula), see **Figures** below instead.
+This applies inside `.question-body` paragraphs, `.rationale` paragraphs, and — unlike everything else on this page — inside `.option-text` too: an answer choice can itself be a fraction, a formula, a whole `<table>`, or a small `<svg>` graph, not just words. See `lib/import/richtext-sanitize.ts` for the exact allowlist (inline emphasis, MathML, `<ol>`/`<ul>`, nested `<table>`/`<svg>`); anything outside it is either dropped (genuinely dangerous tags) or unwrapped down to its text (an unrecognized wrapper). If a question can't be transcribed this way (a genuine diagram, not a formula), see **Figures** below instead.
 
 ## Passage (optional)
 
@@ -104,7 +104,7 @@ Plain `<table>` with `<thead>`/`<tbody>`, no merged cells:
 </table>
 ```
 
-This parses into a plain-text row-by-row form (`Row 1: Column A: ...; Column B: ...`) — legible on its own since the practice UI doesn't preserve line breaks. Merged cells (`colspan`/`rowspan`), a nested table, or a row whose cell count doesn't match its headers all still parse, but flag the question for manual review.
+This parses into real, sanitized `<table>` markup — rendered as an actual table, not flattened to text (`lib/import/table-sanitize.ts`, `components/reading/table-figure.tsx`). A cell can itself contain a formula (`<math>...`). Merged cells (`colspan`/`rowspan`), a nested table, or a row whose cell count doesn't match its headers all still parse, but flag the question for manual review.
 
 ## Figures
 
@@ -120,7 +120,9 @@ PNG, JPEG, and WEBP are supported and get automatically uploaded and attached to
 
 ## Grid-in questions
 
-Digital SAT grid-ins have no lettered options — the student types an answer. Replace `<ul class="options">` with:
+Digital SAT grid-ins have no lettered options — the student types an answer. Replace `<ul class="options">` with either of two accepted shapes.
+
+Hand-authored:
 
 ```html
 <h3>Answer Choices</h3>
@@ -130,7 +132,15 @@ Digital SAT grid-ins have no lettered options — the student types an answer. R
 </div>
 ```
 
-`accepted-forms` is comma-separated and should list every equivalent written form the official answer key accepts.
+Or, what a Question Bank scrape actually emits — a single element carrying every accepted form in one `data-answer` attribute:
+
+```html
+<div class="grid-in-check" data-answer="3/2, 1.5">
+  ...
+</div>
+```
+
+Either way, every comma-separated form is stored in `accepted_answers`; the first one becomes the canonical `correct_answer`. A submitted answer is graded correct if it string-matches any accepted form, or is numerically equal to one (`3/2` accepts `1.5`, `6/4`, etc. — see `lib/grading/grid-in.ts`).
 
 ## Worked example (real, from a converted bank)
 
@@ -178,4 +188,4 @@ Digital SAT grid-ins have no lettered options — the student types an answer. R
 
 ## What happens after upload
 
-Parsed questions land in the same staging table and review screen the PDF path uses (`import_job_items` → the admin Import review UI). A question with every field intact goes straight to "pending review"; anything ambiguous — missing correct-answer marker, wrong option count, unmapped skill, an embedded figure, an irregular table — is flagged `verification_failed` with a specific reason, the same way the PDF pipeline flags a vision-model disagreement. Approving a reviewed item promotes it into `questions` as a draft; nothing reaches students until it's published from there, same as every other import path.
+Parsed questions land in the staging table and review screen (`import_job_items` → the admin Import review UI). A question with every field intact goes straight to "pending review"; anything ambiguous — missing correct-answer marker, wrong option count, unmapped skill, an embedded figure, an irregular table — is flagged `verification_failed` with a specific reason. Approving a reviewed item promotes it into `questions` as a draft; nothing reaches students until it's published from there.

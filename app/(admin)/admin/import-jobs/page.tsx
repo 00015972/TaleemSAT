@@ -31,10 +31,10 @@ export default async function ImportJobsPage() {
       <div className="adm-head">
         <div>
           <h1>Imports</h1>
-          <p>Pull questions out of a College Board PDF and review them before they go live.</p>
+          <p>Pull questions out of an HTML question bank and review them before they go live.</p>
         </div>
         <Link href="/admin/import-jobs/new" className="adm-btn">
-          Import a PDF
+          Import HTML
         </Link>
       </div>
 
@@ -42,10 +42,10 @@ export default async function ImportJobsPage() {
         <div className="adm-empty">
           <p>No imports yet.</p>
           <p className="text-sm text-muted mt-1">
-            Upload a question-bank PDF and its questions land here for review.
+            Upload a question-bank HTML file and its questions land here for review.
           </p>
           <Link href="/admin/import-jobs/new" className="adm-btn mt-3">
-            Import a PDF
+            Import HTML
           </Link>
         </div>
       ) : (

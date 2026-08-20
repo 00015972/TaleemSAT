@@ -1,24 +1,27 @@
 /**
- * Parse a hand-converted, semantic HTML question-bank export into the same
- * shape the PDF pipeline's vision pass produces (see lib/ai/vision.ts), so
- * both sources feed the same staging/review/promote code unchanged.
+ * Parse a hand-converted, semantic HTML question-bank export into staged
+ * question rows for the same staging/review/promote pipeline.
  *
- * Unlike the PDF path, every field here is explicitly tagged in the source —
- * the correct answer via `class="option correct"`, taxonomy via badges, math
- * as literal LaTeX text — so this module never calls a model. It is a pure
- * DOM walk. The exact contract it expects is documented in
- * docs/15-html-import-schema.md; anything that deviates from it degrades to
- * a structural flag on that question rather than a thrown error, so one
- * malformed `<article>` never sinks the rest of the file.
+ * Every field here is explicitly tagged in the source — the correct answer
+ * via `class="option correct"`, taxonomy via badges, math as literal LaTeX
+ * text — so this module never calls a model. It is a pure DOM walk. The
+ * exact contract it expects is documented in docs/15-html-import-schema.md;
+ * anything that deviates from it degrades to a structural flag on that
+ * question rather than a thrown error, so one malformed `<article>` never
+ * sinks the rest of the file.
  *
- * Pure — no I/O — mirrors lib/import/pdf-text.ts's contract.
+ * Pure — no I/O.
  */
 
 import * as cheerio from 'cheerio';
 import type { Element } from 'domhandler';
-import { normalizeWhitespace } from './pdf-text';
 import { sanitizeChartSvg } from './svg-sanitize';
 import { sanitizeTableHtml } from './table-sanitize';
+import { sanitizeRichText } from './richtext-sanitize';
+
+function normalizeWhitespace(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
+}
 
 export type ParsedQuestion = {
   /** College Board's own ID pulled from the .qid span, e.g. "0147b080". */
@@ -88,6 +91,30 @@ const DIFFICULTY_MAP: Record<string, 'easy' | 'medium' | 'hard'> = {
   hard: 'hard',
 };
 
+// Cosmetic only (see ParsedQuestion.subjectBadge doc comment) — taxonomy
+// resolution goes through `skill` alone (lib/import/taxonomy.ts), which is
+// unambiguous across both subjects, so a missing Subject badge never blocks
+// an import. This just fills in what the review UI displays.
+const MATH_DOMAINS = new Set([
+  'algebra',
+  'advanced math',
+  'problem-solving and data analysis',
+  'geometry and trigonometry',
+]);
+const RW_DOMAINS = new Set([
+  'information and ideas',
+  'craft and structure',
+  'expression of ideas',
+  'standard english conventions',
+]);
+function inferSubjectFromDomain(domain: string | undefined): string | undefined {
+  if (!domain) return undefined;
+  const key = domain.trim().toLowerCase();
+  if (MATH_DOMAINS.has(key)) return 'Math';
+  if (RW_DOMAINS.has(key)) return 'Reading and Writing';
+  return undefined;
+}
+
 function parseOne(
   $: cheerio.CheerioAPI,
   article: cheerio.Cheerio<Element>,
@@ -107,12 +134,31 @@ function parseOne(
     .find('.badges .badge')
     .map((_, el) => normalizeWhitespace($(el).text()))
     .get();
-  if (badges.length !== 5) {
+
+  // The documented shape is 5 badges (Assessment/Subject/Domain/Skill/
+  // Difficulty), but a Math question-bank scrape in the wild omits the
+  // Subject badge entirely — 4 badges: Assessment/Domain/Skill/Difficulty.
+  // Positionally destructuring 4 items as if they were 5 would silently
+  // shift every field by one (skill would read "Easy", difficulty would be
+  // null), so detect the 4-badge shape explicitly rather than flag-and-guess.
+  let assessment: string | undefined;
+  let subjectBadge: string | undefined;
+  let domain: string | undefined;
+  let skill: string | undefined;
+  let difficultyRaw: string | undefined;
+
+  if (badges.length === 5) {
+    [assessment, subjectBadge, domain, skill, difficultyRaw] = badges;
+  } else if (badges.length === 4) {
+    [assessment, domain, skill, difficultyRaw] = badges;
+    subjectBadge = inferSubjectFromDomain(domain);
+  } else {
     flags.push(
-      `Expected 5 badges (Assessment/Subject/Domain/Skill/Difficulty), found ${badges.length}.`
+      `Expected 5 badges (Assessment/Subject/Domain/Skill/Difficulty) or 4 (Subject omitted), found ${badges.length}.`
     );
+    [assessment, subjectBadge, domain, skill, difficultyRaw] = badges;
   }
-  const [assessment, subjectBadge, domain, skill, difficultyRaw] = badges;
+
   const difficulty = difficultyRaw ? (DIFFICULTY_MAP[difficultyRaw.toLowerCase()] ?? null) : null;
   if (difficultyRaw && !difficulty) {
     flags.push(`Unrecognized difficulty badge "${difficultyRaw}" — expected Easy/Medium/Hard.`);
@@ -149,25 +195,44 @@ function parseOne(
   if (!questionText) flags.push('Question body produced no text.');
 
   const optionsList = article.find('ul.options').first();
-  const gridInBlock = article.find('.grid-in-answer').first();
+  // Two grid-in shapes are in the wild: the documented `.grid-in-answer`
+  // (hand-authored) and `.grid-in-check[data-answer="..., ..."]`, which is
+  // what the Math question-bank scraping tool actually emits (see
+  // docs/15-html-import-schema.md).
+  const gridInAnswerBlock = article.find('.grid-in-answer').first();
+  const gridInCheckBlock = article.find('.grid-in-check[data-answer]').first();
 
   let questionType: 'mcq' | 'grid_in' = 'mcq';
   let options: { id: string; text: string }[] = [];
   let correctAnswer: string | null = null;
   let acceptedAnswers: string[] = [];
 
-  if (gridInBlock.length > 0 && optionsList.length === 0) {
+  if ((gridInAnswerBlock.length > 0 || gridInCheckBlock.length > 0) && optionsList.length === 0) {
     questionType = 'grid_in';
-    const correctValue = normalizeWhitespace(
-      gridInBlock.find('.correct-value').first().text()
-    );
-    const acceptedRaw = gridInBlock.find('.accepted-forms').first().text();
-    acceptedAnswers = acceptedRaw
-      .split(',')
-      .map(a => normalizeWhitespace(a))
-      .filter(Boolean);
-    if (acceptedAnswers.length === 0 && correctValue) acceptedAnswers = [correctValue];
-    if (acceptedAnswers.length === 0) flags.push('Grid-in question has no accepted answers.');
+    if (gridInCheckBlock.length > 0) {
+      const raw = gridInCheckBlock.attr('data-answer') ?? '';
+      acceptedAnswers = raw
+        .split(',')
+        .map(a => normalizeWhitespace(a))
+        .filter(Boolean);
+    } else {
+      const correctValue = normalizeWhitespace(
+        gridInAnswerBlock.find('.correct-value').first().text()
+      );
+      const acceptedRaw = gridInAnswerBlock.find('.accepted-forms').first().text();
+      acceptedAnswers = acceptedRaw
+        .split(',')
+        .map(a => normalizeWhitespace(a))
+        .filter(Boolean);
+      if (acceptedAnswers.length === 0 && correctValue) acceptedAnswers = [correctValue];
+    }
+    if (acceptedAnswers.length === 0) {
+      flags.push('Grid-in question has no accepted answers.');
+    } else {
+      // The DB requires a canonical correct_answer even for grid-in — the
+      // first accepted form is as good a canonical value as any.
+      correctAnswer = acceptedAnswers[0];
+    }
   } else {
     if (optionsList.length === 0) {
       flags.push('Missing ul.options — no answer choices found.');
@@ -181,7 +246,7 @@ function parseOne(
       .map((_, li) => {
         const $li = $(li);
         const id = normalizeWhitespace($li.find('.option-letter').first().text()).toUpperCase();
-        const text = normalizeWhitespace($li.find('.option-text').first().text());
+        const text = sanitizeRichText($li.find('.option-text').first().html() ?? '');
         if ($li.hasClass('correct')) {
           correctCount++;
           correctAnswer = id;
@@ -225,20 +290,25 @@ function parseOne(
   };
 }
 
-/** Join every direct/nested <p> inside a container into normalized paragraphs. */
+/**
+ * Join every direct/nested <p> inside a container into rich-text paragraphs —
+ * sanitized HTML (bold/italic/sup/sub/MathML survive; see
+ * lib/import/richtext-sanitize.ts) rather than plain text, so inline math in
+ * a rationale or passage renders instead of collapsing to bare characters.
+ */
 function flattenParagraphs($: cheerio.CheerioAPI, container: cheerio.Cheerio<Element>): string {
   const paragraphs = container
     .find('p')
-    .map((_, el) => normalizeWhitespace($(el).text()))
+    .map((_, el) => sanitizeRichText($(el).html() ?? ''))
     .get()
     .filter(Boolean);
 
   if (paragraphs.length > 0) return paragraphs.join('\n\n');
 
-  // No <p> children — fall back to the container's own text rather than
+  // No <p> children — fall back to the container's own markup rather than
   // silently returning empty (a reviewer written straight into a <div>
   // shouldn't disappear just because it skipped the <p> convention).
-  return normalizeWhitespace(container.text());
+  return sanitizeRichText(container.html() ?? '');
 }
 
 /**
@@ -278,8 +348,18 @@ function flattenBody(
     const tag = node.name.toLowerCase();
 
     if (tag === 'p') {
-      const text = normalizeWhitespace($node.text());
-      if (text) parts.push(text);
+      const html = sanitizeRichText($node.html() ?? '');
+      if (html) parts.push(html);
+      return;
+    }
+
+    // An enumerated list of statements (e.g. "I. ... II. ... III. ..."),
+    // referenced by the answer choices ("I and II only"). Kept as real
+    // <ol>/<ul> markup — flattening it to inline text would lose which
+    // statement is I vs. II vs. III.
+    if (tag === 'ol' || tag === 'ul') {
+      const html = sanitizeRichText($.html($node) ?? '');
+      if (html) parts.push(html);
       return;
     }
 
@@ -296,23 +376,31 @@ function flattenBody(
       return;
     }
 
+    // A figure wrapper — the documented shape is a semantic <figure>, but a
+    // Math question-bank scrape actually wraps its graphs in <div
+    // class="figure">, so both count.
+    const isFigureWrapper = tag === 'figure' || (tag === 'div' && $node.hasClass('figure'));
+
     // A code-generated chart (see docs/15-html-import-schema.md) — real inline
     // SVG, not a pasted image. Must be checked before the generic <img> case
-    // below since a <figure> can contain either.
-    if (tag === 'svg' || (tag === 'figure' && $node.find('svg').length > 0)) {
+    // below since a figure wrapper can contain either.
+    if (tag === 'svg' || (isFigureWrapper && $node.find('svg').length > 0)) {
       const svgEl = tag === 'svg' ? $node : $node.find('svg').first();
       hasFigure = true;
       const sanitized = sanitizeChartSvg($.html(svgEl));
       if (sanitized) {
+        // Rendered directly via components/reading/chart-figure.tsx above the
+        // question body — a text placeholder here would just be a redundant
+        // caption underneath the real chart.
         chartSvgs.push(sanitized);
       } else {
         svgSanitizeFailed = true;
+        parts.push('[Chart — see attached figure]');
       }
-      parts.push('[Chart — see attached figure]');
       return;
     }
 
-    if (tag === 'img' || (tag === 'figure' && $node.find('img').length > 0)) {
+    if (tag === 'img' || (isFigureWrapper && $node.find('img').length > 0)) {
       const img = tag === 'img' ? $node : $node.find('img').first();
       const src = img.attr('src') ?? '';
       hasFigure = true;

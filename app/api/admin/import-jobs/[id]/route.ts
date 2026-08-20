@@ -44,7 +44,7 @@ export async function GET(
   let query = admin
     .from('import_job_items')
     .select(
-      'id, status, source_ref, question_type, question_text, passage, options, correct_answer, accepted_answers, explanation, difficulty, page_image_url, question_image_url, chart_svg, tables, verification_notes, validation_errors, question_id, subject_id, category_id, topic_id, topics(name), categories(name)'
+      'id, status, source_ref, question_type, question_text, passage, options, correct_answer, accepted_answers, explanation, difficulty, question_image_url, chart_svg, tables, verification_notes, validation_errors, question_id, subject_id, category_id, topic_id, topics(name), categories(name)'
     )
     .eq('job_id', id)
     .order('created_at', { ascending: true });

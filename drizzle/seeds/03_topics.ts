@@ -1,7 +1,7 @@
 /**
  * Seed the topics tier (subject -> category -> topic).
  *
- * The taxonomy itself lives in lib/import/taxonomy.ts, shared with the PDF
+ * The taxonomy itself lives in lib/import/taxonomy.ts, shared with the HTML
  * import pipeline so seeding and importing can never drift apart.
  *
  * Idempotent — upserts on `slug`. Run via: `pnpm db:seed`

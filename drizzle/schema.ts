@@ -341,9 +341,9 @@ export const emailSubscriptions = pgTable(
 );
 
 // ─── Import pipeline ────────────────────────────────────────────────
-// Staging for the admin question-import pipeline (PDF extraction + AI
-// generation). Output lands in `import_job_items` for human review; only
-// approved items are promoted into `questions` as drafts.
+// Staging for the admin HTML question-import pipeline. Output lands in
+// `import_job_items` for human review; only approved items are promoted
+// into `questions` as drafts.
 export const importJobs = pgTable(
   'import_jobs',
   {
@@ -352,13 +352,10 @@ export const importJobs = pgTable(
     status: importJobStatusEnum('status').notNull().default('queued'),
     // extract: {}. generate: { subjectSlug, categorySlug, difficulty, count }.
     config: jsonb('config').notNull().default(sql`'{}'::jsonb`),
-    // 'pdf' (vision transcription) or 'html' (deterministic DOM parse, no AI).
-    sourceFormat: text('source_format').notNull().default('pdf'),
-    sourcePdfPath: text('source_pdf_path'),
-    // Path within the `source-html` bucket. Null for pdf-sourced jobs.
+    sourceFormat: text('source_format').notNull().default('html'),
+    // Path within the `source-html` bucket.
     sourceHtmlPath: text('source_html_path'),
     sourceFilename: text('source_filename'),
-    triggerRunId: text('trigger_run_id'),
     totalCount: integer('total_count').notNull().default(0),
     successCount: integer('success_count').notNull().default(0),
     failedCount: integer('failed_count').notNull().default(0),
@@ -386,7 +383,7 @@ export const importJobItems = pgTable(
       .notNull()
       .references(() => importJobs.id, { onDelete: 'cascade' }),
     status: importItemStatusEnum('status').notNull().default('pending_review'),
-    // PDF page number, College Board Question ID, or batch index.
+    // College Board Question ID, or batch index.
     sourceRef: text('source_ref'),
     subjectId: uuid('subject_id').references(() => subjects.id),
     categoryId: uuid('category_id').references(() => categories.id),

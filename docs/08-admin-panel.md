@@ -33,7 +33,9 @@ At launch: **two admins** — Mirsodiq (builder) and Bahromjon (instructor). Bot
 /admin
 ├── /admin                  ← Dashboard (overview metrics)
 ├── /admin/questions        ← Question CRUD
-│   └── /admin/questions/import   ← CSV import flow
+├── /admin/import-jobs      ← HTML import + review queue
+│   ├── /admin/import-jobs/new    ← upload a question-bank HTML file
+│   └── /admin/import-jobs/[id]   ← review/approve staged questions from a job
 ├── /admin/qod              ← QOD scheduling
 ├── /admin/users            ← User management
 ├── /admin/subscriptions    ← Subscription overview (read-only)
@@ -139,43 +141,26 @@ Opens the question in a modal styled exactly like the student practice view — 
 
 ---
 
-## CSV Import (`/admin/questions/import`)
+## HTML Import (`/admin/import-jobs`)
+
+HTML is the only bulk-import path — a hand-converted question-bank file, parsed deterministically with no AI involved. Full contract in [15-html-import-schema.md](15-html-import-schema.md); pipeline overview in [11-content-pipeline.md](11-content-pipeline.md).
 
 ### Workflow
-1. Click "Import CSV" button.
-2. Modal opens with three sections:
-   - **Format guide** (collapsible)
-   - **Drag-and-drop area** + "or browse"
-   - **Download template** link → static CSV with one example row
-3. Drop CSV → server parses, returns preview of first 5 rows.
-4. Admin reviews preview → "Import 187 questions" (count detected, rounded).
-5. Progress indicator during import.
-6. Result screen:
-   - "187 imported (status: draft)"
-   - "13 errors:" table with row number + reason
-   - "Download error report" → CSV with original rows + reason column
+1. `/admin/import-jobs` → "New import" → `/admin/import-jobs/new`.
+2. Drag-and-drop area (or "Choose file") accepts a `.html` file, max 20MB.
+3. "Start import" uploads the file to `POST /api/admin/import-jobs/html`, which parses it synchronously and creates an `import_jobs` row plus one `import_job_items` row per parsed question.
+4. Redirect to `/admin/import-jobs/:id` — the review queue (`components/admin/import-review.tsx`).
+5. Each item shows its parsed fields, status (`pending_review`, `verification_failed`, etc.), and any `validation_errors` or `verification_notes` flagged by the parser.
+6. Admin reviews each item, edits inline where needed, and approves it.
+7. Approved items are promoted into `questions` with `status = 'draft'`. Admin reviews + bulk-publishes from `/admin/questions`.
 
-### CSV format
-Full spec in [11-content-pipeline.md](11-content-pipeline.md). Quick reference:
-
-| Column | Required | Notes |
-|---|---|---|
-| subject | yes | "English" or "Math" |
-| category | yes | category name (must match exactly) |
-| question_text | yes | the stem |
-| passage | no | optional |
-| option_a | yes | |
-| option_b | yes | |
-| option_c | yes | |
-| option_d | yes | |
-| correct_answer | yes | A, B, C, or D |
-| explanation | yes | |
-| difficulty | yes | easy / medium / hard |
-| tags | no | semicolon-separated, e.g. `quadratic;factoring` |
+### Error handling
+- Parsing is per-question — one malformed `<article class="question">` never blocks the rest of the file.
+- A file that yields zero parseable questions is rejected outright before anything is written to the DB.
+- Flagged items stay visible in the review queue with the specific issue (missing correct-answer marker, unrecognized skill, unsupported figure type, etc.) rather than being silently dropped or mis-imported.
 
 ### Default behavior
-- Imported rows land as `status = 'draft'`. Admin reviews + bulk-publishes after.
-- Duplicates (matched by question_text + correct_answer) are **skipped, not overwritten**. Reason listed in error report.
+- Approved rows land as `status = 'draft'`. Admin reviews + bulk-publishes after.
 
 ---
 
@@ -346,7 +331,7 @@ We'll prepare a `docs/admin-guide.md` (different from this — written for non-t
 - Question list: pagination at 50/page. Search is server-side.
 - Bulk operations capped at 200 items per request to avoid timeout.
 - Stats dashboard queries are cached for 5 minutes (Vercel's data cache).
-- CSV import processes in batches of 50 inserts.
+- HTML import parses the whole file and stages all rows in a single batch insert; figure uploads run with bounded concurrency (5 at a time).
 
 ---
 

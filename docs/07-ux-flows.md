@@ -328,27 +328,21 @@ Step 5: Email receipt + welcome
 
 ---
 
-## Flow 9 — Admin imports CSV
+## Flow 9 — Admin imports an HTML question bank
 
 ### Sequence
-1. `/admin/questions` → "Import CSV" button.
-2. Modal opens with:
-   - Drag-and-drop area
-   - "Download template" link
-   - Explanation of the format
-3. Drop CSV → preview first 5 rows.
-4. Click "Import 187 questions" (count detected).
-5. Progress bar shows import.
-6. Result screen:
-   - "187 imported successfully"
-   - "13 skipped due to errors:" with table of errors per row
-   - "Download error report" CSV link
-7. Imported questions land in `status = 'draft'` by default. Admin reviews + publishes in bulk.
+1. `/admin/import-jobs` → "New import" → `/admin/import-jobs/new`.
+2. Drag-and-drop area (or "Choose file") accepts a hand-converted `.html` question-bank file — see [15-html-import-schema.md](15-html-import-schema.md) for the required shape.
+3. Click "Start import" → file uploads, server parses it synchronously (no AI involved — the HTML already tags question text, options, correct answer, explanation).
+4. Redirect to `/admin/import-jobs/:id` — the review queue for this job.
+5. Each parsed question lands as an `import_job_items` row: cleanly parsed ones are `pending_review`; anything the parser couldn't make sense of (missing correct-answer marker, unrecognized skill, malformed table, unsupported figure type) is flagged for manual fix-up.
+6. Admin reviews each item — fix inline where needed — and approves.
+7. Approved items are promoted into `questions` with `status = 'draft'`. Admin reviews + publishes in bulk from `/admin/questions`.
 
 ### Error handling
-- Validation per row: required fields, valid options, valid correct_answer, valid difficulty.
-- Errors don't block valid rows — partial success is allowed.
-- Errors logged in DB for audit (`import_log` table — future).
+- Validation happens per question; one malformed `<article>` never blocks the rest of the file — every question is parsed independently.
+- A file that yields zero parseable questions fails the upload outright (`NO_QUESTIONS_PARSED`) before anything is written to the DB.
+- Flagged items are visible in the review queue with the specific issue, not silently dropped.
 
 ---
 

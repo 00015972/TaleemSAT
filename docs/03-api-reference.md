@@ -494,22 +494,20 @@ Update an existing question.
 ### `DELETE /api/admin/questions/:id`
 Soft-archive (sets `status = 'archived'`). Hard delete only via Supabase SQL editor.
 
-### `POST /api/admin/questions/import`
-Bulk import via CSV.
+### `POST /api/admin/import-jobs/html`
+Bulk import via a hand-converted HTML question-bank file.
 
-**Body:** multipart/form-data with a `file` field. See [11-content-pipeline.md](11-content-pipeline.md) for CSV format.
+**Body:** multipart/form-data with a `file` field (`.html`, max 20MB). See [15-html-import-schema.md](15-html-import-schema.md) for the HTML contract the parser expects.
 
-**Response 200:**
+**Response 201:**
 ```json
-{
-  "ok": true,
-  "data": {
-    "imported": 187,
-    "skipped": 13,
-    "errors": [ { "row": 14, "reason": "Missing correct_answer" } ]
-  }
-}
+{ "jobId": "uuid" }
 ```
+
+**Notes:**
+- Parsing is synchronous, deterministic DOM parsing (`lib/import/html-questions.ts`) — no AI model involved.
+- Every parsed question is staged as an `import_job_items` row (`status: 'pending_review'` or flagged for review) under a new `import_jobs` row.
+- Nothing reaches students until an admin reviews and approves items at `/admin/import-jobs/:id`. See [11-content-pipeline.md](11-content-pipeline.md) for the full review/promote flow.
 
 ### `GET /api/admin/qod`
 List scheduled QODs (past + upcoming).

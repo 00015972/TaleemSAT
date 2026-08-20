@@ -1,6 +1,6 @@
 /**
  * The official College Board Digital SAT taxonomy: 29 skills nested under the
- * 8 domains. Shared by the topics seed and the PDF import pipeline, so both
+ * 8 domains. Shared by the topics seed and the HTML import pipeline, so both
  * agree on what a topic is and how a source Skill string maps to one.
  *
  * Deliberately free of any Supabase or server-only import — the Trigger.dev
@@ -212,10 +212,10 @@ export const TOPICS: TopicSeed[] = [...ENGLISH_TOPICS, ...MATH_TOPICS];
 /**
  * Strip everything but letters and digits.
  *
- * A PDF text layer loses the space wherever a line wraps, so the same skill
- * arrives as "Linear equations in onevariable" or "Geometry andTrigonometry".
- * Comparing on alphanumerics only makes the match immune to that, without
- * loosening it into fuzzy territory.
+ * A wrapped source line can lose the space at the wrap point, so the same
+ * skill arrives as "Linear equations in onevariable" or "Geometry
+ * andTrigonometry". Comparing on alphanumerics only makes the match immune
+ * to that, without loosening it into fuzzy territory.
  */
 function normalizeSkill(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]/g, '');
