@@ -385,16 +385,30 @@ function flattenBody(
     // SVG, not a pasted image. Must be checked before the generic <img> case
     // below since a figure wrapper can contain either.
     if (tag === 'svg' || (isFigureWrapper && $node.find('svg').length > 0)) {
-      const svgEl = tag === 'svg' ? $node : $node.find('svg').first();
       hasFigure = true;
-      const sanitized = sanitizeChartSvg($.html(svgEl));
-      if (sanitized) {
+      const svgElements = tag === 'svg' ? [$node] : $node.find('svg').get().map(el => $(el));
+      const sanitizedSvgs: string[] = [];
+
+      for (const svgEl of svgElements) {
+        const sanitized = sanitizeChartSvg($.html(svgEl));
+        if (sanitized) {
+          sanitizedSvgs.push(sanitized);
+        } else {
+          svgSanitizeFailed = true;
+        }
+      }
+
+      if (sanitizedSvgs.length > 0) {
+        // Combine multiple SVGs with a wrapper div. The CSS in globals.css
+        // handles grid layout for side-by-side display on larger screens.
+        const combined = sanitizedSvgs.length > 1
+          ? `<div>${sanitizedSvgs.join('')}</div>`
+          : sanitizedSvgs[0];
         // Rendered directly via components/reading/chart-figure.tsx above the
         // question body — a text placeholder here would just be a redundant
         // caption underneath the real chart.
-        chartSvgs.push(sanitized);
+        chartSvgs.push(combined);
       } else {
-        svgSanitizeFailed = true;
         parts.push('[Chart — see attached figure]');
       }
       return;
@@ -429,9 +443,19 @@ function flattenBody(
 
 /**
  * Sanitize a <table> into real markup for direct rendering
- * (components/reading/table-figure.tsx), and flag it `complex` — merged
- * cells, a nested table, or a row whose cell count doesn't match its
- * headers — so a human confirms it renders correctly before publishing.
+ * (components/reading/table-figure.tsx), and flag it `complex` — a nested
+ * table, or (for a simple single-row header with no merged cells) a row
+ * whose cell count doesn't match its headers — so a human confirms it
+ * renders correctly before publishing.
+ *
+ * Merged cells (colspan/rowspan) alone no longer force a flag: they're
+ * standard HTML that table-sanitize.ts preserves and the browser lays out
+ * natively, so there's nothing fragile about them. The cell-count check
+ * only runs for a plain, single-row header — with a multi-row or merged
+ * header (e.g. a rowspan'd corner + a colspan'd group heading over a row of
+ * sub-headers), `thead th` naively counts every <th> across every header
+ * row, which is structurally guaranteed to overcount vs. any body row's
+ * plain cell count and would flag every such table as a false positive.
  */
 function extractTable(
   $: cheerio.CheerioAPI,
@@ -439,6 +463,7 @@ function extractTable(
 ): { html: string | null; complex: boolean } {
   const hasMergedCells = table.find('[colspan], [rowspan]').length > 0;
   const hasNestedTable = table.find('table').length > 0;
+  const headerRowCount = table.find('thead tr').length;
 
   let headerCount = table.find('thead th').length;
   let rows = table.find('tbody tr').length > 0 ? table.find('tbody tr') : table.find('tr');
@@ -452,13 +477,14 @@ function extractTable(
     }
   }
 
+  const singleFlatHeader = !hasMergedCells && headerRowCount <= 1;
   let mismatch = false;
-  if (headerCount > 0) {
+  if (singleFlatHeader && headerCount > 0) {
     rows.each((_, tr) => {
       if ($(tr).find('td, th').length !== headerCount) mismatch = true;
     });
   }
 
   const html = sanitizeTableHtml($.html(table));
-  return { html, complex: hasMergedCells || hasNestedTable || mismatch };
+  return { html, complex: hasNestedTable || mismatch };
 }
