@@ -28,7 +28,7 @@ The bottom recommendation continues to use the existing `focusSubject` calculati
    - Eyebrow: “Practice arcade”
    - Heading: “Pick a deck. Start a run.”
    - Supporting copy: “Build skills in short, satisfying rounds—your progress is always on the cabinet.”
-2. Search and the All/Easy/Medium/Hard difficulty control remain immediately visible in the header. They share one horizontal row, with the search field on the left and the segmented difficulty control on the right; only narrow responsive layouts may wrap them.
+2. Search and the All/Easy/Medium/Hard difficulty control remain immediately visible in the header. They share one horizontal row at every breakpoint, with a compact search field on the left and the segmented difficulty control on the right.
 3. Two large subject portals reproduce Option A:
    - Reading & Writing uses a mint card with a floating open-book and answer-bubble illustration.
    - Math uses a yellow card with a floating calculator illustration.
@@ -100,8 +100,9 @@ The bottom recommendation continues to use the existing `focusSubject` calculati
 - Desktop uses two subject portals, two side-by-side shelves, four category cards per shelf, and a two-column topic tray.
 - Tablet stacks the subject portals if needed and can stack the shelves while retaining the single full-width tray beneath both.
 - Mobile uses one column, two category cards per row, a one-column topic tray, full-width actions, and the existing off-canvas sidebar.
+- On mobile, the sidebar menu button sits directly to the left of the page heading; the otherwise empty app topbar is hidden on this route.
 - The illustrations shrink or move behind the portal copy without obscuring text.
-- Search and difficulty controls wrap below the heading and remain full-width on narrow screens.
+- Search and difficulty controls remain on one compact row below the heading on narrow screens.
 
 ## Implementation boundaries
 

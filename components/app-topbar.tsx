@@ -1,6 +1,6 @@
 'use client';
 
-import { Menu } from 'lucide-react';
+import { AppMenuButton } from '@/components/app-menu-button';
 
 /**
  * Mobile-only menu trigger. Desktop has no top chrome — every page owns its
@@ -11,14 +11,7 @@ import { Menu } from 'lucide-react';
 export function AppTopbar({ onMenuClick }: { onMenuClick: () => void }) {
   return (
     <header className="app-tb">
-      <button
-        type="button"
-        className="tb-menu-btn"
-        onClick={onMenuClick}
-        aria-label="Open menu"
-      >
-        <Menu size={18} strokeWidth={2} />
-      </button>
+      <AppMenuButton onClick={onMenuClick} />
     </header>
   );
 }

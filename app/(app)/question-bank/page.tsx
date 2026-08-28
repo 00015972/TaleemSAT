@@ -23,9 +23,5 @@ export default async function QuestionBankPage() {
     overview = computed;
   }
 
-  return (
-    <div className="wrap py-5">
-      <PracticeShell overview={overview} pro={pro} />
-    </div>
-  );
+  return <PracticeShell overview={overview} pro={pro} />;
 }

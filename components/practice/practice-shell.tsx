@@ -8,14 +8,27 @@ import {
   ExamFooter,
   ExamNavigator,
 } from '@/components/exam/exam-chrome';
-import { ThemeToggle } from '@/components/theme-toggle';
-import { PassageReader } from '@/components/reading/passage-reader';
+import {
+  AnnotateToggle,
+  AppearanceMenu,
+  CalculatorButton,
+  ReferenceButton,
+  MoreMenu,
+  FullscreenToggle,
+  LineReaderOverlay,
+  READING_DIRECTIONS,
+  MATH_DIRECTIONS,
+  type MenuKey,
+} from '@/components/exam/exam-toolbar';
+import { PassageReader, type Tool } from '@/components/reading/passage-reader';
 import { WhyPanel } from '@/components/reading/why-panel';
 import { ChartFigure } from '@/components/reading/chart-figure';
 import { QuestionBody } from '@/components/reading/question-body';
 import { GridInInput } from '@/components/reading/grid-in-input';
 import { PracticeBrowse, type PracticeScope } from '@/components/practice/practice-browse';
 import type { PracticeOverview } from '@/lib/practice/overview';
+
+const NO_MARKS: Set<number> = new Set();
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -64,6 +77,14 @@ export function PracticeShell({
   const [flagged, setFlagged] = useState<Set<string>>(new Set());
   const [eliminated, setEliminated] = useState<Record<string, string[]>>({});
   const [elimMode, setElimMode] = useState(false);
+
+  // Reading-tool state — lifted so the top-bar Annotate toggle and the
+  // Highlights list in More can see/drive it, and so highlights survive
+  // paging away from a question and back (they didn't before).
+  const [marks, setMarks] = useState<Record<string, Set<number>>>({});
+  const [readingTool, setReadingTool] = useState<Tool>('define');
+  const [lineReaderOn, setLineReaderOn] = useState(false);
+  const [openMenu, setOpenMenu] = useState<MenuKey | null>(null);
 
   // Transient, current-question-only state.
   const [picked, setPicked] = useState<string | null>(null);
@@ -135,6 +156,10 @@ export function PracticeShell({
     setFlagged(new Set());
     setEliminated({});
     setElimMode(false);
+    setMarks({});
+    setReadingTool('define');
+    setLineReaderOn(false);
+    setOpenMenu(null);
 
     try {
       const scopeKey =
@@ -180,6 +205,10 @@ export function PracticeShell({
         [id]: list.includes(optionId) ? list.filter(x => x !== optionId) : [...list, optionId],
       };
     });
+  }, []);
+
+  const setMarksFor = useCallback((id: string, next: Set<number>) => {
+    setMarks(m => ({ ...m, [id]: next }));
   }, []);
 
   const selectOption = useCallback(
@@ -229,6 +258,9 @@ export function PracticeShell({
 
   const currentId = manifest?.[index]?.id;
   const resolved = currentId !== undefined && solvedAnswer[currentId] !== undefined;
+  // Practice questions carry no subject field — passage presence is the same
+  // proxy the Mock runner already uses for its own Reading-vs-Math ternary.
+  const directionsText = current ? (current.passage ? READING_DIRECTIONS : MATH_DIRECTIONS) : undefined;
 
   // A–D/1–4 to pick, Enter to check-or-continue, ←/→ to page, F to flag.
   useEffect(() => {
@@ -285,6 +317,7 @@ export function PracticeShell({
       <ExamTopBar
         title={scope.label}
         subtitle={scope.difficulty !== 'all' ? `${scope.difficulty} difficulty` : undefined}
+        directions={directionsText}
         onExit={backToTopics}
         exitLabel="All topics"
         center={
@@ -294,7 +327,36 @@ export function PracticeShell({
             <QuestionTimer key={currentId} startedAt={qStartedAt} frozen={resolved} />
           )
         }
-        right={<ThemeToggle />}
+        right={
+          <>
+            <AnnotateToggle
+              on={readingTool === 'highlight'}
+              onToggle={() => setReadingTool(t => (t === 'highlight' ? 'define' : 'highlight'))}
+              disabled={!current?.passage}
+            />
+            <AppearanceMenu
+              open={openMenu === 'appearance'}
+              onOpenChange={v => setOpenMenu(v ? 'appearance' : null)}
+            />
+            <CalculatorButton
+              open={openMenu === 'calculator'}
+              onOpenChange={v => setOpenMenu(v ? 'calculator' : null)}
+            />
+            <ReferenceButton
+              open={openMenu === 'reference'}
+              onOpenChange={v => setOpenMenu(v ? 'reference' : null)}
+            />
+            <MoreMenu
+              open={openMenu === 'more'}
+              onOpenChange={v => setOpenMenu(v ? 'more' : null)}
+              lineReaderOn={lineReaderOn}
+              onToggleLineReader={() => setLineReaderOn(v => !v)}
+              markCount={currentId ? (marks[currentId]?.size ?? 0) : 0}
+              onClearMarks={() => currentId && setMarksFor(currentId, new Set())}
+            />
+            <FullscreenToggle />
+          </>
+        }
       />
 
       {status === 'loading' && (
@@ -319,12 +381,17 @@ export function PracticeShell({
       {status === 'ready' && manifest && currentId && (
         <ExamSplit
           storageKey="taleem_practice_split"
+          overlay={<LineReaderOverlay active={lineReaderOn} />}
           left={
             <QuestionPane
               seq={index + 1}
               question={current}
               loading={currentLoading}
               pro={pro}
+              marks={currentId ? (marks[currentId] ?? NO_MARKS) : NO_MARKS}
+              onMarksChange={next => currentId && setMarksFor(currentId, next)}
+              tool={readingTool}
+              onToolChange={setReadingTool}
             />
           }
           right={
@@ -406,11 +473,19 @@ function QuestionPane({
   question,
   loading,
   pro,
+  marks,
+  onMarksChange,
+  tool,
+  onToolChange,
 }: {
   seq: number;
   question: Question | null;
   loading: boolean;
   pro: boolean;
+  marks: Set<number>;
+  onMarksChange: (next: Set<number>) => void;
+  tool: Tool;
+  onToolChange: (next: Tool) => void;
 }) {
   if (loading || !question) return <PaneSkeleton />;
   return (
@@ -419,7 +494,16 @@ function QuestionPane({
         <span className="ex-qnum">{seq}</span>
         <DifficultyBadge difficulty={question.difficulty} />
       </div>
-      {question.passage && <PassageReader text={question.passage} pro={pro} />}
+      {question.passage && (
+        <PassageReader
+          text={question.passage}
+          pro={pro}
+          marks={marks}
+          onMarksChange={onMarksChange}
+          tool={tool}
+          onToolChange={onToolChange}
+        />
+      )}
       <ChartFigure svg={question.chart_svg} />
       <QuestionBody text={question.question_text} tables={question.tables} className="ex-stem" />
     </>
@@ -478,7 +562,7 @@ function ChoicesPane({
           onClick={onToggleFlag}
           aria-pressed={flagged}
         >
-          <span aria-hidden="true">⚑</span> {flagged ? 'Marked' : 'Mark for review'}
+          <span aria-hidden="true">🔖</span> {flagged ? 'Marked' : 'Mark for review'}
         </button>
         <div className="ex-toolbar-right">
           {!isGridIn && (

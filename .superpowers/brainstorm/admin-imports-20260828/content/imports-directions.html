@@ -1,0 +1,126 @@
+<style>
+  .direction-intro { max-width: 760px; margin-bottom: 24px; }
+  .direction-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; align-items: start; }
+  .direction-card { overflow: hidden; border: 1px solid #d7d1c3; border-radius: 18px; background: #fff; cursor: pointer; transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
+  .direction-card:hover { transform: translateY(-3px); box-shadow: 0 22px 48px -28px rgba(15,63,37,.45); border-color: #b8922a; }
+  .direction-card.selected { border: 2px solid #b8922a; box-shadow: 0 0 0 4px rgba(184,146,42,.14), 0 22px 48px -28px rgba(15,63,37,.45); }
+  .direction-label { display: flex; align-items: flex-start; gap: 12px; padding: 18px 20px 20px; }
+  .direction-letter { width: 30px; height: 30px; flex: 0 0 30px; display: grid; place-items: center; border-radius: 9px; background: #173f2b; color: #f2d985; font: 700 12px/1 ui-monospace, monospace; }
+  .direction-label h3 { margin: 0 0 5px; color: #173f2b; font-size: 17px; }
+  .direction-label p { margin: 0; color: #6e6a61; font-size: 13px; line-height: 1.5; }
+  .shot { position: relative; min-height: 430px; overflow: hidden; color: #f5f1e5; background: #111914; font-family: Georgia, serif; }
+  .shot * { box-sizing: border-box; }
+  .shot-top { height: 38px; padding: 0 14px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(220,205,161,.13); background: #101410; }
+  .shot-brand { color: #59aa79; font-size: 11px; font-weight: 700; letter-spacing: .04em; }
+  .shot-brand b { margin-left: 6px; padding: 3px 5px; border: 1px solid rgba(204,165,55,.35); border-radius: 4px; color: #d5ad3f; font: 700 6px/1 ui-monospace, monospace; letter-spacing: .12em; }
+  .shot-user { color: #aaa596; font: 500 6px/1 ui-sans-serif, sans-serif; letter-spacing: .05em; }
+  .shot-shell { display: grid; grid-template-columns: 72px 1fr; min-height: 392px; }
+  .shot-side { padding: 18px 8px; border-right: 1px solid rgba(220,205,161,.12); background: #141713; }
+  .shot-nav { height: 18px; margin-bottom: 7px; border-radius: 5px; color: #817e73; font: 500 6px/18px ui-sans-serif, sans-serif; padding-left: 8px; }
+  .shot-nav.active { color: #62bd85; background: rgba(43,119,73,.14); border: 1px solid rgba(59,151,95,.2); }
+  .shot-main { position: relative; padding: 18px; overflow: hidden; }
+  .shot-main:before { content: ''; position: absolute; width: 170px; height: 170px; top: -90px; right: -70px; border-radius: 50%; background: rgba(45,131,80,.14); filter: blur(12px); }
+  .eyeline { color: #c9a437; font: 700 6px/1 ui-monospace, monospace; text-transform: uppercase; letter-spacing: .2em; }
+  .title-row { position: relative; z-index: 1; display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+  .title-row h4 { margin: 6px 0 3px; color: #fbf8ee; font-size: 22px; line-height: 1; letter-spacing: -.03em; }
+  .title-row p { margin: 0; color: #958f81; font: 500 6px/1.4 ui-sans-serif, sans-serif; }
+  .import-btn { padding: 8px 11px; border-radius: 8px; background: linear-gradient(135deg,#d6b54d,#aa8120); color: #172118; font: 700 7px/1 ui-sans-serif, sans-serif; box-shadow: 0 9px 18px -10px rgba(212,173,63,.8); }
+  .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin: 17px 0 10px; }
+  .metric { padding: 10px; border: 1px solid rgba(220,205,161,.12); border-radius: 9px; background: rgba(255,255,255,.035); }
+  .metric span { display: block; color: #8e8a7c; font: 600 5px/1 ui-sans-serif, sans-serif; text-transform: uppercase; letter-spacing: .13em; }
+  .metric strong { display: block; margin-top: 6px; color: #f4e8bd; font: 700 15px/1 Georgia, serif; }
+  .metric i { display: block; width: 28px; height: 2px; margin-top: 8px; border-radius: 9px; background: #46a36d; }
+  .ledger { overflow: hidden; border: 1px solid rgba(220,205,161,.14); border-radius: 11px; background: rgba(13,17,13,.62); box-shadow: 0 20px 40px -30px #000; }
+  .ledger-head, .ledger-row { display: grid; grid-template-columns: 2.15fr .8fr .65fr .7fr; align-items: center; column-gap: 7px; }
+  .ledger-head { height: 24px; padding: 0 10px; color: #77766d; background: rgba(255,255,255,.035); font: 600 5px/1 ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase; }
+  .ledger-row { min-height: 44px; padding: 0 10px; border-top: 1px solid rgba(220,205,161,.1); }
+  .fileline { min-width: 0; }
+  .fileline b { display: block; overflow: hidden; color: #eee9dc; font: 700 7px/1.2 ui-sans-serif, sans-serif; text-overflow: ellipsis; white-space: nowrap; }
+  .fileline small { display: block; margin-top: 4px; color: #77766d; font: 500 5px/1 ui-monospace, monospace; }
+  .status { width: max-content; padding: 4px 6px; border-radius: 99px; color: #61c687; background: rgba(66,170,107,.12); font: 700 5px/1 ui-monospace, monospace; letter-spacing: .08em; text-transform: uppercase; }
+  .count { color: #e2d8bb; font: 600 6px/1 ui-monospace, monospace; }
+  .review { justify-self: end; width: 19px; height: 19px; display: grid; place-items: center; border: 1px solid rgba(213,173,63,.35); border-radius: 6px; color: #d5ad3f; font: 700 8px/1 ui-sans-serif, sans-serif; }
+
+  .gallery .shot-main { padding-bottom: 24px; background: radial-gradient(circle at 78% 4%, rgba(177,137,33,.11), transparent 34%), linear-gradient(150deg,#111a14 0%,#151813 100%); }
+  .gallery-hero { position: relative; margin-top: 14px; padding: 15px 16px; overflow: hidden; border: 1px solid rgba(217,183,80,.22); border-radius: 13px; background: linear-gradient(125deg,#173f2b,#1c5937); box-shadow: 0 18px 30px -22px #000; }
+  .gallery-hero:after { content:''; position:absolute; width:105px; height:105px; right:-29px; bottom:-61px; border:1px solid rgba(231,202,112,.28); border-radius:50%; box-shadow:0 0 0 15px rgba(231,202,112,.035),0 0 0 31px rgba(231,202,112,.025); }
+  .gallery-hero small { color: rgba(245,241,229,.65); font: 600 5px/1 ui-sans-serif,sans-serif; letter-spacing:.12em; text-transform:uppercase; }
+  .gallery-hero strong { position:relative; z-index:1; display:block; margin-top:7px; color:#fff7dd; font-size:15px; }
+  .gallery-hero p { position:relative; z-index:1; max-width:190px; margin:5px 0 0; color:rgba(245,241,229,.67); font:500 6px/1.45 ui-sans-serif,sans-serif; }
+  .archive-head { display:flex; align-items:center; justify-content:space-between; margin:14px 0 7px; }
+  .archive-head b { color:#d6ceb9; font:700 7px/1 ui-sans-serif,sans-serif; }
+  .archive-head span { color:#77766d; font:500 5px/1 ui-monospace,monospace; }
+  .file-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; }
+  .file-card { position:relative; min-height:89px; padding:10px; overflow:hidden; border:1px solid rgba(220,205,161,.13); border-radius:10px; background:rgba(255,255,255,.035); }
+  .file-card:before { content:'HTML'; position:absolute; top:10px; right:9px; color:#c8a33d; font:700 4px/1 ui-monospace,monospace; letter-spacing:.1em; }
+  .file-icon { width:24px; height:27px; display:grid; place-items:center; border:1px solid rgba(91,181,125,.28); border-radius:6px; color:#60b980; background:rgba(57,142,91,.1); font:700 8px/1 Georgia,serif; }
+  .file-card b { display:block; max-width:82%; margin-top:7px; overflow:hidden; color:#eee8d9; font:700 6px/1.2 ui-sans-serif,sans-serif; text-overflow:ellipsis; white-space:nowrap; }
+  .file-meta { display:flex; justify-content:space-between; gap:7px; margin-top:5px; color:#7c786d; font:500 5px/1 ui-monospace,monospace; }
+  .progress { height:2px; margin-top:7px; overflow:hidden; border-radius:9px; background:rgba(255,255,255,.08); }
+  .progress i { display:block; height:100%; border-radius:9px; background:linear-gradient(90deg,#47a66e,#d1aa3a); }
+  .needs-review { color:#e6b64b !important; }
+  @media (max-width: 920px) { .direction-grid { grid-template-columns: 1fr; } }
+</style>
+
+<div class="direction-intro">
+  <h2>Which imports experience feels right?</h2>
+  <p class="subtitle">Both keep filenames, status, extracted totals, review counts, dates, errors, and the same links. Click the direction you want me to develop.</p>
+</div>
+
+<div class="direction-grid">
+  <div class="direction-card" data-choice="command-ledger" onclick="toggleSelect(this)">
+    <div class="shot ledger-shot">
+      <div class="shot-top"><div class="shot-brand">Taleem SAT <b>ADMIN</b></div><div class="shot-user">BACK TO APP&nbsp;&nbsp; ◌ &nbsp;&nbsp; MIRSODIQ</div></div>
+      <div class="shot-shell">
+        <div class="shot-side">
+          <div class="shot-nav">Overview</div><div class="shot-nav">Questions</div><div class="shot-nav active">● &nbsp;Imports</div><div class="shot-nav">Daily Q.</div><div class="shot-nav">Users</div><div class="shot-nav">Plans</div>
+        </div>
+        <div class="shot-main">
+          <div class="title-row">
+            <div><div class="eyeline">Content pipeline / 01</div><h4>Import ledger</h4><p>A precise operational view of every question bank.</p></div>
+            <div class="import-btn">＋ Import HTML</div>
+          </div>
+          <div class="metrics">
+            <div class="metric"><span>Total imports</span><strong>12</strong><i></i></div>
+            <div class="metric"><span>Questions extracted</span><strong>731</strong><i style="background:#d2aa3b"></i></div>
+            <div class="metric"><span>Need review</span><strong>03</strong><i style="background:#d27845"></i></div>
+          </div>
+          <div class="ledger">
+            <div class="ledger-head"><span>Question bank</span><span>Status</span><span>Extracted</span><span></span></div>
+            <div class="ledger-row"><div class="fileline"><b>SAT_Math_Medium_Problem-Solving_79-questions.html</b><small>27 AUG · 19:21</small></div><span class="status">Complete</span><span class="count">79 / 79</span><span class="review">↗</span></div>
+            <div class="ledger-row"><div class="fileline"><b>SAT_Math_Medium_Advanced-Math_96-questions.html</b><small>26 AUG · 15:54</small></div><span class="status">Complete</span><span class="count">96 / 96</span><span class="review">↗</span></div>
+            <div class="ledger-row"><div class="fileline"><b>SAT_Math_Medium_5-skills_110_questions.html</b><small>26 AUG · 13:14 · 1 NEEDS REVIEW</small></div><span class="status">Complete</span><span class="count">109 / 110</span><span class="review">↗</span></div>
+            <div class="ledger-row"><div class="fileline"><b>Math_Easy_Questions_251-283.html</b><small>26 AUG · 11:56</small></div><span class="status">Complete</span><span class="count">33 / 33</span><span class="review">↗</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="direction-label"><div class="direction-letter">A</div><div><h3>Command Ledger</h3><p>Editorial, dense, and decisive. A strong summary band upgrades the plain table while preserving fast row-by-row scanning.</p></div></div>
+  </div>
+
+  <div class="direction-card" data-choice="archive-gallery" onclick="toggleSelect(this)">
+    <div class="shot gallery">
+      <div class="shot-top"><div class="shot-brand">Taleem SAT <b>ADMIN</b></div><div class="shot-user">BACK TO APP&nbsp;&nbsp; ◌ &nbsp;&nbsp; MIRSODIQ</div></div>
+      <div class="shot-shell">
+        <div class="shot-side">
+          <div class="shot-nav">Overview</div><div class="shot-nav">Questions</div><div class="shot-nav active">● &nbsp;Imports</div><div class="shot-nav">Daily Q.</div><div class="shot-nav">Users</div><div class="shot-nav">Plans</div>
+        </div>
+        <div class="shot-main">
+          <div class="title-row">
+            <div><div class="eyeline">Question bank archive</div><h4>Your imports</h4><p>Every source file, beautifully organized and ready to review.</p></div>
+            <div class="import-btn">＋ New import</div>
+          </div>
+          <div class="gallery-hero"><small>Library health</small><strong>728 of 731 questions ready</strong><p>Your archive is in excellent shape. Three questions across recent imports need attention.</p></div>
+          <div class="archive-head"><b>Recent source files</b><span>12 IMPORTS · NEWEST FIRST</span></div>
+          <div class="file-grid">
+            <div class="file-card"><div class="file-icon">79</div><b>SAT_Math_Medium_Problem-Solving_79-questions.html</b><div class="file-meta"><span>27 AUG · 19:21</span><span>79 / 79</span></div><div class="progress"><i style="width:100%"></i></div></div>
+            <div class="file-card"><div class="file-icon">96</div><b>SAT_Math_Medium_Advanced-Math_96-questions.html</b><div class="file-meta"><span>26 AUG · 15:54</span><span>96 / 96</span></div><div class="progress"><i style="width:100%"></i></div></div>
+            <div class="file-card"><div class="file-icon">110</div><b>SAT_Math_Medium_5-skills_110_questions.html</b><div class="file-meta"><span class="needs-review">1 NEEDS REVIEW</span><span>109 / 110</span></div><div class="progress"><i style="width:99%"></i></div></div>
+            <div class="file-card"><div class="file-icon">33</div><b>Math_Easy_Questions_251-283.html</b><div class="file-meta"><span>26 AUG · 11:56</span><span>33 / 33</span></div><div class="progress"><i style="width:100%"></i></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="direction-label"><div class="direction-letter">B</div><div><h3>Archive Gallery</h3><p>Premium and memorable. Each import becomes a tactile file card, with completion and review state visible at a glance.</p></div></div>
+  </div>
+</div>

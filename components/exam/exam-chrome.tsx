@@ -22,11 +22,24 @@ import {
 
 // ─── Root ─────────────────────────────────────────────────────────────────────
 
+/** localStorage key for the Appearance menu's reading font-size choice. */
+export const FONTSIZE_KEY = 'taleem_reading_fontsize';
+export type FontSize = 'standard' | 'large' | 'xl';
+
 export function ExamRoot({ children }: { children: ReactNode }) {
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-exam', 'on');
-    return () => root.removeAttribute('data-exam');
+    try {
+      const saved = localStorage.getItem(FONTSIZE_KEY);
+      if (saved === 'large' || saved === 'xl') root.setAttribute('data-fontsize', saved);
+    } catch {
+      // localStorage unavailable — fall back to standard size
+    }
+    return () => {
+      root.removeAttribute('data-exam');
+      root.removeAttribute('data-fontsize');
+    };
   }, []);
 
   return <div className="ex-root">{children}</div>;
@@ -37,6 +50,7 @@ export function ExamRoot({ children }: { children: ReactNode }) {
 export function ExamTopBar({
   title,
   subtitle,
+  directions,
   center,
   right,
   onExit,
@@ -44,13 +58,16 @@ export function ExamTopBar({
 }: {
   title: string;
   subtitle?: string;
+  /** Short instructional text — rendered behind a "Directions ▾" toggle. */
+  directions?: string;
   center?: ReactNode;
   right?: ReactNode;
   onExit?: () => void;
   exitLabel?: string;
 }) {
+  const [dirOpen, setDirOpen] = useState(false);
   return (
-    <header className="ex-top">
+    <header className={`ex-top${dirOpen ? ' dir-open' : ''}`}>
       <div className="ex-top-l">
         {onExit && (
           <button type="button" className="ex-exit" onClick={onExit}>
@@ -60,6 +77,19 @@ export function ExamTopBar({
         <div className="ex-titles">
           <p className="ex-title">{title}</p>
           {subtitle && <p className="ex-sub">{subtitle}</p>}
+          {directions && (
+            <>
+              <button
+                type="button"
+                className="ex-dir-toggle"
+                onClick={() => setDirOpen(o => !o)}
+                aria-expanded={dirOpen}
+              >
+                Directions <span aria-hidden="true">{dirOpen ? '▴' : '▾'}</span>
+              </button>
+              {dirOpen && <p className="ex-dir-body">{directions}</p>}
+            </>
+          )}
         </div>
       </div>
       <div className="ex-top-c">{center}</div>
@@ -105,12 +135,15 @@ export function ExamStage({
   choices,
   questionLabel = 'Question',
   choicesLabel = 'Answer choices',
+  overlay,
 }: {
   header?: ReactNode;
   question: ReactNode;
   choices: ReactNode;
   questionLabel?: string;
   choicesLabel?: string;
+  /** Decorative overlay (e.g. the line-reader band) — rendered last, above everything. */
+  overlay?: ReactNode;
 }) {
   return (
     <div className="ex-stage">
@@ -126,6 +159,7 @@ export function ExamStage({
           <div className="ex-panel-in">{choices}</div>
         </section>
       </div>
+      {overlay}
     </div>
   );
 }
@@ -179,10 +213,13 @@ export function ExamSplit({
   left,
   right,
   storageKey = 'taleem_exam_split',
+  overlay,
 }: {
   left: ReactNode;
   right: ReactNode;
   storageKey?: string;
+  /** Decorative overlay (e.g. the line-reader band) — rendered last, above everything. */
+  overlay?: ReactNode;
 }) {
   const persistedPct = useSyncExternalStore(
     subscribeNever,
@@ -252,6 +289,7 @@ export function ExamSplit({
       <div className="ex-split-pane" style={{ flexBasis: `${100 - pct}%` }}>
         {right}
       </div>
+      {overlay}
     </div>
   );
 }

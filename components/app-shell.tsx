@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { APP_MENU_OPEN_EVENT } from '@/components/app-menu-button';
 import { AppSidebar } from '@/components/app-sidebar';
 import { AppTopbar } from '@/components/app-topbar';
 
@@ -20,6 +21,15 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    function openMobileMenu() {
+      setMobileOpen(true);
+    }
+
+    window.addEventListener(APP_MENU_OPEN_EVENT, openMobileMenu);
+    return () => window.removeEventListener(APP_MENU_OPEN_EVENT, openMobileMenu);
+  }, []);
 
   useEffect(() => {
     if (!mobileOpen) return;

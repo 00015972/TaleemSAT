@@ -2,9 +2,9 @@
 
 import { useSyncExternalStore } from 'react';
 
-const STORAGE_KEY = 'taleem_theme';
+export const STORAGE_KEY = 'taleem_theme';
 
-function subscribe(callback: () => void) {
+export function subscribe(callback: () => void) {
   const observer = new MutationObserver(callback);
   observer.observe(document.documentElement, {
     attributes: true,
@@ -13,13 +13,13 @@ function subscribe(callback: () => void) {
   return () => observer.disconnect();
 }
 
-function getSnapshot(): 'light' | 'dark' {
+export function getSnapshot(): 'light' | 'dark' {
   return document.documentElement.getAttribute('data-theme') === 'dark'
     ? 'dark'
     : 'light';
 }
 
-function getServerSnapshot(): 'light' | 'dark' {
+export function getServerSnapshot(): 'light' | 'dark' {
   return 'light';
 }
 

@@ -11,7 +11,19 @@ import {
   ExamStage,
   ExamTopBar,
 } from '@/components/exam/exam-chrome';
-import { PassageReader } from '@/components/reading/passage-reader';
+import {
+  AnnotateToggle,
+  AppearanceMenu,
+  CalculatorButton,
+  ReferenceButton,
+  MoreMenu,
+  FullscreenToggle,
+  LineReaderOverlay,
+  READING_DIRECTIONS,
+  MATH_DIRECTIONS,
+  type MenuKey,
+} from '@/components/exam/exam-toolbar';
+import { PassageReader, type Tool } from '@/components/reading/passage-reader';
 import { WhyPanel } from '@/components/reading/why-panel';
 import { ChartFigure } from '@/components/reading/chart-figure';
 import { QuestionBody } from '@/components/reading/question-body';
@@ -118,6 +130,12 @@ export function MockRunner({ pro = false }: { pro?: boolean }) {
   const [hideClock, setHideClock] = useState(false);
   const [dialog, setDialog] = useState<null | 'exit' | 'finish'>(null);
 
+  // Reading-tool state — mirrors Practice's lifted state so the shared
+  // toolbar (Annotate/More's Highlights list/Line reader) works the same way.
+  const [readingTool, setReadingTool] = useState<Tool>('define');
+  const [lineReaderOn, setLineReaderOn] = useState(false);
+  const [openMenu, setOpenMenu] = useState<MenuKey | null>(null);
+
   const [spent, setSpent] = useState<Record<string, number>>({});
   const [startedAt, setStartedAt] = useState<number>(0);
   const [now, setNow] = useState<number>(0);
@@ -125,6 +143,11 @@ export function MockRunner({ pro = false }: { pro?: boolean }) {
   const scored = status === 'done';
   const examTotal = count * 90; // ~1.5 min/question
   const current = questions[index] ?? null;
+  const directionsText = current
+    ? current.subjectSlug === 'math'
+      ? MATH_DIRECTIONS
+      : READING_DIRECTIONS
+    : undefined;
 
   const elapsed =
     status === 'running' || status === 'submitting'
@@ -174,6 +197,9 @@ export function MockRunner({ pro = false }: { pro?: boolean }) {
       setReview(null);
       setElimMode(false);
       setHideClock(false);
+      setReadingTool('define');
+      setLineReaderOn(false);
+      setOpenMenu(null);
       setStartedAt(Date.now());
       setNow(Date.now());
       setStatus('running');
@@ -576,6 +602,7 @@ export function MockRunner({ pro = false }: { pro?: boolean }) {
       <ExamTopBar
         title={`Mock test · ${SUBJECT_LABEL[subject]}`}
         subtitle={`${questions.length} questions${examMode ? ' · exam mode' : ''}`}
+        directions={directionsText}
         onExit={() => setDialog('exit')}
         center={
           <ExamClock
@@ -587,6 +614,32 @@ export function MockRunner({ pro = false }: { pro?: boolean }) {
         }
         right={
           <>
+            <AnnotateToggle
+              on={readingTool === 'highlight'}
+              onToggle={() => setReadingTool(t => (t === 'highlight' ? 'define' : 'highlight'))}
+              disabled={!current?.passage}
+            />
+            <AppearanceMenu
+              open={openMenu === 'appearance'}
+              onOpenChange={v => setOpenMenu(v ? 'appearance' : null)}
+            />
+            <CalculatorButton
+              open={openMenu === 'calculator'}
+              onOpenChange={v => setOpenMenu(v ? 'calculator' : null)}
+            />
+            <ReferenceButton
+              open={openMenu === 'reference'}
+              onOpenChange={v => setOpenMenu(v ? 'reference' : null)}
+            />
+            <MoreMenu
+              open={openMenu === 'more'}
+              onOpenChange={v => setOpenMenu(v ? 'more' : null)}
+              lineReaderOn={lineReaderOn}
+              onToggleLineReader={() => setLineReaderOn(v => !v)}
+              markCount={current ? (marks[current.id]?.size ?? 0) : 0}
+              onClearMarks={() => current && setMarksFor(current.id, new Set())}
+            />
+            <FullscreenToggle />
             <button
               type="button"
               className={`ex-tool${elimMode ? ' on' : ''}`}
@@ -614,6 +667,7 @@ export function MockRunner({ pro = false }: { pro?: boolean }) {
       {current && (
         <ExamStage
           key={current.id}
+          overlay={<LineReaderOverlay active={lineReaderOn} />}
           header={
             <QuestionBar
               q={current}
@@ -637,6 +691,8 @@ export function MockRunner({ pro = false }: { pro?: boolean }) {
               pro={pro}
               marks={marks[current.id] ?? NO_MARKS}
               onMarksChange={next => setMarksFor(current.id, next)}
+              tool={readingTool}
+              onToolChange={setReadingTool}
             />
           }
           choices={
@@ -778,7 +834,7 @@ function QuestionBar({
         onClick={onFlag}
         aria-pressed={flagged}
       >
-        <span aria-hidden="true">⚑</span> {flagged ? 'Marked' : 'Mark for review'}
+        <span aria-hidden="true">🔖</span> {flagged ? 'Marked' : 'Mark for review'}
       </button>
       {status}
     </>
@@ -792,16 +848,27 @@ function QuestionSide({
   pro,
   marks,
   onMarksChange,
+  tool,
+  onToolChange,
 }: {
   q: MockQuestion;
   pro: boolean;
   marks: Set<number>;
   onMarksChange: (next: Set<number>) => void;
+  tool?: Tool;
+  onToolChange?: (next: Tool) => void;
 }) {
   return (
     <>
       {q.passage && (
-        <PassageReader text={q.passage} pro={pro} marks={marks} onMarksChange={onMarksChange} />
+        <PassageReader
+          text={q.passage}
+          pro={pro}
+          marks={marks}
+          onMarksChange={onMarksChange}
+          tool={tool}
+          onToolChange={onToolChange}
+        />
       )}
       <ChartFigure svg={q.chart_svg} />
       <QuestionBody text={q.question_text} tables={q.tables} className="ex-stem" />

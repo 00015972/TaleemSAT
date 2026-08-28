@@ -22,7 +22,7 @@ type VocabEntry = {
   ru: string;
 };
 
-type Tool = 'define' | 'highlight';
+export type Tool = 'define' | 'highlight';
 
 /** True when the popover state holds a real translation (not a status sentinel). */
 function isVocabEntry(
@@ -89,6 +89,8 @@ export function PassageReader({
   pro = false,
   marks: marksProp,
   onMarksChange,
+  tool: toolProp,
+  onToolChange,
 }: {
   text: string;
   className?: string;
@@ -100,8 +102,23 @@ export function PassageReader({
    */
   marks?: Set<number>;
   onMarksChange?: (next: Set<number>) => void;
+  /**
+   * The active reading tool can likewise be lifted out — the top-bar Annotate
+   * toggle needs to drive the same state the passage's own Define/Highlight
+   * buttons do. Omit both props to keep it local.
+   */
+  tool?: Tool;
+  onToolChange?: (next: Tool) => void;
 }) {
-  const [tool, setTool] = useState<Tool>('define');
+  const [ownTool, setOwnTool] = useState<Tool>('define');
+  const tool = toolProp ?? ownTool;
+  const setTool = useCallback(
+    (next: Tool) => {
+      if (onToolChange) onToolChange(next);
+      else setOwnTool(next);
+    },
+    [onToolChange]
+  );
   const [ownMarks, setOwnMarks] = useState<Set<number>>(NO_MARKS);
   const marks = marksProp ?? ownMarks;
   const tokens = tokenize(text);

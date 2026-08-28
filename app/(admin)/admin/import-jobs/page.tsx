@@ -1,4 +1,13 @@
 import Link from 'next/link';
+import {
+  FiAlertCircle,
+  FiArrowUpRight,
+  FiCheckCircle,
+  FiFileText,
+  FiInbox,
+  FiLayers,
+  FiUploadCloud,
+} from 'react-icons/fi';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { StatusPill } from '@/components/admin/import-status-pill';
 
@@ -14,6 +23,11 @@ function formatWhen(iso: string) {
   });
 }
 
+function extractionProgress(successCount: number, totalCount: number) {
+  if (totalCount <= 0) return 0;
+  return Math.min(100, Math.max(0, (successCount / totalCount) * 100));
+}
+
 export default async function ImportJobsPage() {
   const admin = createAdminClient();
   const { data: jobs } = await admin
@@ -25,83 +39,185 @@ export default async function ImportJobsPage() {
     .limit(50);
 
   const rows = jobs ?? [];
+  const totalQuestions = rows.reduce((sum, job) => sum + Math.max(0, job.total_count), 0);
+  const totalExtracted = rows.reduce((sum, job) => sum + Math.max(0, job.success_count), 0);
+  const totalNeedsReview = rows.reduce((sum, job) => sum + Math.max(0, job.failed_count), 0);
+  const readiness = totalQuestions > 0
+    ? Math.min(100, Math.round((totalExtracted / totalQuestions) * 1000) / 10)
+    : 100;
+  const readinessLabel = Number.isInteger(readiness) ? readiness.toFixed(0) : readiness.toFixed(1);
 
   return (
-    <>
-      <div className="adm-head">
+    <section className="imports-studio">
+      <div className="imports-studio-glow" aria-hidden="true" />
+
+      <header className="imports-studio-header">
         <div>
+          <div className="imports-studio-eyebrow">
+            <span />
+            Content workspace
+          </div>
           <h1>Imports</h1>
-          <p>Pull questions out of an HTML question bank and review them before they go live.</p>
+          <p>Manage extracted question banks and review exceptions before publishing.</p>
         </div>
-        <Link href="/admin/import-jobs/new" className="adm-btn">
+        <Link href="/admin/import-jobs/new" className="imports-studio-import-btn">
+          <span className="imports-studio-import-icon" aria-hidden="true">
+            <FiUploadCloud />
+          </span>
           Import HTML
         </Link>
-      </div>
+      </header>
 
       {rows.length === 0 ? (
-        <div className="adm-empty">
-          <p>No imports yet.</p>
-          <p className="text-sm text-muted mt-1">
-            Upload a question-bank HTML file and its questions land here for review.
-          </p>
-          <Link href="/admin/import-jobs/new" className="adm-btn mt-3">
+        <div className="imports-studio-empty">
+          <span className="imports-studio-empty-icon" aria-hidden="true">
+            <FiInbox />
+          </span>
+          <span className="imports-studio-empty-kicker">Your workspace is ready</span>
+          <h2>No imports yet</h2>
+          <p>Upload a question-bank HTML file and its questions will land here for review.</p>
+          <Link href="/admin/import-jobs/new" className="imports-studio-import-btn">
+            <span className="imports-studio-import-icon" aria-hidden="true">
+              <FiUploadCloud />
+            </span>
             Import HTML
           </Link>
         </div>
       ) : (
-        <div className="adm-table-wrap">
-          <table className="adm-table">
-            <thead>
-              <tr>
-                <th>File</th>
-                <th>Status</th>
-                <th>Extracted</th>
-                <th>Needs review</th>
-                <th>Started</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(job => (
-                <tr key={job.id}>
-                  <td>
-                    <Link href={`/admin/import-jobs/${job.id}`} className="font-medium">
-                      {job.source_filename ?? 'Untitled'}
-                    </Link>
-                    {job.error && (
-                      <div className="text-xs mt-1" style={{ color: 'var(--err)' }}>
-                        {job.error}
-                      </div>
-                    )}
-                  </td>
-                  <td>
-                    <StatusPill status={job.status} />
-                  </td>
-                  <td className="tabular">
-                    {job.success_count}
-                    {job.total_count > 0 && (
-                      <span className="text-muted"> / {job.total_count}</span>
-                    )}
-                  </td>
-                  <td className="tabular">
-                    {job.failed_count > 0 ? (
-                      <span style={{ color: 'var(--err)' }}>{job.failed_count}</span>
-                    ) : (
-                      <span className="text-muted">—</span>
-                    )}
-                  </td>
-                  <td className="text-muted text-sm">{formatWhen(job.created_at)}</td>
-                  <td>
-                    <Link href={`/admin/import-jobs/${job.id}`} className="adm-btn secondary sm">
-                      Review
-                    </Link>
-                  </td>
+        <>
+          <div className="imports-studio-overview" aria-label="Import overview">
+            <article className="imports-studio-readiness">
+              <div className="imports-studio-card-label">
+                <FiCheckCircle aria-hidden="true" />
+                Library readiness
+              </div>
+              <strong>{readinessLabel}%</strong>
+              <p>
+                {totalExtracted.toLocaleString()} of {totalQuestions.toLocaleString()} extracted
+                questions are ready to review.
+              </p>
+              <div className="imports-studio-readiness-track" aria-hidden="true">
+                <span style={{ width: `${readiness}%` }} />
+              </div>
+            </article>
+
+            <article className="imports-studio-summary-card">
+              <div className="imports-studio-card-label">
+                <FiLayers aria-hidden="true" />
+                Source files
+              </div>
+              <strong>{rows.length.toLocaleString()}</strong>
+              <p>HTML imports on record</p>
+            </article>
+
+            <article className="imports-studio-summary-card gold">
+              <div className="imports-studio-card-label">
+                <FiAlertCircle aria-hidden="true" />
+                Needs review
+              </div>
+              <strong>{totalNeedsReview.toLocaleString()}</strong>
+              <p>Across recent imports</p>
+            </article>
+          </div>
+
+          <div className="imports-studio-section-head">
+            <div>
+              <h2>Import history</h2>
+              <p>Newest source files appear first.</p>
+            </div>
+            <span>{rows.length} {rows.length === 1 ? 'file' : 'files'}</span>
+          </div>
+
+          <div className="imports-studio-table-wrap">
+            <table className="imports-studio-table">
+              <thead>
+                <tr>
+                  <th>File</th>
+                  <th>Status</th>
+                  <th>Extracted</th>
+                  <th>Needs review</th>
+                  <th>Started</th>
+                  <th><span className="sr-only">Review</span></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {rows.map(job => {
+                  const filename = job.source_filename ?? 'Untitled';
+                  const progress = extractionProgress(job.success_count, job.total_count);
+
+                  return (
+                    <tr key={job.id}>
+                      <td className="imports-studio-file-cell" data-label="File">
+                        <div className="imports-studio-file">
+                          <span className="imports-studio-file-icon" aria-hidden="true">
+                            <FiFileText />
+                            <small>{job.type?.toUpperCase() ?? 'HTML'}</small>
+                          </span>
+                          <div>
+                            <Link
+                              href={`/admin/import-jobs/${job.id}`}
+                              className="imports-studio-filename"
+                              title={filename}
+                            >
+                              {filename}
+                            </Link>
+                            <span className="imports-studio-file-type">Question bank source</span>
+                            {job.error && (
+                              <span className="imports-studio-error">
+                                <FiAlertCircle aria-hidden="true" />
+                                {job.error}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="imports-studio-status" data-label="Status">
+                        <StatusPill status={job.status} />
+                      </td>
+                      <td className="imports-studio-extracted" data-label="Extracted">
+                        <strong>
+                          {job.success_count}
+                          {job.total_count > 0 && <span> / {job.total_count}</span>}
+                        </strong>
+                        <div className="imports-studio-progress" aria-hidden="true">
+                          <span style={{ width: `${progress}%` }} />
+                        </div>
+                      </td>
+                      <td className="imports-studio-review-count" data-label="Needs review">
+                        {job.failed_count > 0 ? (
+                          <span className="has-review">
+                            <FiAlertCircle aria-hidden="true" />
+                            {job.failed_count} {job.failed_count === 1 ? 'question' : 'questions'}
+                          </span>
+                        ) : (
+                          <span className="no-review">—</span>
+                        )}
+                      </td>
+                      <td className="imports-studio-date" data-label="Started">
+                        <time dateTime={job.created_at}>{formatWhen(job.created_at)}</time>
+                      </td>
+                      <td className="imports-studio-action">
+                        <Link
+                          href={`/admin/import-jobs/${job.id}`}
+                          aria-label={`Review ${filename}`}
+                          title={`Review ${filename}`}
+                        >
+                          <FiArrowUpRight aria-hidden="true" />
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <p className="imports-studio-footnote">
+            <span aria-hidden="true" />
+            All imports are synchronized with the review workspace.
+          </p>
+        </>
       )}
-    </>
+    </section>
   );
 }
