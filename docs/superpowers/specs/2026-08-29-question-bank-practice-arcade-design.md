@@ -28,7 +28,7 @@ The bottom recommendation continues to use the existing `focusSubject` calculati
    - Eyebrow: “Practice arcade”
    - Heading: “Pick a deck. Start a run.”
    - Supporting copy: “Build skills in short, satisfying rounds—your progress is always on the cabinet.”
-2. Search and the All/Easy/Medium/Hard difficulty control remain immediately visible in the header.
+2. Search and the All/Easy/Medium/Hard difficulty control remain immediately visible in the header. They share one horizontal row, with the search field on the left and the segmented difficulty control on the right; only narrow responsive layouts may wrap them.
 3. Two large subject portals reproduce Option A:
    - Reading & Writing uses a mint card with a floating open-book and answer-bubble illustration.
    - Math uses a yellow card with a floating calculator illustration.
