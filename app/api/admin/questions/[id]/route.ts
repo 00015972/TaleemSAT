@@ -1,9 +1,7 @@
 import { NextRequest } from 'next/server';
-import { revalidateTag } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { logAudit } from '@/lib/admin/audit';
-import { PRACTICE_CATALOG_CACHE_TAG } from '@/lib/practice/overview';
 import {
   validateQuestion,
   type QuestionInput,
@@ -92,6 +90,5 @@ export async function PATCH(
     },
   });
 
-  revalidateTag(PRACTICE_CATALOG_CACHE_TAG, 'max');
   return Response.json({ id });
 }

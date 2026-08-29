@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getClaimsUser } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { NextRequest } from 'next/server';
 import { gridInAnswerMatches } from '@/lib/grading/grid-in';
@@ -27,9 +27,7 @@ type AttemptInsert = {
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getClaimsUser();
   if (!user) return Response.json({ error: 'AUTH_REQUIRED' }, { status: 401 });
 
   let body: { answers?: AnswerInput[] };

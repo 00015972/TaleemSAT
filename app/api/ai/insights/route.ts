@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getClaimsUser } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { computeAnalyticsOverview } from '@/lib/analytics/overview';
 import {
@@ -19,9 +19,7 @@ const MIN_ATTEMPTS = 10;
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getClaimsUser();
 
   if (!user) {
     return Response.json({ error: 'AUTH_REQUIRED' }, { status: 401 });

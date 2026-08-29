@@ -11,7 +11,7 @@ import {
   Target,
   Trophy,
 } from 'lucide-react';
-import { createClient, getUser } from '@/lib/supabase/server';
+import { createClient, getAppProfile, getUser } from '@/lib/supabase/server';
 import { AppMenuButton } from '@/components/app-menu-button';
 import { ResendVerificationButton } from '@/components/resend-verification-button';
 import {
@@ -39,14 +39,8 @@ export default async function DashboardPage() {
   // eslint-disable-next-line react-hooks/purity
   const requestNowMs = Date.now();
 
-  const [{ data: profile }, snapshot] = await Promise.all([
-    supabase
-      .from('users')
-      .select(
-        'full_name, tier, points, streak_days, target_sat_score, exam_date, current_period_end'
-      )
-      .eq('id', user.id)
-      .single(),
+  const [profile, snapshot] = await Promise.all([
+    getAppProfile(),
     computeDashboardSnapshot(supabase, user.id),
   ]);
 

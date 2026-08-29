@@ -25,11 +25,10 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  // IMPORTANT: do not add logic between createServerClient and getUser —
+  // IMPORTANT: do not add logic between createServerClient and getClaims —
   // this call refreshes the session and sets auth cookies.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data, error } = await supabase.auth.getClaims();
+  const user = !error && data?.claims?.sub ? data.claims : null;
 
   const { pathname } = request.nextUrl;
 
@@ -48,6 +47,7 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/settings') ||
     pathname.startsWith('/question-bank') ||
+    pathname.startsWith('/mock') ||
     pathname.startsWith('/qod') ||
     pathname.startsWith('/analytics') ||
     pathname.startsWith('/certificates');
@@ -70,6 +70,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js)$).*)',
+    '/((?!api(?:/|$)|_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js)$).*)',
   ],
 };

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getClaimsUser } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { lookupVocab, normalizeWord, isAdvancedWord } from '@/lib/ai/vocab';
 import { AiError } from '@/lib/ai/client';
@@ -12,9 +12,7 @@ export const dynamic = 'force-dynamic';
  */
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getClaimsUser();
   if (!user) return Response.json({ error: 'AUTH_REQUIRED' }, { status: 401 });
 
   // Vocab translation is a Pro/Elite feature.

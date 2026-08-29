@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getClaimsUser } from '@/lib/supabase/server';
 import { computePracticeOverview } from '@/lib/practice/overview';
 
 export const dynamic = 'force-dynamic';
@@ -9,16 +9,14 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getClaimsUser();
 
   if (!user) {
     return Response.json({ error: 'AUTH_REQUIRED' }, { status: 401 });
   }
 
   try {
-    const overview = await computePracticeOverview(supabase, user.id);
+    const overview = await computePracticeOverview(supabase);
     return Response.json(overview);
   } catch {
     return Response.json({ error: 'DB_ERROR' }, { status: 500 });

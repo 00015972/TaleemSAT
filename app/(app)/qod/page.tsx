@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { createClient, getUser } from '@/lib/supabase/server';
+import { createClient, getAppProfile, getClaimsUser } from '@/lib/supabase/server';
 import { QODShell, type QOD, type QODQuestion, type PriorAnswer } from '@/components/qod/qod-shell';
 
 export const dynamic = 'force-dynamic';
@@ -7,11 +7,10 @@ export const metadata = { title: 'Question of the Day — Taleem SAT' };
 
 export default async function QODPage() {
   const supabase = await createClient();
-  const user = await getUser();
+  const user = await getClaimsUser();
 
   if (!user) redirect('/login');
 
-   
   const todayStr = new Date().toISOString().slice(0, 10);
 
   const { data: schedule } = await supabase
@@ -55,11 +54,7 @@ export default async function QODPage() {
     .eq('qod_id', schedule.id)
     .maybeSingle();
 
-  const { data: profile } = await supabase
-    .from('users')
-    .select('tier')
-    .eq('id', user.id)
-    .single();
+  const profile = await getAppProfile();
   const pro = profile?.tier === 'pro' || profile?.tier === 'elite';
 
   const rawQuestion = Array.isArray(schedule.questions)

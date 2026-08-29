@@ -1,20 +1,15 @@
 import { redirect } from 'next/navigation';
-import { createClient, getUser } from '@/lib/supabase/server';
+import { getAppProfile, getClaimsUser } from '@/lib/supabase/server';
 import { SettingsForm } from '@/components/settings-form';
 
 export const metadata = { title: 'Settings — Taleem SAT' };
 
 export default async function SettingsPage() {
-  const supabase = await createClient();
-  const user = await getUser();
+  const user = await getClaimsUser();
 
   if (!user) redirect('/login');
 
-  const { data: profile } = await supabase
-    .from('users')
-    .select('full_name, tier, target_sat_score, exam_date, marketing_opt_in')
-    .eq('id', user.id)
-    .single();
+  const profile = await getAppProfile();
 
   const tier = (profile?.tier as string | null) ?? 'free';
   const targetScore = profile?.target_sat_score

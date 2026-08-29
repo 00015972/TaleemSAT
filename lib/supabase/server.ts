@@ -3,6 +3,12 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import type { Database } from './types';
 
+export type ClaimsUser = {
+  id: string;
+  email: string | null;
+  user_metadata: Record<string, unknown>;
+};
+
 /**
  * Server-side Supabase client. Reads cookies via next/headers.
  * Use in Server Components, Route Handlers, and Server Actions.
@@ -51,4 +57,46 @@ export const getUser = cache(async () => {
     data: { user },
   } = await supabase.auth.getUser();
   return user;
+});
+
+/**
+ * The authenticated identity derived from a cryptographically verified JWT.
+ *
+ * With asymmetric Supabase signing keys `getClaims()` verifies locally after
+ * the JWKS is cached, avoiding the Auth-server round trip that `getUser()`
+ * always makes. Use `getUser()` only when a caller needs a freshly fetched
+ * Auth record rather than the stable identity carried by the access token.
+ */
+export const getClaimsUser = cache(async (): Promise<ClaimsUser | null> => {
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.getClaims();
+  const claims = data?.claims;
+
+  if (error || !claims?.sub) return null;
+
+  const metadata = claims.user_metadata;
+  return {
+    id: claims.sub,
+    email: typeof claims.email === 'string' ? claims.email : null,
+    user_metadata:
+      metadata && typeof metadata === 'object'
+        ? (metadata as Record<string, unknown>)
+        : {},
+  };
+});
+
+/** Shared application profile for layouts and pages rendered in one request. */
+export const getAppProfile = cache(async () => {
+  const [supabase, user] = await Promise.all([createClient(), getClaimsUser()]);
+  if (!user) return null;
+
+  const { data } = await supabase
+    .from('users')
+    .select(
+      'full_name, role, tier, points, streak_days, target_sat_score, exam_date, marketing_opt_in, current_period_end'
+    )
+    .eq('id', user.id)
+    .single();
+
+  return data;
 });

@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TaleemSAT Settings concepts</title>
+  <style>
+    :root {
+      --ink: #13281f;
+      --forest: #0c1c16;
+      --forest-2: #10271d;
+      --forest-3: #17372a;
+      --mint: #a9e8c5;
+      --mint-strong: #67d395;
+      --sun: #f1ca58;
+      --coral: #f07167;
+      --cream: #f6f0df;
+      --paper: #fffaf0;
+      --line: rgba(231, 244, 234, .15);
+      --muted: #9caea5;
+      --shadow: 0 16px 42px rgba(3, 13, 8, .25);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 8% 0%, rgba(103,211,149,.13), transparent 31rem),
+        #07110d;
+      color: #eff8f1;
+      font-family: Manrope, "Avenir Next", "Segoe UI", sans-serif;
+      min-height: 100vh;
+    }
+    button, input, select { font: inherit; }
+    .page-head {
+      max-width: 1460px;
+      margin: 0 auto;
+      padding: 34px 28px 22px;
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 28px;
+    }
+    .page-head small {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--sun);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+    }
+    .page-head small::before { content: ""; width: 28px; height: 2px; background: var(--sun); }
+    .page-head h1 { font-size: clamp(28px, 4vw, 50px); line-height: .98; letter-spacing: -.045em; margin: 12px 0 8px; }
+    .page-head p { margin: 0; color: #a8b7af; max-width: 650px; line-height: 1.55; }
+    .legend { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+    .legend span { border: 1px solid var(--line); border-radius: 999px; padding: 8px 12px; color: #a8b7af; font-size: 11px; }
+
+    .cards {
+      max-width: 1460px;
+      margin: 0 auto;
+      padding: 0 28px 24px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    .card {
+      appearance: none;
+      color: #e9f3ec;
+      text-align: left;
+      padding: 16px 18px;
+      border-radius: 16px;
+      border: 1px solid rgba(219,241,226,.13);
+      background: rgba(255,255,255,.045);
+      cursor: pointer;
+      transition: .2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .card::after { content: ""; position: absolute; inset: auto 0 0; height: 3px; background: transparent; }
+    .card:hover { transform: translateY(-2px); border-color: rgba(169,232,197,.45); background: rgba(255,255,255,.065); }
+    .card.selected { border-color: var(--mint); background: rgba(169,232,197,.1); }
+    .card.selected::after { background: var(--mint); }
+    .card-top { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; }
+    .letter { width: 25px; height: 25px; display: grid; place-items: center; border-radius: 8px; background: #203c2f; color: var(--mint); font-size: 11px; font-weight: 900; }
+    .card h3 { margin: 0; font-size: 14px; letter-spacing: -.01em; }
+    .card p { margin: 0; color: #9fb0a7; font-size: 12px; line-height: 1.45; }
+    .recommended { margin-left: auto; padding: 4px 7px; border-radius: 99px; color: #1a2b22; background: var(--sun); font-size: 8px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+
+    .stage { max-width: 1460px; margin: 0 auto; padding: 0 28px 86px; }
+    .concept { display: none; animation: reveal .35s cubic-bezier(.22,.61,.36,1); }
+    .concept.active { display: block; }
+    @keyframes reveal { from { opacity: 0; transform: translateY(8px); } }
+    .concept-note {
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 0 4px 12px;
+      color: #9fb0a7;
+      font-size: 12px;
+    }
+    .concept-note strong { color: #eaf5ed; }
+    .concept-note span:last-child { text-align: right; }
+    .browser {
+      border: 1px solid rgba(220,240,226,.18);
+      border-radius: 22px;
+      overflow: hidden;
+      background: #0b1712;
+      box-shadow: 0 34px 100px rgba(0,0,0,.42);
+    }
+    .browser-bar { height: 36px; display: flex; align-items: center; gap: 7px; padding: 0 14px; background: #101d18; border-bottom: 1px solid rgba(255,255,255,.07); }
+    .browser-bar i { width: 7px; height: 7px; border-radius: 50%; background: #f07167; }
+    .browser-bar i:nth-child(2) { background: #f1ca58; }
+    .browser-bar i:nth-child(3) { background: #67d395; }
+    .browser-bar span { margin-left: 10px; width: 210px; height: 17px; border-radius: 5px; background: rgba(255,255,255,.06); color: #85958d; font-size: 8px; display: grid; place-items: center; }
+    .app { min-height: 800px; display: grid; grid-template-columns: 210px minmax(0, 1fr); }
+    .sidebar { padding: 21px 14px; background: #0a1712; border-right: 1px solid rgba(255,255,255,.075); display: flex; flex-direction: column; }
+    .logo { display: flex; align-items: center; gap: 10px; padding: 0 7px 22px; color: #f5f1e6; font-family: Georgia, serif; font-size: 17px; font-weight: 800; }
+    .logo-badge { width: 28px; height: 28px; border-radius: 8px; border: 1px solid rgba(255,255,255,.17); display: grid; place-items: center; background: var(--paper); color: #184b32; font-family: Manrope, sans-serif; font-size: 9px; }
+    .logo em { color: var(--mint-strong); font-style: normal; }
+    .nav { display: grid; gap: 5px; }
+    .nav div { height: 38px; display: flex; align-items: center; gap: 10px; border-radius: 10px; padding: 0 10px; color: #9fb0a8; font-size: 11px; font-weight: 650; }
+    .nav div.on { color: var(--mint); background: rgba(103,211,149,.1); }
+    .nav-ico { width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.09); font-size: 9px; }
+    .sidebar-foot { margin-top: auto; border-top: 1px solid rgba(255,255,255,.08); padding: 17px 6px 0; }
+    .user-mini { display: flex; align-items: center; gap: 9px; }
+    .avatar-mini { width: 30px; height: 30px; border-radius: 50%; background: var(--mint-strong); color: #173025; display: grid; place-items: center; font-weight: 900; font-size: 11px; }
+    .user-mini b { display: block; font-size: 10px; }
+    .user-mini small { display: block; color: #75877e; font-size: 8px; margin-top: 2px; }
+    .content { min-width: 0; position: relative; overflow: hidden; }
+    .eyebrow { color: var(--sun); font-size: 9px; font-weight: 900; letter-spacing: .18em; text-transform: uppercase; }
+    .pill { display: inline-flex; align-items: center; gap: 6px; border: 1px solid rgba(255,255,255,.14); border-radius: 99px; padding: 6px 9px; font-size: 9px; font-weight: 800; }
+    .btn { appearance: none; border: 0; padding: 10px 14px; border-radius: 9px; font-size: 10px; font-weight: 850; cursor: default; }
+    .btn-dark { background: var(--ink); color: #fff; box-shadow: 0 4px 0 #07120d; }
+    .btn-mint { background: var(--mint-strong); color: #10241a; box-shadow: 0 4px 0 #2f7f52; }
+    .btn-outline { color: inherit; border: 1px solid currentColor; background: transparent; }
+    .field { display: grid; gap: 6px; }
+    .field label { font-size: 9px; font-weight: 800; color: inherit; opacity: .82; }
+    .field-box { height: 38px; border-radius: 9px; border: 1px solid rgba(255,255,255,.13); background: rgba(3,12,8,.34); padding: 0 12px; display: flex; align-items: center; justify-content: space-between; color: #e7f1ea; font-size: 10px; }
+    .field-box.disabled { opacity: .52; }
+    .toggle { width: 30px; height: 17px; padding: 2px; border-radius: 99px; background: var(--mint-strong); margin-left: auto; }
+    .toggle::after { content: ""; display: block; margin-left: auto; width: 13px; height: 13px; border-radius: 50%; background: #fff; }
+
+    /* A — Mission Control */
+    .a .content { background: #0e2018; padding: 34px 34px 48px; }
+    .a .content::before { content:""; position:absolute; inset:0; opacity:.16; background-image: linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px), linear-gradient(90deg,rgba(255,255,255,.04) 1px, transparent 1px); background-size: 30px 30px; mask-image: linear-gradient(to bottom,#000,transparent 55%); }
+    .a .inner { max-width: 1030px; margin: auto; position: relative; z-index: 1; }
+    .a .head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; }
+    .a h2 { margin: 7px 0 5px; font-size: 30px; line-height: 1; letter-spacing: -.04em; }
+    .a .head p { margin: 0; color: #91a49a; font-size: 11px; }
+    .mission-hero { min-height: 180px; padding: 24px 28px; border-radius: 19px; color: #14261e; background: var(--mint); border: 1px solid #d8f8e5; box-shadow: 0 8px 0 #3e8d60, var(--shadow); position: relative; overflow: hidden; display: flex; align-items: center; }
+    .mission-hero::before { content:""; position:absolute; width: 220px; height: 220px; border-radius: 50%; background: var(--coral); right: 80px; top: -82px; opacity: .92; }
+    .mission-hero::after { content:""; position:absolute; width: 105px; height: 105px; border: 2px solid rgba(19,40,31,.18); border-radius: 50%; right: 18px; bottom: -38px; }
+    .hero-avatar { width: 72px; height: 72px; border-radius: 22px; display: grid; place-items: center; background: var(--forest); color: var(--mint); font-size: 23px; font-weight: 900; transform: rotate(-3deg); box-shadow: 0 5px 0 rgba(0,0,0,.23); }
+    .hero-copy { margin-left: 18px; position: relative; z-index: 2; }
+    .hero-copy small { font-size: 9px; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; }
+    .hero-copy h3 { font-size: 24px; margin: 5px 0 3px; letter-spacing: -.035em; }
+    .hero-copy p { margin: 0; font-size: 10px; opacity: .68; }
+    .goal-ticket { position: absolute; right: 31px; top: 29px; z-index: 2; width: 250px; padding: 17px 18px; border-radius: 15px; background: #fff8e7; border: 1px solid #fff; transform: rotate(1.5deg); box-shadow: 0 8px 0 rgba(54,101,72,.18), 0 22px 40px rgba(38,73,53,.19); }
+    .ticket-top { display: flex; justify-content: space-between; align-items: center; }
+    .ticket-top small { color: #557064; font-weight: 900; font-size: 8px; letter-spacing: .12em; }
+    .ticket-top b { font-size: 9px; color: #173025; }
+    .goal-ticket strong { display: block; font-size: 30px; line-height: 1; margin: 8px 0 6px; }
+    .score-bar { height: 7px; background: #dedecd; border-radius: 9px; overflow: hidden; }
+    .score-bar i { display:block; width: 72%; height: 100%; background: var(--coral); border-radius: inherit; }
+    .ticket-foot { display:flex; justify-content:space-between; margin-top: 6px; color:#63756d; font-size: 8px; }
+    .a-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(250px, .85fr); gap: 15px; margin-top: 18px; align-items:start; }
+    .arc-panel { border: 1px solid rgba(225,245,232,.13); border-radius: 17px; background: rgba(17,43,31,.87); box-shadow: 0 6px 0 #07140e; overflow:hidden; }
+    .arc-title { padding: 17px 18px 13px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,.08); }
+    .arc-title h4 { margin:3px 0 0; font-size:14px; }
+    .edit-dot { width:27px; height:27px; border-radius:8px; background:rgba(169,232,197,.1); color:var(--mint); display:grid; place-items:center; font-size:10px; }
+    .form-body { padding: 17px 18px 19px; display:grid; gap:13px; }
+    .field-row { display:grid; grid-template-columns:1fr 1fr; gap:11px; }
+    .arc-check { display:flex; align-items:center; gap:9px; color:#a6b9af; font-size:9px; }
+    .arc-check i { width:15px; height:15px; border-radius:4px; display:grid; place-items:center; background:var(--mint-strong); color:#123; font-style:normal; font-size:9px; font-weight:900; }
+    .side-stack { display:grid; gap:14px; }
+    .plan-card { border-radius:17px; background:var(--sun); color:#1b291f; padding:18px; box-shadow:0 6px 0 #8c6d19; position:relative; overflow:hidden; }
+    .plan-card::after { content:"★"; position:absolute; right:-4px; bottom:-27px; font-size:96px; color:rgba(255,255,255,.25); transform:rotate(12deg); }
+    .plan-card .pill { border-color:rgba(20,35,27,.2); }
+    .plan-card h4 { margin:13px 0 4px; font-size:20px; }
+    .plan-card p { margin:0 0 16px; font-size:9px; opacity:.68; line-height:1.55; max-width:190px; }
+    .secure-card, .pref-card { padding:17px 18px; }
+    .icon-title { display:flex; gap:10px; align-items:center; }
+    .icon-square { width:30px; height:30px; border-radius:9px; display:grid; place-items:center; background:rgba(240,113,103,.13); color:var(--coral); font-size:12px; }
+    .icon-title h4 { margin:0; font-size:12px; }
+    .icon-title p { margin:3px 0 0; font-size:8px; color:#81958a; }
+    .secure-card .btn { width:100%; margin-top:14px; }
+    .pref-card { display:flex; align-items:center; }
+
+    /* B — Study Passport */
+    .b .content { background: var(--cream); color:#173126; padding: 34px 36px 48px; }
+    .b .sidebar { background:#193728; }
+    .b .inner { max-width: 1040px; margin:auto; }
+    .b .head { display:flex; justify-content:space-between; align-items:end; margin-bottom:20px; }
+    .b .eyebrow { color:#956f14; }
+    .b h2 { margin:8px 0 0; font-family: Georgia, serif; font-size:33px; letter-spacing:-.035em; }
+    .b .head p { max-width:320px; margin:0; font-family:Georgia,serif; font-style:italic; font-size:11px; line-height:1.55; color:#6d766e; }
+    .passport { display:grid; grid-template-columns: 1.15fr .85fr; min-height:190px; border-radius:18px; background:#1d5138; color:#f8f4e7; box-shadow:0 8px 0 #0d2a1c, 0 20px 45px rgba(31,64,46,.22); overflow:hidden; position:relative; }
+    .passport::before { content:"T"; position:absolute; right:35%; top:-58px; font-family:Georgia,serif; font-size:250px; color:rgba(255,255,255,.045); }
+    .passport-id { padding:27px; display:flex; gap:19px; align-items:center; border-right:1px dashed rgba(255,255,255,.24); }
+    .portrait { width:100px; height:120px; background:var(--mint); border:7px solid #f7edce; color:#1b4d36; display:grid; place-items:center; font-size:33px; font-weight:900; transform:rotate(-2deg); box-shadow:0 7px 18px rgba(0,0,0,.2); }
+    .passport-label { color:var(--sun); font-size:8px; letter-spacing:.18em; text-transform:uppercase; font-weight:900; }
+    .passport-id h3 { margin:7px 0 4px; font-family:Georgia,serif; font-size:25px; }
+    .passport-id p { margin:0; font-size:9px; color:#b8c8be; }
+    .id-code { margin-top:16px; font-family:monospace; font-size:9px; letter-spacing:.14em; color:#d3e0d7; }
+    .itinerary { padding:25px 27px; position:relative; }
+    .itinerary h4 { font-family:Georgia,serif; margin:8px 0 14px; font-size:16px; }
+    .date-row { display:flex; justify-content:space-between; gap:10px; padding:10px 0; border-top:1px solid rgba(255,255,255,.12); font-size:9px; }
+    .date-row span { color:#9eb2a6; }
+    .stamp { position:absolute; right:18px; bottom:14px; width:66px; height:66px; display:grid; place-items:center; border:2px solid var(--coral); border-radius:50%; color:var(--coral); font-weight:900; font-size:8px; text-transform:uppercase; text-align:center; transform:rotate(-12deg); opacity:.85; }
+    .b-grid { display:grid; grid-template-columns:1.4fr .75fr; gap:17px; margin-top:20px; align-items:start; }
+    .paper-panel { background:var(--paper); border:1px solid #d9d2c1; border-radius:16px; box-shadow:0 6px 0 #c4b99f; overflow:hidden; }
+    .paper-title { padding:17px 20px 13px; border-bottom:1px solid #ded7c5; display:flex; align-items:center; justify-content:space-between; }
+    .paper-title h4 { margin:4px 0 0; font-family:Georgia,serif; font-size:16px; }
+    .paper-title .eyebrow { font-size:8px; }
+    .paper-title button { border:0; background:transparent; color:#22704b; font-size:9px; font-weight:850; }
+    .paper-form { padding:18px 20px 20px; display:grid; gap:13px; }
+    .b .field-box { border-color:#d7d1c0; background:#f4eddd; color:#28382f; }
+    .b .field label { color:#46584d; }
+    .b-check { display:flex; align-items:center; gap:9px; padding:11px 12px; border-radius:10px; background:#eef4e9; color:#526058; font-size:9px; }
+    .b-check i { width:15px; height:15px; border-radius:50%; background:#25734c; color:white; display:grid; place-items:center; font-style:normal; font-size:8px; }
+    .paper-actions { display:flex; align-items:center; justify-content:space-between; }
+    .paper-actions span { color:#678073; font-size:8px; }
+    .b-stack { display:grid; gap:15px; }
+    .goal-sheet { background:#f4cf5d; color:#25362b; padding:18px; border:1px solid #a98423; border-radius:16px; box-shadow:0 6px 0 #a98423; }
+    .goal-sheet h4 { font-family:Georgia,serif; font-size:18px; margin:8px 0 4px; }
+    .goal-number { display:flex; align-items:end; gap:7px; margin:14px 0 8px; }
+    .goal-number strong { font-family:Georgia,serif; font-size:34px; line-height:.8; }
+    .goal-number span { font-size:8px; color:#657066; }
+    .goal-sheet .score-bar { background:rgba(33,49,39,.17); }
+    .goal-sheet .score-bar i { background:#25734c; }
+    .paper-row { padding:14px 15px; display:flex; align-items:center; gap:10px; }
+    .paper-row + .paper-row { border-top:1px solid #ded7c5; }
+    .paper-row .icon-square { background:#e7efe3; color:#28734d; }
+    .paper-row h5 { margin:0; font-family:Georgia,serif; font-size:12px; }
+    .paper-row p { margin:3px 0 0; font-size:8px; color:#768078; }
+    .paper-row b { margin-left:auto; font-size:14px; color:#2b6d4b; }
+
+    /* C — Precision Console */
+    .c .content { background:#071611; padding:34px 34px 48px; }
+    .c .sidebar { background:#08130f; }
+    .c .inner { max-width:1050px; margin:auto; }
+    .c .head { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
+    .c h2 { margin:7px 0 4px; font-size:28px; letter-spacing:-.04em; }
+    .c .head p { margin:0; color:#799086; font-size:10px; }
+    .console-status { display:flex; align-items:center; gap:8px; border:1px solid rgba(105,218,153,.2); border-radius:10px; padding:8px 10px; background:#0b2117; color:#84dca8; font-size:8px; font-weight:800; text-transform:uppercase; letter-spacing:.1em; }
+    .console-status i { width:7px; height:7px; border-radius:50%; background:#66db98; box-shadow:0 0 12px #66db98; }
+    .console-profile { display:grid; grid-template-columns:auto 1fr auto; gap:17px; align-items:center; padding:18px; border:1px solid #244236; background:linear-gradient(135deg,#0d241a,#0a1b14); border-radius:12px; box-shadow:0 1px 0 rgba(255,255,255,.03) inset; }
+    .console-avatar { width:55px; height:55px; display:grid; place-items:center; border-radius:10px; background:#163c2b; border:1px solid #347c58; color:#86dfaa; font-weight:900; font-size:18px; position:relative; }
+    .console-avatar::after { content:""; position:absolute; right:-4px; bottom:-4px; width:10px; height:10px; border-radius:50%; background:#f1ca58; border:3px solid #0a1c14; }
+    .console-profile h3 { margin:0 0 4px; font-size:16px; }
+    .console-profile p { margin:0; color:#728b80; font-size:9px; }
+    .console-metrics { display:flex; gap:23px; }
+    .console-metrics div { min-width:75px; border-left:1px solid #294337; padding-left:14px; }
+    .console-metrics small { display:block; color:#71877d; font-size:7px; letter-spacing:.14em; text-transform:uppercase; }
+    .console-metrics strong { display:block; margin-top:4px; color:#edf8f1; font-size:18px; }
+    .console-metrics strong.sun { color:var(--sun); }
+    .console-layout { display:grid; grid-template-columns:155px minmax(0,1fr); gap:15px; margin-top:15px; }
+    .console-tabs { border:1px solid #203c30; background:#0a1c14; border-radius:12px; padding:8px; align-self:start; }
+    .console-tabs div { display:flex; align-items:center; gap:8px; height:38px; border-radius:8px; padding:0 9px; color:#6f877c; font-size:9px; font-weight:750; }
+    .console-tabs div.on { background:#143628; color:#9ae4b7; }
+    .console-tabs i { width:17px; height:17px; display:grid; place-items:center; border:1px solid currentColor; border-radius:5px; font-style:normal; font-size:7px; }
+    .console-main { display:grid; gap:15px; }
+    .console-panel { border:1px solid #203f31; background:#0a1c14; border-radius:12px; overflow:hidden; }
+    .console-title { padding:14px 16px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1d382d; }
+    .console-title h4 { margin:0; font-size:11px; text-transform:uppercase; letter-spacing:.1em; }
+    .console-title span { color:#6b8679; font-size:8px; }
+    .console-form { padding:15px 16px 17px; display:grid; gap:12px; }
+    .c .field-box { height:36px; border-radius:7px; border-color:#274638; background:#071611; }
+    .c .field label { font-size:8px; color:#80958a; }
+    .c .field-row { grid-template-columns:1fr 1fr; }
+    .console-actions { display:flex; justify-content:flex-end; align-items:center; gap:11px; }
+    .console-actions small { margin-right:auto; color:#61776c; font-size:8px; }
+    .console-bottom { display:grid; grid-template-columns:1fr 1fr; gap:15px; }
+    .module { padding:15px 16px; min-height:112px; display:flex; flex-direction:column; }
+    .module-head { display:flex; justify-content:space-between; align-items:start; }
+    .module-head .icon-square { width:28px; height:28px; border-radius:7px; background:#143629; color:#83dba7; }
+    .module-head .pill { color:#e7cf70; border-color:#4e4723; }
+    .module h4 { margin:11px 0 4px; font-size:11px; }
+    .module p { margin:0; color:#6f867b; font-size:8px; line-height:1.5; }
+    .module .link { margin-top:auto; color:#8bdca9; font-size:8px; font-weight:800; }
+    .module-pref { display:flex; align-items:center; gap:10px; margin-top:auto; padding-top:13px; }
+    .module-pref span { color:#879a91; font-size:8px; }
+
+    #indicator {
+      position: fixed;
+      z-index: 100;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%);
+      background: rgba(245,240,223,.96);
+      color: #1b2f25;
+      border: 1px solid rgba(255,255,255,.8);
+      border-radius: 999px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.38);
+      padding: 11px 18px;
+      font-size: 11px;
+      font-weight: 750;
+      backdrop-filter: blur(12px);
+    }
+    #indicator .selected-text { color:#137144; }
+    @media (max-width: 900px) {
+      .page-head { display:block; }
+      .legend { justify-content:flex-start; margin-top:18px; }
+      .cards { grid-template-columns:1fr; }
+      .app { grid-template-columns: 64px minmax(0,1fr); }
+      .sidebar { padding:16px 8px; }
+      .logo { padding-left:10px; }
+      .logo span:last-child, .nav div span:last-child, .user-mini div { display:none; }
+      .nav div { justify-content:center; padding:0; }
+      .goal-ticket { position:relative; right:auto; top:auto; margin-left:auto; width:225px; }
+      .a-grid,.b-grid { grid-template-columns:1fr; }
+      .passport { grid-template-columns:1fr; }
+      .passport-id { border-right:0; border-bottom:1px dashed rgba(255,255,255,.24); }
+      .console-layout { grid-template-columns:1fr; }
+      .console-tabs { display:flex; overflow:auto; }
+      .console-metrics { display:none; }
+    }
+    @media (max-width: 650px) {
+      .page-head,.cards,.stage { padding-left:14px; padding-right:14px; }
+      .concept-note { display:block; line-height:1.5; }
+      .concept-note span { display:block; text-align:left !important; }
+      .browser { border-radius:14px; }
+      .app { grid-template-columns:1fr; min-width:630px; transform-origin:top left; }
+      .sidebar { display:none; }
+      .browser { overflow-x:auto; }
+      .a .content,.b .content,.c .content { padding:25px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="page-head">
+    <div>
+      <small>Settings redesign · visual round 1</small>
+      <h1>Choose the page’s personality.</h1>
+      <p>All three keep the current profile, score, exam date, emails, password reset, and plan features. The difference is how boldly the page turns those settings into part of the student journey.</p>
+    </div>
+    <div class="legend"><span>Dashboard-aligned</span><span>Responsive</span><span>Real controls preserved</span></div>
+  </header>
+
+  <div class="cards">
+    <button class="card selected" data-choice="a" onclick="showConcept('a', this); toggleSelect(this)">
+      <div class="card-top"><span class="letter">A</span><h3>Mission Control</h3><span class="recommended">Recommended</span></div>
+      <p>Tactile, playful, and closest to the new Dashboard and Question Bank.</p>
+    </button>
+    <button class="card" data-choice="b" onclick="showConcept('b', this); toggleSelect(this)">
+      <div class="card-top"><span class="letter">B</span><h3>Study Passport</h3></div>
+      <p>Warm, editorial, and personal—with a memorable student identity card.</p>
+    </button>
+    <button class="card" data-choice="c" onclick="showConcept('c', this); toggleSelect(this)">
+      <div class="card-top"><span class="letter">C</span><h3>Precision Console</h3></div>
+      <p>Compact, mature, and utility-first with a modern control-panel rhythm.</p>
+    </button>
+  </div>
+
+  <main class="stage">
+    <section class="concept active" id="concept-a">
+      <div class="concept-note"><span><strong>A · Mission Control</strong> — expressive and journey-focused</span><span>Best cohesion · most visual energy · slightly more decorative</span></div>
+      <div class="browser"><div class="browser-bar"><i></i><i></i><i></i><span>localhost:3000/settings</span></div>
+        <div class="app a">
+          <aside class="sidebar">
+            <div class="logo"><span class="logo-badge">TS</span><span>Taleem<em>SAT</em></span></div>
+            <div class="nav">
+              <div><span class="nav-ico">▦</span><span>Dashboard</span></div><div><span class="nav-ico">◎</span><span>Question Bank</span></div><div><span class="nav-ico">◷</span><span>Mock Test</span></div><div><span class="nav-ico">▤</span><span>Daily Question</span></div><div><span class="nav-ico">⌁</span><span>Analytics</span></div><div class="on"><span class="nav-ico">≡</span><span>Settings</span></div>
+            </div>
+            <div class="sidebar-foot"><div class="user-mini"><span class="avatar-mini">M</span><div><b>Mirsodiq</b><small>mirsodiq6677@gmail.com</small></div></div></div>
+          </aside>
+          <div class="content"><div class="inner">
+            <header class="head"><div><span class="eyebrow">Player headquarters</span><h2>Make the plan yours.</h2><p>Your identity, score quest, plan, and account protection—all in one place.</p></div><span class="pill">● Account secure</span></header>
+            <section class="mission-hero">
+              <div class="hero-avatar">M</div><div class="hero-copy"><small>Student profile</small><h3>Mirsodiq</h3><p>Elite learner · ready for the next score climb</p></div>
+              <div class="goal-ticket"><div class="ticket-top"><small>SCORE QUEST</small><b>48 days left</b></div><strong>1500</strong><div class="score-bar"><i></i></div><div class="ticket-foot"><span>Goal set</span><span>October 17, 2026</span></div></div>
+            </section>
+            <div class="a-grid">
+              <section class="arc-panel"><div class="arc-title"><div><span class="eyebrow">Identity & goal</span><h4>Your study coordinates</h4></div><span class="edit-dot">✎</span></div><div class="form-body">
+                <div class="field"><label>FULL NAME</label><div class="field-box"><span>Mirsodiq</span></div></div>
+                <div class="field"><label>EMAIL</label><div class="field-box disabled"><span>mirsodiq6677@gmail.com</span><span>Locked</span></div></div>
+                <div class="field-row"><div class="field"><label>TARGET SCORE</label><div class="field-box"><span>1500</span><span>⌄</span></div></div><div class="field"><label>EXAM DATE</label><div class="field-box"><span>Oct 17, 2026</span><span>□</span></div></div></div>
+                <div class="arc-check"><i>✓</i><span>Send me useful study tips and platform updates.</span></div>
+                <div><button class="btn btn-mint">Save changes</button></div>
+              </div></section>
+              <div class="side-stack">
+                <section class="plan-card"><span class="pill">ELITE PLAN</span><h4>Every tool unlocked.</h4><p>Full practice access, deeper analytics, and premium score-building features.</p><button class="btn btn-dark">View plan benefits</button></section>
+                <section class="arc-panel secure-card"><div class="icon-title"><span class="icon-square">⌾</span><div><h4>Password & security</h4><p>Reset securely through your inbox.</p></div></div><button class="btn btn-outline">Send reset link</button></section>
+                <section class="arc-panel pref-card"><div class="icon-title"><span class="icon-square">✦</span><div><h4>Study updates</h4><p>Tips, reminders, and new features</p></div></div><span class="toggle"></span></section>
+              </div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="concept" id="concept-b">
+      <div class="concept-note"><span><strong>B · Study Passport</strong> — personal and editorial</span><span>Most memorable identity · warmest mood · less arcade-like</span></div>
+      <div class="browser"><div class="browser-bar"><i></i><i></i><i></i><span>localhost:3000/settings</span></div>
+        <div class="app b">
+          <aside class="sidebar">
+            <div class="logo"><span class="logo-badge">TS</span><span>Taleem<em>SAT</em></span></div>
+            <div class="nav"><div><span class="nav-ico">▦</span><span>Dashboard</span></div><div><span class="nav-ico">◎</span><span>Question Bank</span></div><div><span class="nav-ico">◷</span><span>Mock Test</span></div><div><span class="nav-ico">▤</span><span>Daily Question</span></div><div><span class="nav-ico">⌁</span><span>Analytics</span></div><div class="on"><span class="nav-ico">≡</span><span>Settings</span></div></div>
+            <div class="sidebar-foot"><div class="user-mini"><span class="avatar-mini">M</span><div><b>Mirsodiq</b><small>mirsodiq6677@gmail.com</small></div></div></div>
+          </aside>
+          <div class="content"><div class="inner">
+            <header class="head"><div><span class="eyebrow">Student record · No. 02641</span><h2>Your SAT passport</h2></div><p>A study plan works best when it feels personal. Keep your destination and account details current.</p></header>
+            <section class="passport"><div class="passport-id"><div class="portrait">M</div><div><span class="passport-label">TaleemSAT learner</span><h3>Mirsodiq</h3><p>Elite member · active since 2026</p><div class="id-code">TSAT &lt; MIR &lt; 1500 &lt; ELITE</div></div></div><div class="itinerary"><span class="passport-label">Test-day itinerary</span><h4>Your destination</h4><div class="date-row"><span>Target score</span><b>1500</b></div><div class="date-row"><span>Exam date</span><b>17 OCT 2026</b></div><div class="stamp">Goal<br/>verified</div></div></section>
+            <div class="b-grid">
+              <section class="paper-panel"><div class="paper-title"><div><span class="eyebrow">Personal details</span><h4>Keep your record current</h4></div><button>Edit details</button></div><div class="paper-form">
+                <div class="field"><label>Full name</label><div class="field-box"><span>Mirsodiq</span></div></div><div class="field"><label>Email address</label><div class="field-box disabled"><span>mirsodiq6677@gmail.com</span><span>Cannot be changed</span></div></div>
+                <div class="field-row"><div class="field"><label>Target score</label><div class="field-box"><span>1500</span><span>⌄</span></div></div><div class="field"><label>Exam date</label><div class="field-box"><span>17 Oct 2026</span><span>□</span></div></div></div>
+                <div class="b-check"><i>✓</i><span>Receive thoughtful study tips, reminders, and TaleemSAT news.</span></div><div class="paper-actions"><span>Last updated today</span><button class="btn btn-dark">Save my record</button></div>
+              </div></section>
+              <div class="b-stack">
+                <section class="goal-sheet"><span class="eyebrow">Score destination</span><h4>The road to your goal</h4><div class="goal-number"><strong>1500</strong><span>target score</span></div><div class="score-bar"><i></i></div></section>
+                <section class="paper-panel"><div class="paper-row"><span class="icon-square">★</span><div><h5>Elite membership</h5><p>Your full study toolkit is active.</p></div><b>›</b></div><div class="paper-row"><span class="icon-square">⌾</span><div><h5>Password & access</h5><p>Send a secure reset email.</p></div><b>›</b></div><div class="paper-row"><span class="icon-square">✦</span><div><h5>Study correspondence</h5><p>Tips and reminders are on.</p></div><span class="toggle"></span></div></section>
+              </div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="concept" id="concept-c">
+      <div class="concept-note"><span><strong>C · Precision Console</strong> — mature and utility-first</span><span>Fastest scanning · most compact · least playful</span></div>
+      <div class="browser"><div class="browser-bar"><i></i><i></i><i></i><span>localhost:3000/settings</span></div>
+        <div class="app c">
+          <aside class="sidebar">
+            <div class="logo"><span class="logo-badge">TS</span><span>Taleem<em>SAT</em></span></div>
+            <div class="nav"><div><span class="nav-ico">▦</span><span>Dashboard</span></div><div><span class="nav-ico">◎</span><span>Question Bank</span></div><div><span class="nav-ico">◷</span><span>Mock Test</span></div><div><span class="nav-ico">▤</span><span>Daily Question</span></div><div><span class="nav-ico">⌁</span><span>Analytics</span></div><div class="on"><span class="nav-ico">≡</span><span>Settings</span></div></div>
+            <div class="sidebar-foot"><div class="user-mini"><span class="avatar-mini">M</span><div><b>Mirsodiq</b><small>mirsodiq6677@gmail.com</small></div></div></div>
+          </aside>
+          <div class="content"><div class="inner">
+            <header class="head"><div><span class="eyebrow">Account console</span><h2>Settings</h2><p>Manage profile, score plan, communication, and account security.</p></div><span class="console-status"><i></i> all systems ready</span></header>
+            <section class="console-profile"><div class="console-avatar">M</div><div><h3>Mirsodiq</h3><p>mirsodiq6677@gmail.com · Elite account</p></div><div class="console-metrics"><div><small>Target</small><strong class="sun">1500</strong></div><div><small>Test date</small><strong>48 days</strong></div></div></section>
+            <div class="console-layout">
+              <nav class="console-tabs"><div class="on"><i>01</i>Profile</div><div><i>02</i>Score plan</div><div><i>03</i>Preferences</div><div><i>04</i>Security</div><div><i>05</i>Plan</div></nav>
+              <div class="console-main">
+                <section class="console-panel"><div class="console-title"><h4>Profile information</h4><span>Account ID · TS-02641</span></div><div class="console-form">
+                  <div class="field-row"><div class="field"><label>FULL NAME</label><div class="field-box"><span>Mirsodiq</span></div></div><div class="field"><label>EMAIL ADDRESS</label><div class="field-box disabled"><span>mirsodiq6677@gmail.com</span><span>LOCKED</span></div></div></div>
+                  <div class="field-row"><div class="field"><label>TARGET SCORE</label><div class="field-box"><span>1500</span><span>⌄</span></div></div><div class="field"><label>SAT EXAM DATE</label><div class="field-box"><span>2026-10-17</span><span>□</span></div></div></div>
+                  <div class="console-actions"><small>No unsaved changes</small><button class="btn btn-mint">Save profile</button></div>
+                </div></section>
+                <div class="console-bottom"><section class="console-panel module"><div class="module-head"><span class="icon-square">⌾</span><span class="pill">SECURE</span></div><h4>Password recovery</h4><p>Send a protected password reset link to your verified email.</p><span class="link">Send reset link →</span></section><section class="console-panel module"><div class="module-head"><span class="icon-square">★</span><span class="pill">ELITE</span></div><h4>Subscription</h4><p>All premium practice, analytics, and score tools are currently active.</p><span class="link">Review plan details →</span></section></div>
+                <section class="console-panel module"><div class="module-head"><div><span class="eyebrow">Communication</span><h4>Study tips & product updates</h4><p>Occasional reminders designed to keep your SAT plan moving.</p></div><span class="toggle"></span></div></section>
+              </div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <div id="indicator"><span id="indicator-text"><span class="selected-text">Mission Control selected</span> — explore and return to the terminal</span></div>
+  <script>
+    function showConcept(id) {
+      document.querySelectorAll('.concept').forEach(el => el.classList.remove('active'));
+      document.getElementById('concept-' + id).classList.add('active');
+      window.scrollTo({ top: document.querySelector('.cards').offsetTop - 18, behavior: 'smooth' });
+    }
+  </script>
+</body>
+</html>

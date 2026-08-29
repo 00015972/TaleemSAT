@@ -1,6 +1,6 @@
 import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
-import { createClient, getUser } from '@/lib/supabase/server';
+import { getAppProfile, getClaimsUser } from '@/lib/supabase/server';
 import { AdminNav } from '@/components/admin/admin-nav';
 import { SignOutButton } from '@/components/sign-out-button';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -12,19 +12,12 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const user = await getUser();
+  const [user, profile] = await Promise.all([getClaimsUser(), getAppProfile()]);
 
   // proxy.ts already forces login, but guard here too.
   if (!user) redirect('/login');
 
   // Role gate: non-admins get a 404 — we don't acknowledge the route exists.
-  const { data: profile } = await supabase
-    .from('users')
-    .select('role, full_name')
-    .eq('id', user.id)
-    .single();
-
   if (profile?.role !== 'admin') notFound();
 
   const name = (profile.full_name as string | null) ?? user.email ?? 'Admin';

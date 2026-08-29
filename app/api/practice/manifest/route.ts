@@ -1,97 +1,102 @@
-import { createClient } from '@/lib/supabase/server';
 import { NextRequest } from 'next/server';
+import { createClient, getClaimsUser } from '@/lib/supabase/server';
+import type {
+  PracticeBootstrap,
+  PracticeManifestEntry,
+  PracticeQuestion,
+} from '@/components/practice/types';
 
 export const dynamic = 'force-dynamic';
 
-/**
- * Returns the ordered, lightweight id list for a scope + difficulty — what the
- * Practice runner pages through. Deliberately just `id` + `difficulty` (a few
- * dozen KB even at 1,500 rows); full question content is fetched per id as the
- * student reaches it, via GET /api/practice/question?id=.
- *
- * This replaces the old pattern of re-fetching the *entire* scope's full
- * content (passages included) on every "next question" — the actual cause of
- * the slowdown, worse the further into a session you got.
- */
+const DIFFICULTIES = new Set(['easy', 'medium', 'hard']);
 
+/**
+ * Returns the complete lightweight manifest plus the first student-safe
+ * question in one RPC. Later questions continue through /api/practice/question.
+ */
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getClaimsUser();
 
   if (!user) {
     return Response.json({ error: 'AUTH_REQUIRED' }, { status: 401 });
   }
 
   const { searchParams } = request.nextUrl;
-  const categorySlug = searchParams.get('categorySlug');
   const topicSlug = searchParams.get('topicSlug');
+  const categorySlug = searchParams.get('categorySlug');
   const subjectSlug = searchParams.get('subjectSlug');
   const difficulty = searchParams.get('difficulty');
 
-  if (!categorySlug && !topicSlug && !subjectSlug) {
+  const scope = topicSlug
+    ? { kind: 'topic', slug: topicSlug }
+    : categorySlug
+      ? { kind: 'category', slug: categorySlug }
+      : subjectSlug
+        ? { kind: 'subject', slug: subjectSlug }
+        : null;
+
+  if (!scope) {
     return Response.json({ error: 'MISSING_SCOPE' }, { status: 400 });
   }
-
-  let query = supabase
-    .from('questions')
-    .select('id, difficulty')
-    .eq('status', 'published');
-
-  // Narrowest scope wins: topic > category > subject.
-  if (topicSlug) {
-    const { data: topic } = await supabase
-      .from('topics')
-      .select('id')
-      .eq('slug', topicSlug)
-      .single();
-
-    if (!topic) {
-      return Response.json({ error: 'TOPIC_NOT_FOUND' }, { status: 404 });
-    }
-    query = query.eq('topic_id', topic.id);
-  } else if (categorySlug) {
-    const { data: category } = await supabase
-      .from('categories')
-      .select('id')
-      .eq('slug', categorySlug)
-      .single();
-
-    if (!category) {
-      return Response.json({ error: 'CATEGORY_NOT_FOUND' }, { status: 404 });
-    }
-    query = query.eq('category_id', category.id);
-  } else if (subjectSlug) {
-    const { data: subject } = await supabase
-      .from('subjects')
-      .select('id')
-      .eq('slug', subjectSlug)
-      .single();
-
-    if (!subject) {
-      return Response.json({ error: 'SUBJECT_NOT_FOUND' }, { status: 404 });
-    }
-    query = query.eq('subject_id', subject.id);
+  if (difficulty && !DIFFICULTIES.has(difficulty)) {
+    return Response.json({ error: 'INVALID_DIFFICULTY' }, { status: 400 });
   }
 
-  if (difficulty === 'easy' || difficulty === 'medium' || difficulty === 'hard') {
-    query = query.eq('difficulty', difficulty);
-  }
-
-  // Stable, deterministic order — "sequential", not a fresh shuffle per load.
-  const { data: ids, error } = await query.order('created_at').order('id');
+  const { data, error } = await supabase.rpc('get_practice_run', {
+    p_scope_kind: scope.kind,
+    p_scope_slug: scope.slug,
+    p_difficulty: (difficulty as 'easy' | 'medium' | 'hard' | null) ?? null,
+  });
 
   if (error) {
     return Response.json({ error: 'DB_ERROR' }, { status: 500 });
   }
 
-  if (!ids || ids.length === 0) {
+  const bootstrap = parseBootstrap(data);
+  if (!bootstrap) {
     return Response.json(
       { error: 'NO_QUESTIONS', message: 'No questions found for this selection.' },
       { status: 404 }
     );
   }
 
-  return Response.json({ ids });
+  return Response.json(bootstrap);
+}
+
+function parseBootstrap(value: unknown): PracticeBootstrap | null {
+  if (!value || Array.isArray(value) || typeof value !== 'object') return null;
+
+  const raw = value as { ids?: unknown; question?: unknown };
+  if (!Array.isArray(raw.ids) || !isQuestion(raw.question)) return null;
+
+  const ids = raw.ids.filter(isManifestEntry);
+  if (ids.length !== raw.ids.length || ids.length === 0) return null;
+  if (ids[0].id !== raw.question.id) return null;
+
+  return { ids, question: raw.question };
+}
+
+function isManifestEntry(value: unknown): value is PracticeManifestEntry {
+  if (!value || Array.isArray(value) || typeof value !== 'object') return false;
+  const entry = value as { id?: unknown; difficulty?: unknown };
+  return (
+    typeof entry.id === 'string' &&
+    typeof entry.difficulty === 'string' &&
+    DIFFICULTIES.has(entry.difficulty)
+  );
+}
+
+function isQuestion(value: unknown): value is PracticeQuestion {
+  if (!value || Array.isArray(value) || typeof value !== 'object') return false;
+  const question = value as Partial<PracticeQuestion>;
+  return (
+    typeof question.id === 'string' &&
+    typeof question.question_text === 'string' &&
+    (question.question_type === 'mcq' || question.question_type === 'grid_in') &&
+    typeof question.difficulty === 'string' &&
+    DIFFICULTIES.has(question.difficulty) &&
+    Array.isArray(question.options) &&
+    Array.isArray(question.tags)
+  );
 }

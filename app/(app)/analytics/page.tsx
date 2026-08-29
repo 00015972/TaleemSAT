@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { createClient, getUser } from '@/lib/supabase/server';
+import { createClient, getAppProfile, getClaimsUser } from '@/lib/supabase/server';
 import {
   computeAnalyticsOverview,
   type AnalyticsOverview,
@@ -13,14 +13,10 @@ export const metadata = { title: 'Analytics — Taleem SAT' };
 
 export default async function AnalyticsPage() {
   const supabase = await createClient();
-  const user = await getUser();
+  const user = await getClaimsUser();
   if (!user) redirect('/login');
 
-  const { data: profile } = await supabase
-    .from('users')
-    .select('tier')
-    .eq('id', user.id)
-    .single();
+  const profile = await getAppProfile();
 
   const tier = (profile?.tier as string | null) ?? 'free';
   const isPaid = tier === 'pro' || tier === 'elite';

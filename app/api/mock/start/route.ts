@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getClaimsUser } from '@/lib/supabase/server';
 import { NextRequest } from 'next/server';
 
 export const dynamic = 'force-dynamic';
@@ -25,9 +25,7 @@ type Row = {
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getClaimsUser();
   if (!user) return Response.json({ error: 'AUTH_REQUIRED' }, { status: 401 });
 
   const { searchParams } = request.nextUrl;

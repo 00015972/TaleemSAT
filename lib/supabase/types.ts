@@ -1048,6 +1048,37 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_practice_overview: {
+        Args: never
+        Returns: {
+          category_attempted_counts: Json
+          category_display_order: number
+          category_id: string
+          category_name: string
+          category_question_counts: Json
+          category_slug: string
+          subject_attempted_counts: Json
+          subject_display_order: number
+          subject_id: string
+          subject_name: string
+          subject_question_counts: Json
+          subject_slug: string
+          topic_attempted_counts: Json
+          topic_display_order: number
+          topic_id: string
+          topic_name: string
+          topic_question_counts: Json
+          topic_slug: string
+        }[]
+      }
+      get_practice_run: {
+        Args: {
+          p_difficulty?: Database["public"]["Enums"]["difficulty"] | null
+          p_scope_kind: string
+          p_scope_slug: string
+        }
+        Returns: Json
+      }
       is_admin: { Args: never; Returns: boolean }
     }
     Enums: {

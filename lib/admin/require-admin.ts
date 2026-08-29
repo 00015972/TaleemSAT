@@ -1,9 +1,8 @@
 import 'server-only';
-import type { User } from '@supabase/supabase-js';
-import { createClient, getUser } from '@/lib/supabase/server';
+import { getAppProfile, getClaimsUser, type ClaimsUser } from '@/lib/supabase/server';
 
 type RequireAdminResult =
-  | { ok: true; user: User }
+  | { ok: true; user: ClaimsUser }
   | { ok: false; response: Response };
 
 /**
@@ -21,8 +20,7 @@ type RequireAdminResult =
  * we don't acknowledge the route exists to non-admins.
  */
 export async function requireAdmin(): Promise<RequireAdminResult> {
-  const supabase = await createClient();
-  const user = await getUser();
+  const [user, profile] = await Promise.all([getClaimsUser(), getAppProfile()]);
 
   if (!user) {
     return {
@@ -30,12 +28,6 @@ export async function requireAdmin(): Promise<RequireAdminResult> {
       response: Response.json({ error: 'AUTH_REQUIRED' }, { status: 401 }),
     };
   }
-
-  const { data: profile } = await supabase
-    .from('users')
-    .select('role')
-    .eq('id', user.id)
-    .single();
 
   if (profile?.role !== 'admin') {
     return {

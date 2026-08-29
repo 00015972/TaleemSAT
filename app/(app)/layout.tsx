@@ -1,20 +1,13 @@
 import { redirect } from 'next/navigation';
-import { createClient, getUser } from '@/lib/supabase/server';
+import { getAppProfile, getClaimsUser } from '@/lib/supabase/server';
 import { AppShell } from '@/components/app-shell';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient();
-  const user = await getUser();
+  const [user, profile] = await Promise.all([getClaimsUser(), getAppProfile()]);
 
   if (!user) {
     redirect('/login');
   }
-
-  const { data: profile } = await supabase
-    .from('users')
-    .select('full_name, points, streak_days')
-    .eq('id', user.id)
-    .single();
 
   const name: string =
     (profile?.full_name as string | null) ??

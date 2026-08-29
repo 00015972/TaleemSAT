@@ -1,4 +1,4 @@
-import { getUser } from '@/lib/supabase/server';
+import { getClaimsUser } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { UsersTable, type UserRow } from '@/components/admin/users-table';
 
@@ -23,7 +23,7 @@ export default async function UsersPage({
   const admin = createAdminClient();
 
   // Current admin's id — used to block editing one's own role in the UI.
-  const me = await getUser();
+  const me = await getClaimsUser();
 
   const page = Math.max(1, parseInt(sp.page ?? '1', 10) || 1);
   const from = (page - 1) * PAGE_SIZE;

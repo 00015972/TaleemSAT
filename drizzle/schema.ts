@@ -154,6 +154,15 @@ export const questions = pgTable(
     index('questions_category_id_idx').on(t.categoryId),
     index('questions_status_idx').on(t.status),
     index('questions_tags_gin_idx').using('gin', t.tags),
+    index('questions_published_subject_manifest_idx')
+      .on(t.subjectId, t.createdAt, t.id, t.difficulty)
+      .where(sql`${t.status} = 'published'`),
+    index('questions_published_category_manifest_idx')
+      .on(t.categoryId, t.createdAt, t.id, t.difficulty)
+      .where(sql`${t.status} = 'published'`),
+    index('questions_published_topic_manifest_idx')
+      .on(t.topicId, t.createdAt, t.id, t.difficulty)
+      .where(sql`${t.status} = 'published'`),
   ]
 );
 
@@ -177,6 +186,7 @@ export const attempts = pgTable(
   (t) => [
     index('attempts_user_id_created_at_idx').on(t.userId, t.createdAt),
     index('attempts_question_id_idx').on(t.questionId),
+    index('attempts_user_question_idx').on(t.userId, t.questionId),
   ]
 );
 
