@@ -1,15 +1,25 @@
 import 'server-only';
+import { unstable_cache } from 'next/cache';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 /**
  * Builds the subject -> category -> topic tree the Practice browse screen
  * renders, with published-question counts and the user's attempted progress.
  *
- * Two DB reads, aggregated in JS — same shape as lib/analytics/overview.ts.
- * Counts are broken down by difficulty so the filter chips can recompute
- * totals client-side without a refetch.
+ * Aggregated in JS — same shape as lib/analytics/overview.ts. Counts are
+ * broken down by difficulty so the filter chips can recompute totals
+ * client-side without a refetch.
+ *
+ * The taxonomy + published-question-counts half is identical for every
+ * user and only changes when an admin publishes/edits a question, so it's
+ * cached (see `getCatalog` below) instead of re-scanning the whole question
+ * table on every visit. Only the per-user attempted-count half runs fresh
+ * each time.
  */
+
+export const PRACTICE_CATALOG_CACHE_TAG = 'practice-catalog';
 
 export const DIFFICULTIES = ['easy', 'medium', 'hard'] as const;
 export type Difficulty = (typeof DIFFICULTIES)[number];
@@ -96,35 +106,52 @@ type AttemptRow = {
   } | null;
 };
 
+/**
+ * Taxonomy + published-question counts, shared across every user. Runs on
+ * the admin (service-role) client so it doesn't depend on the caller's
+ * cookies — required for `unstable_cache` to actually share one cached
+ * result across requests instead of keying per-session.
+ *
+ * Revalidates every 5 minutes as a safety net; admin question writes also
+ * call `revalidateTag(PRACTICE_CATALOG_CACHE_TAG)` to bust it immediately.
+ */
+const getCatalog = unstable_cache(
+  async () => {
+    const admin = createAdminClient();
+    const [taxonomyRes, questionsRes] = await Promise.all([
+      admin
+        .from('topics')
+        .select(
+          'id, slug, name, display_order, categories(id, slug, name, display_order, subjects(id, slug, name, display_order))'
+        )
+        .order('display_order'),
+      // Scale note: one row per published question. At a few thousand
+      // questions this is well under 100KB. Past ~10k, swap for a Postgres
+      // RPC that returns pre-grouped counts.
+      admin.from('questions').select('topic_id, category_id, subject_id, difficulty').eq('status', 'published'),
+    ]);
+
+    return {
+      topicRows: (taxonomyRes.data ?? []) as unknown as TaxonomyRow[],
+      questionRows: (questionsRes.data ?? []) as unknown as QuestionRow[],
+    };
+  },
+  ['practice-catalog'],
+  { revalidate: 300, tags: [PRACTICE_CATALOG_CACHE_TAG] }
+);
+
 export async function computePracticeOverview(
   supabase: SupabaseClient<Database>,
   userId: string
 ): Promise<PracticeOverview> {
-  const [taxonomyRes, questionsRes, attemptsRes] = await Promise.all([
-    supabase
-      .from('topics')
-      .select(
-        'id, slug, name, display_order, categories(id, slug, name, display_order, subjects(id, slug, name, display_order))'
-      )
-      .order('display_order'),
-    // RLS already restricts students to published questions, but be explicit
-    // so this is correct when called with a service-role client too.
-    //
-    // Scale note: one row per published question. At a few thousand questions
-    // this is well under 100KB. Past ~10k, swap for a Postgres RPC that returns
-    // pre-grouped counts.
-    supabase
-      .from('questions')
-      .select('topic_id, category_id, subject_id, difficulty')
-      .eq('status', 'published'),
+  const [{ topicRows, questionRows }, attemptsRes] = await Promise.all([
+    getCatalog(),
     supabase
       .from('attempts')
       .select('question_id, questions(topic_id, category_id, subject_id, difficulty)')
       .eq('user_id', userId),
   ]);
 
-  const topicRows = (taxonomyRes.data ?? []) as unknown as TaxonomyRow[];
-  const questionRows = (questionsRes.data ?? []) as unknown as QuestionRow[];
   const attemptRows = (attemptsRes.data ?? []) as unknown as AttemptRow[];
 
   // Count at every level independently rather than rolling topics up: questions

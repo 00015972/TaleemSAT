@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Bookmark, ChevronLeft, ChevronRight, RotateCcw, X } from 'lucide-react';
 import {
   ExamRoot,
   ExamTopBar,
@@ -313,7 +314,7 @@ export function PracticeShell({
   }
 
   return (
-    <ExamRoot>
+    <ExamRoot variant="practice">
       <ExamTopBar
         title={scope.label}
         subtitle={scope.difficulty !== 'all' ? `${scope.difficulty} difficulty` : undefined}
@@ -381,6 +382,7 @@ export function PracticeShell({
       {status === 'ready' && manifest && currentId && (
         <ExamSplit
           storageKey="taleem_practice_split"
+          showWatermark={false}
           overlay={<LineReaderOverlay active={lineReaderOn} />}
           left={
             <QuestionPane
@@ -449,14 +451,14 @@ export function PracticeShell({
           status === 'ready' && manifest ? (
             <div className="ex-pager">
               <button className="ex-page-btn" onClick={goBack} disabled={index === 0}>
-                <span aria-hidden="true">‹</span> Back
+                <ChevronLeft aria-hidden="true" /> Back
               </button>
               <button
                 className="ex-page-btn next"
                 onClick={goNext}
                 disabled={index === manifest.length - 1}
               >
-                Next <span aria-hidden="true">›</span>
+                Next <ChevronRight aria-hidden="true" />
               </button>
             </div>
           ) : undefined
@@ -491,12 +493,16 @@ function QuestionPane({
   return (
     <>
       <div className="ex-q-head">
-        <span className="ex-qnum">{seq}</span>
-        <DifficultyBadge difficulty={question.difficulty} />
+        <div className="ex-q-head-left">
+          <span className="ex-qnum">{seq}</span>
+          <DifficultyBadge difficulty={question.difficulty} />
+        </div>
+        <span className="ex-practice-mode">Practice mode</span>
       </div>
       {question.passage && (
         <PassageReader
           text={question.passage}
+          variant="practice"
           pro={pro}
           marks={marks}
           onMarksChange={onMarksChange}
@@ -562,7 +568,7 @@ function ChoicesPane({
           onClick={onToggleFlag}
           aria-pressed={flagged}
         >
-          <span aria-hidden="true">🔖</span> {flagged ? 'Marked' : 'Mark for review'}
+          <Bookmark aria-hidden="true" /> {flagged ? 'Marked' : 'Mark for review'}
         </button>
         <div className="ex-toolbar-right">
           {!isGridIn && (
@@ -686,7 +692,7 @@ function ChoiceList({
                 aria-label={isElim ? 'Restore choice' : 'Eliminate choice'}
                 title="Cross out"
               >
-                {isElim ? '↺' : '✕'}
+                {isElim ? <RotateCcw aria-hidden="true" /> : <X aria-hidden="true" />}
               </button>
             )}
           </div>
@@ -713,7 +719,12 @@ function QuestionTimer({ startedAt, frozen }: { startedAt: number | null; frozen
   }, [frozen, startedAt]);
 
   const elapsed = startedAt == null ? 0 : Math.max(0, Math.floor((now - startedAt) / 1000));
-  return <span className="ex-clock big">{formatClock(elapsed)}</span>;
+  return (
+    <span className="ex-practice-timer">
+      <span className="ex-clock big">{formatClock(elapsed)}</span>
+      <span className="ex-practice-timer-label">Time on question</span>
+    </span>
+  );
 }
 
 function formatClock(secs: number) {
@@ -723,16 +734,7 @@ function formatClock(secs: number) {
 }
 
 function DifficultyBadge({ difficulty }: { difficulty: string }) {
-  const color =
-    difficulty === 'easy' ? 'var(--ok)' : difficulty === 'hard' ? 'var(--err)' : 'var(--gold-d)';
-  return (
-    <span
-      className="prx-diff"
-      style={{ background: `color-mix(in srgb, ${color} 14%, transparent)`, color }}
-    >
-      {difficulty}
-    </span>
-  );
+  return <span className={`prx-diff ${difficulty}`}>{difficulty}</span>;
 }
 
 function CenteredStage({ children }: { children: React.ReactNode }) {

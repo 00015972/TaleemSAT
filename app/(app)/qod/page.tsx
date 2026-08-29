@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getUser } from '@/lib/supabase/server';
 import { QODShell, type QOD, type QODQuestion, type PriorAnswer } from '@/components/qod/qod-shell';
 
 export const dynamic = 'force-dynamic';
@@ -7,9 +7,7 @@ export const metadata = { title: 'Question of the Day — Taleem SAT' };
 
 export default async function QODPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
 
   if (!user) redirect('/login');
 

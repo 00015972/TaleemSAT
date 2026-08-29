@@ -8,6 +8,11 @@ import type { Database } from '@/lib/supabase/types';
  * prompt) so dashboard changes never touch that contract — this only reads
  * what the free dashboard needs: subject-level accuracy, a rolling recent-
  * attempt trend, a 30-day-ago comparison, and daily activity counts.
+ *
+ * All-time totals (totalAttempts, overallAccuracy, bySubject) are fetched as
+ * DB-side counts rather than by scanning every attempt a user has ever made.
+ * Everything else here only ever looks back 60 days at most, so the one
+ * row-level query is bounded to a 63-day window instead of full history.
  */
 
 export type SubjectSnapshot = {
@@ -62,42 +67,72 @@ type Row = {
   questions: { subjects: { name: string; slug: string } | null } | null;
 };
 
+type SubjectRef = { id: string; slug: string; name: string };
+
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Covers the 6-week `weekly` bucket, the 28-day `dailyActivity` window, and
+// the 60-day `subjectTrend` comparison — the only things the row-level query
+// below needs. A returning user whose only history is older than this won't
+// show it in `accuracyTrend` ("latest 30 attempts"), which is the one
+// deliberate trade-off: recency over exhaustiveness for a trend chart.
+const LOOKBACK_DAYS = 63;
 
 export async function computeDashboardSnapshot(
   supabase: SupabaseClient<Database>,
   userId: string
 ): Promise<DashboardSnapshot> {
-  const { data } = await supabase
-    .from('attempts')
-    .select('is_correct, created_at, questions(subjects(name, slug))')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: true });
-
-  const rows = (data ?? []) as unknown as Row[];
   const now = Date.now();
+  const windowStart = new Date(now - LOOKBACK_DAYS * DAY_MS).toISOString();
 
-  const totalAttempts = rows.length;
-  const totalCorrect = rows.filter(r => r.is_correct).length;
+  const [{ data: subjectRows }, { count: totalAttempts }, { count: totalCorrect }, { data }] =
+    await Promise.all([
+      supabase.from('subjects').select('id, slug, name'),
+      supabase.from('attempts').select('*', { count: 'exact', head: true }).eq('user_id', userId),
+      supabase
+        .from('attempts')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('is_correct', true),
+      supabase
+        .from('attempts')
+        .select('is_correct, created_at, questions(subjects(name, slug))')
+        .eq('user_id', userId)
+        .gte('created_at', windowStart)
+        .order('created_at', { ascending: true }),
+    ]);
 
-  const subjMap = new Map<
-    string,
-    { subject: string; slug: string; attempts: number; correct: number }
-  >();
-  for (const r of rows) {
-    const subj = r.questions?.subjects;
-    const slug = subj?.slug ?? 'unknown';
-    let s = subjMap.get(slug);
-    if (!s) {
-      s = { subject: subj?.name ?? 'Unknown', slug, attempts: 0, correct: 0 };
-      subjMap.set(slug, s);
-    }
-    s.attempts += 1;
-    if (r.is_correct) s.correct += 1;
-  }
-  const bySubject: SubjectSnapshot[] = [...subjMap.values()]
-    .map(s => ({ ...s, accuracy: s.attempts ? s.correct / s.attempts : 0 }))
-    .sort((a, b) => b.attempts - a.attempts);
+  const subjects = (subjectRows ?? []) as unknown as SubjectRef[];
+  const rows = (data ?? []) as unknown as Row[];
+
+  // All-time per-subject accuracy, counted in the DB — this must cover a
+  // user's whole history, not just the `rows` window above.
+  const bySubject: SubjectSnapshot[] = (
+    await Promise.all(
+      subjects.map(async subject => {
+        const [{ count: attempts }, { count: correct }] = await Promise.all([
+          supabase
+            .from('attempts')
+            .select('*, questions!inner(subject_id)', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .eq('questions.subject_id', subject.id),
+          supabase
+            .from('attempts')
+            .select('*, questions!inner(subject_id)', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .eq('questions.subject_id', subject.id)
+            .eq('is_correct', true),
+        ]);
+        return {
+          subject: subject.name,
+          slug: subject.slug,
+          attempts: attempts ?? 0,
+          correct: correct ?? 0,
+          accuracy: attempts ? (correct ?? 0) / attempts : 0,
+        };
+      })
+    )
+  ).sort((a, b) => b.attempts - a.attempts);
 
   // Weekly buckets — last 6 weeks, oldest first.
   const weekly: WeekPoint[] = [];
@@ -139,19 +174,20 @@ export async function computeDashboardSnapshot(
     const t = new Date(iso).getTime();
     return t > fromMs && t <= toMs;
   };
-  const subjectTrend: SubjectTrend[] = [...subjMap.keys()].map(slug => {
-    const name = subjMap.get(slug)!.subject;
+  const subjectTrend: SubjectTrend[] = subjects.map(subject => {
     const last30Rows = rows.filter(
-      r => r.questions?.subjects?.slug === slug && inWindow(r.created_at, now - 30 * DAY_MS, now)
+      r =>
+        r.questions?.subjects?.slug === subject.slug &&
+        inWindow(r.created_at, now - 30 * DAY_MS, now)
     );
     const prior30Rows = rows.filter(
       r =>
-        r.questions?.subjects?.slug === slug &&
+        r.questions?.subjects?.slug === subject.slug &&
         inWindow(r.created_at, now - 60 * DAY_MS, now - 30 * DAY_MS)
     );
     const acc = (arr: Row[]) =>
       arr.length ? arr.filter(r => r.is_correct).length / arr.length : null;
-    return { subject: name, slug, last30: acc(last30Rows), prior30: acc(prior30Rows) };
+    return { subject: subject.name, slug: subject.slug, last30: acc(last30Rows), prior30: acc(prior30Rows) };
   });
 
   // Daily activity — last 28 days, oldest first.
@@ -173,8 +209,8 @@ export async function computeDashboardSnapshot(
   const monthCount = dailyActivity.reduce((n, d) => n + d.count, 0);
 
   return {
-    totalAttempts,
-    overallAccuracy: totalAttempts ? totalCorrect / totalAttempts : 0,
+    totalAttempts: totalAttempts ?? 0,
+    overallAccuracy: totalAttempts ? (totalCorrect ?? 0) / totalAttempts : 0,
     bySubject,
     weekly,
     accuracyTrend,

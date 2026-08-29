@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { LockKeyhole, Sparkles } from 'lucide-react';
 
 /**
  * "Why is this the answer?" — an on-demand AI walkthrough shown after a question
@@ -69,7 +70,7 @@ export function WhyPanel({
         disabled={state === 'loading'}
         aria-expanded={open}
       >
-        <span aria-hidden="true">{pro ? '✨' : '🔒'}</span>
+        {pro ? <Sparkles aria-hidden="true" /> : <LockKeyhole aria-hidden="true" />}
         {state === 'loading'
           ? 'Thinking…'
           : data && open

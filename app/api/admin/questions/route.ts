@@ -1,5 +1,7 @@
 import { NextRequest } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { PRACTICE_CATALOG_CACHE_TAG } from '@/lib/practice/overview';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { logAudit } from '@/lib/admin/audit';
 import {
@@ -68,5 +70,6 @@ export async function POST(request: NextRequest) {
     after: { status: body.status, question_text: body.questionText.trim() },
   });
 
+  revalidateTag(PRACTICE_CATALOG_CACHE_TAG, 'max');
   return Response.json({ id: data.id });
 }

@@ -11,7 +11,7 @@ import {
   Target,
   Trophy,
 } from 'lucide-react';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getUser } from '@/lib/supabase/server';
 import { AppMenuButton } from '@/components/app-menu-button';
 import { ResendVerificationButton } from '@/components/resend-verification-button';
 import {
@@ -31,9 +31,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export default async function DashboardPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
 
   if (!user) redirect('/login');
 

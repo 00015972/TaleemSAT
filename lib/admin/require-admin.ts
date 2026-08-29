@@ -1,6 +1,6 @@
 import 'server-only';
 import type { User } from '@supabase/supabase-js';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getUser } from '@/lib/supabase/server';
 
 type RequireAdminResult =
   | { ok: true; user: User }
@@ -22,9 +22,7 @@ type RequireAdminResult =
  */
 export async function requireAdmin(): Promise<RequireAdminResult> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
 
   if (!user) {
     return {

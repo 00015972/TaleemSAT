@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { BookOpen, Eraser, Highlighter, LockKeyhole } from 'lucide-react';
 import { normalizeWord, isAdvancedWord } from '@/lib/reading/common-words';
 
 /**
@@ -86,6 +87,7 @@ const NO_MARKS: Set<number> = new Set();
 export function PassageReader({
   text,
   className,
+  variant = 'default',
   pro = false,
   marks: marksProp,
   onMarksChange,
@@ -94,6 +96,8 @@ export function PassageReader({
 }: {
   text: string;
   className?: string;
+  /** Practice tooltips portal to body, so this carries its scoped visual theme with them. */
+  variant?: 'default' | 'practice';
   /** Pro/Elite unlocks real translations; free users get a locked teaser. */
   pro?: boolean;
   /**
@@ -153,7 +157,7 @@ export function PassageReader({
           onClick={() => setTool('define')}
           title="Tap a word for its meaning & translation"
         >
-          <span aria-hidden="true">📖</span> Define
+          <BookOpen aria-hidden="true" /> Define
         </button>
         <button
           type="button"
@@ -161,11 +165,11 @@ export function PassageReader({
           onClick={() => setTool('highlight')}
           title="Tap words to highlight them"
         >
-          <span aria-hidden="true">🖍</span> Highlight
+          <Highlighter aria-hidden="true" /> Highlight
         </button>
         {marks.size > 0 && (
           <button type="button" className="pr-tool clear" onClick={() => setMarks(new Set<number>())}>
-            Clear
+            <Eraser aria-hidden="true" /> Clear
           </button>
         )}
       </div>
@@ -196,6 +200,7 @@ export function PassageReader({
               display={tk.text}
               context={context}
               tool={tool}
+              variant={variant}
               pro={pro}
               marked={marks.has(idx)}
               onToggleMark={() => toggleMark(idx)}
@@ -213,6 +218,7 @@ function Word({
   display,
   context,
   tool,
+  variant,
   pro,
   marked,
   onToggleMark,
@@ -220,6 +226,7 @@ function Word({
   display: string;
   context: string;
   tool: Tool;
+  variant: 'default' | 'practice';
   pro: boolean;
   marked: boolean;
   onToggleMark: () => void;
@@ -335,7 +342,7 @@ function Word({
           <div
             id={labelId}
             role="tooltip"
-            className="vocab-pop"
+            className={`vocab-pop${variant === 'practice' ? ' vocab-pop-practice' : ''}`}
             style={{ top: pos.top, left: pos.left }}
             onPointerEnter={() => {
               if (closeTimer.current) clearTimeout(closeTimer.current);
@@ -351,7 +358,7 @@ function Word({
 
             {entry === 'locked' ? (
               <div className="vocab-pop-lock">
-                <p className="vocab-lock-title">🔒 Word translations</p>
+                <p className="vocab-lock-title"><LockKeyhole aria-hidden="true" /> Word translations</p>
                 <p className="vocab-lock-text">
                   Uzbek &amp; Russian meanings for tough words are a Pro feature.
                 </p>
@@ -367,11 +374,11 @@ function Word({
               <>
                 <p className="vocab-pop-def">{entry.definition}</p>
                 <div className="vocab-pop-tr">
-                  <span className="vocab-flag" aria-hidden="true">🇺🇿</span>
+                  <span className="vocab-flag" aria-hidden="true">UZ</span>
                   <span>{entry.uz}</span>
                 </div>
                 <div className="vocab-pop-tr">
-                  <span className="vocab-flag" aria-hidden="true">🇷🇺</span>
+                  <span className="vocab-flag" aria-hidden="true">RU</span>
                   <span>{entry.ru}</span>
                 </div>
               </>

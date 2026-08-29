@@ -1,7 +1,9 @@
 import { NextRequest } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { logAudit } from '@/lib/admin/audit';
+import { PRACTICE_CATALOG_CACHE_TAG } from '@/lib/practice/overview';
 
 const MAX_IDS = 200;
 
@@ -54,5 +56,6 @@ export async function POST(request: NextRequest) {
     note: `${ids.length} question(s)`,
   });
 
+  revalidateTag(PRACTICE_CATALOG_CACHE_TAG, 'max');
   return Response.json({ updated: ids.length, status });
 }

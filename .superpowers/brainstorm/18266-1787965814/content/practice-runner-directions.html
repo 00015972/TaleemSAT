@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SAT Practice Runner — Design Directions</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: 'Manrope', sans-serif;
+      color: #17221b;
+      background:
+        radial-gradient(circle at 12% 4%, rgba(128,225,170,.16), transparent 28rem),
+        linear-gradient(145deg, #07140e, #0d2017 58%, #07110c);
+    }
+    button { font: inherit; }
+    .review-shell { width: min(1880px, 100%); margin: 0 auto; padding: 28px 28px 42px; }
+    .review-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 30px;
+      margin-bottom: 22px;
+      color: #fff8e8;
+    }
+    .kicker { margin: 0 0 8px; color: #f6d252; font-size: 11px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+    h1 { margin: 0; font-size: clamp(25px, 2.5vw, 40px); line-height: 1.08; letter-spacing: -.045em; }
+    .review-head p:last-child { margin: 8px 0 0; max-width: 740px; color: #9db6a6; font-size: 14px; }
+    .review-note { flex: 0 0 auto; max-width: 300px; padding: 12px 15px; border: 1px solid #27513a; border-radius: 13px; color: #b9cebf; background: rgba(13,35,24,.7); font-size: 12px; }
+
+    .directions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+    .direction {
+      position: relative;
+      min-width: 0;
+      border: 2px solid #274937;
+      border-radius: 22px;
+      overflow: hidden;
+      background: #0c1b13;
+      box-shadow: 0 14px 42px rgba(0,0,0,.25);
+      cursor: pointer;
+      transform: translateY(0);
+      transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+    }
+    .direction:hover { transform: translateY(-4px); border-color: #80e1aa; box-shadow: 0 22px 54px rgba(0,0,0,.36); }
+    .direction.selected { border-color: #f6d252; box-shadow: 0 0 0 4px rgba(246,210,82,.2), 0 22px 54px rgba(0,0,0,.38); }
+    .direction:focus-visible { outline: 3px solid #f6d252; outline-offset: 3px; }
+    .choice-line {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 15px 17px;
+      color: #fff8e8;
+      border-bottom: 1px solid #274937;
+      background: #0f2418;
+    }
+    .choice-letter { display: grid; place-items: center; flex: 0 0 auto; width: 34px; height: 34px; border-radius: 10px; background: #173a27; color: #80e1aa; font-weight: 800; }
+    .choice-copy { min-width: 0; }
+    .choice-copy h2 { margin: 0; font-size: 15px; letter-spacing: -.02em; }
+    .choice-copy p { margin: 3px 0 0; color: #8fac99; font-size: 10px; line-height: 1.35; }
+    .recommended { margin-left: auto; align-self: flex-start; padding: 5px 8px; border-radius: 999px; color: #0a2316; background: #f6d252; font-size: 8px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+
+    .mock { height: min(700px, 70vh); min-height: 590px; display: grid; grid-template-rows: 63px minmax(0,1fr) 57px; font-size: 10px; cursor: default; }
+    .mock button { cursor: pointer; }
+    .mock-top { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; padding: 9px 12px; }
+    .top-left, .top-tools, .tool, .exit, .timer, .mark, .action, .pager, .nav-pill, .question-meta, .practice-mode { display: flex; align-items: center; }
+    .top-left { gap: 10px; min-width: 0; }
+    .top-tools { justify-content: flex-end; gap: 5px; }
+    .exit { gap: 4px; height: 31px; padding: 0 9px; border-radius: 9px; background: transparent; font-size: 9px; font-weight: 700; }
+    .topic { min-width: 0; }
+    .topic b { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 11px; }
+    .topic span { display: block; margin-top: 2px; font-size: 7px; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; }
+    .timer { flex-direction: column; line-height: 1; font-variant-numeric: tabular-nums; }
+    .timer strong { font-size: 17px; letter-spacing: .04em; }
+    .timer small { margin-top: 4px; font-size: 6px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+    .tool { justify-content: center; width: 31px; height: 31px; padding: 0; border-radius: 9px; background: transparent; }
+    .tool svg, .exit svg, .mark svg, .back svg, .next svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .mock-main { min-height: 0; display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+    .pane { min-width: 0; min-height: 0; overflow: hidden; padding: 18px 17px; }
+    .pane + .pane { border-left-width: 1px; border-left-style: solid; }
+    .question-meta { justify-content: space-between; margin-bottom: 16px; }
+    .qnum { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; font-size: 10px; font-weight: 800; }
+    .difficulty { padding: 5px 8px; border-radius: 999px; font-size: 7px; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; }
+    .practice-mode { gap: 5px; font-size: 7px; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; }
+    .passage { margin: 0; font-size: 10px; line-height: 1.9; }
+    .passage + .stem { margin-top: 18px; padding-top: 15px; border-top-width: 1px; border-top-style: solid; }
+    .stem { margin: 0; font-size: 11px; font-weight: 750; line-height: 1.55; }
+    .answer-head { display: flex; align-items: center; justify-content: space-between; gap: 9px; margin-bottom: 17px; }
+    .mark { gap: 6px; border: 0; background: transparent; padding: 0; font-size: 8px; font-weight: 700; }
+    .action { justify-content: center; min-width: 88px; height: 30px; border: 0; border-radius: 9px; font-size: 8px; font-weight: 800; transition: transform .14s ease, box-shadow .14s ease; }
+    .action:hover { transform: translateY(-2px); }
+    .answers { display: grid; gap: 9px; }
+    .answer { display: grid; grid-template-columns: 28px 1fr; align-items: center; gap: 9px; min-height: 51px; padding: 9px 12px; border-width: 1px; border-style: solid; border-radius: 13px; transition: transform .14s ease, border-color .14s ease, box-shadow .14s ease; }
+    .answer:hover { transform: translateX(3px); }
+    .answer-letter { display: grid; place-items: center; width: 26px; height: 26px; border-width: 1px; border-style: solid; border-radius: 50%; font-size: 9px; font-weight: 800; }
+    .answer span:last-child { font-size: 9px; line-height: 1.4; }
+    .mock-foot { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; padding: 8px 12px; }
+    .shortcut { font-size: 6px; font-weight: 700; letter-spacing: .06em; }
+    .nav-pill { justify-content: center; gap: 5px; height: 33px; padding: 0 12px; border-width: 1px; border-style: solid; border-radius: 11px; font-size: 8px; font-weight: 800; }
+    .pager { justify-content: flex-end; gap: 7px; }
+    .back, .next { display: flex; align-items: center; justify-content: center; gap: 4px; height: 32px; padding: 0 11px; border-width: 1px; border-style: solid; border-radius: 9px; font-size: 8px; font-weight: 800; transition: transform .14s ease, box-shadow .14s ease; }
+    .next:hover { transform: translateY(-2px); }
+
+    /* A — dark control room */
+    .dark-mock { color: #f7f3e7; background: #08150e; }
+    .dark-mock .mock-top { background: #0d2116; border-top: 3px solid #80e1aa; border-bottom: 1px solid #24442f; }
+    .dark-mock .exit, .dark-mock .tool { color: #9ab3a1; border: 1px solid #2c4b37; }
+    .dark-mock .exit:hover, .dark-mock .tool:hover { color: #f6d252; border-color: #f6d252; }
+    .dark-mock .topic span, .dark-mock .timer small { color: #7fa089; }
+    .dark-mock .timer strong { color: #f6d252; }
+    .dark-mock .mock-main { background: linear-gradient(125deg, #09170f, #0c1b13); }
+    .dark-mock .pane { background: rgba(14,35,23,.72); }
+    .dark-mock .pane + .pane { border-left-color: #2c5038; }
+    .dark-mock .qnum { color: #082014; background: #80e1aa; box-shadow: 0 3px 0 #2f7e52; }
+    .dark-mock .difficulty { color: #f6d252; background: #2a2513; }
+    .dark-mock .practice-mode { color: #81a58d; }
+    .dark-mock .passage { color: #d9e2da; }
+    .dark-mock .stem { color: #fff8e8; border-top-color: #31513a; }
+    .dark-mock .mark { color: #a5bcaa; }
+    .dark-mock .action { color: #082014; background: #80e1aa; box-shadow: 0 4px 0 #2f7e52; }
+    .dark-mock .answer { color: #dfe9e1; background: #12291b; border-color: #31513a; box-shadow: 0 2px 0 rgba(0,0,0,.35); }
+    .dark-mock .answer:hover { border-color: #80e1aa; }
+    .dark-mock .answer-letter { color: #9eb5a4; border-color: #58705f; }
+    .dark-mock .mock-foot { background: #0d2116; border-top: 1px solid #24442f; }
+    .dark-mock .shortcut { color: #6e8c78; }
+    .dark-mock .nav-pill { color: #e6ede7; border-color: #375942; background: #153020; }
+    .dark-mock .back { color: #9ab3a1; background: transparent; border-color: #31513a; }
+    .dark-mock .next { color: #092116; background: #80e1aa; border-color: #80e1aa; box-shadow: 0 4px 0 #2f7e52; }
+
+    /* B — light official */
+    .light-mock { color: #17243b; background: #edf2f5; }
+    .light-mock .mock-top { color: white; background: #152e4d; border-bottom: 3px solid #35b779; }
+    .light-mock .exit, .light-mock .tool { color: #dce7ef; border: 1px solid #47617d; }
+    .light-mock .exit:hover, .light-mock .tool:hover { color: white; border-color: #7de3aa; background: rgba(255,255,255,.08); }
+    .light-mock .topic span, .light-mock .timer small { color: #b1c3d4; }
+    .light-mock .timer strong { color: white; }
+    .light-mock .mock-main { gap: 9px; padding: 9px; background: #e9eff3; }
+    .light-mock .pane { background: #fff; border: 1px solid #ced8df; border-radius: 11px; box-shadow: 0 4px 14px rgba(17,43,69,.06); }
+    .light-mock .pane + .pane { border-left-color: #ced8df; }
+    .light-mock .qnum { color: white; background: #173c65; }
+    .light-mock .difficulty { color: #23613f; background: #dff4e7; }
+    .light-mock .practice-mode { color: #60758a; }
+    .light-mock .passage { color: #2e3c4c; }
+    .light-mock .stem { color: #142236; border-top-color: #d5dfe6; }
+    .light-mock .mark { color: #405872; }
+    .light-mock .action { color: white; background: #16784a; box-shadow: 0 3px 0 #0f5634; }
+    .light-mock .answer { color: #203148; background: #fbfcfd; border-color: #cbd7df; }
+    .light-mock .answer:hover { border-color: #166fc3; box-shadow: 0 0 0 2px rgba(22,111,195,.1); }
+    .light-mock .answer-letter { color: #173c65; border-color: #7d91a5; }
+    .light-mock .mock-foot { background: white; border-top: 1px solid #cbd7df; }
+    .light-mock .shortcut { color: #75889a; }
+    .light-mock .nav-pill { color: #193654; border-color: #c4d0d8; background: #f5f8fa; }
+    .light-mock .back { color: #38516a; background: white; border-color: #bdcad4; }
+    .light-mock .next { color: white; background: #173c65; border-color: #173c65; box-shadow: 0 3px 0 #0d263f; }
+
+    /* C — hybrid */
+    .hybrid-mock { color: #172019; background: #0a1d13; }
+    .hybrid-mock .mock-top { color: #fff8e8; background: #0b2417; border-top: 3px solid #f6d252; border-bottom: 1px solid #2f5b3f; }
+    .hybrid-mock .exit, .hybrid-mock .tool { color: #b5cbb9; border: 1px solid #355943; }
+    .hybrid-mock .exit:hover, .hybrid-mock .tool:hover { color: #f6d252; border-color: #f6d252; }
+    .hybrid-mock .topic span, .hybrid-mock .timer small { color: #8ba594; }
+    .hybrid-mock .timer { min-width: 65px; padding: 7px 11px; border: 1px solid #315840; border-radius: 11px; background: #102f1e; }
+    .hybrid-mock .timer strong { color: #fff8e8; }
+    .hybrid-mock .mock-main { gap: 10px; padding: 10px; background: linear-gradient(135deg, #0a1f14, #0d2a1a); }
+    .hybrid-mock .pane { background: #fff9ec; border: 1px solid #d9d0bd; border-radius: 13px; box-shadow: 0 5px 0 #2e6f49, 0 12px 28px rgba(0,0,0,.2); }
+    .hybrid-mock .pane + .pane { border-left-color: #d9d0bd; }
+    .hybrid-mock .qnum { color: #092116; background: #80e1aa; box-shadow: 0 3px 0 #2f7e52; }
+    .hybrid-mock .difficulty { color: #7d6412; background: #f8eab5; }
+    .hybrid-mock .practice-mode { color: #42674f; }
+    .hybrid-mock .passage { color: #2b352e; }
+    .hybrid-mock .stem { color: #14241a; border-top-color: #ded4c2; }
+    .hybrid-mock .mark { color: #385640; }
+    .hybrid-mock .action { color: #092116; background: #80e1aa; box-shadow: 0 4px 0 #2f7e52; }
+    .hybrid-mock .answer { color: #203026; background: #fffdf7; border-color: #cfc6b5; box-shadow: 0 2px 0 #dfd6c5; }
+    .hybrid-mock .answer:hover { border-color: #2e8051; box-shadow: 0 2px 0 #2e8051; }
+    .hybrid-mock .answer-letter { color: #245d3c; border-color: #7d9885; }
+    .hybrid-mock .mock-foot { color: #fff8e8; background: #0b2417; border-top: 1px solid #2f5b3f; }
+    .hybrid-mock .shortcut { color: #779484; }
+    .hybrid-mock .nav-pill { color: #fff8e8; border-color: #3d674c; background: #153825; }
+    .hybrid-mock .back { color: #b2c6b6; background: transparent; border-color: #355943; }
+    .hybrid-mock .next { color: #092116; background: #f6d252; border-color: #f6d252; box-shadow: 0 4px 0 #a98612; }
+
+    .direction-foot { display: flex; justify-content: space-between; gap: 16px; padding: 14px 17px 16px; color: #b4c7b8; background: #0f2418; border-top: 1px solid #274937; font-size: 10px; line-height: 1.45; }
+    .direction-foot b { color: #fff8e8; }
+    .pick { flex: 0 0 auto; align-self: center; padding: 7px 10px; border-radius: 8px; color: #0a2115; background: #80e1aa; font-size: 9px; font-weight: 800; }
+
+    @media (max-width: 1180px) {
+      .directions { grid-template-columns: 1fr; }
+      .mock { height: 680px; }
+    }
+    @media (max-width: 680px) {
+      .review-shell { padding: 20px 12px 30px; }
+      .review-head { display: block; }
+      .review-note { margin-top: 14px; max-width: none; }
+      .mock { min-height: 660px; }
+      .tool:nth-of-type(2), .tool:nth-of-type(3) { display: none; }
+      .shortcut { display: none; }
+      .mock-foot { grid-template-columns: auto 1fr; }
+      .mock-foot .nav-pill { grid-column: 1; }
+      .pager { grid-column: 2; }
+    }
+  </style>
+</head>
+<body>
+  <main class="review-shell">
+    <header class="review-head">
+      <div>
+        <p class="kicker">Practice runner · visual review</p>
+        <h1>Which direction feels most like serious SAT prep?</h1>
+        <p>All three keep the same question flow, use Manrope, remove emoji-style icons, and avoid imagery. Click a full preview to select it.</p>
+      </div>
+      <div class="review-note">These are direction mockups, not final production screens. Layout density and responsive behavior will be refined after selection.</div>
+    </header>
+
+    <section class="directions">
+      <article class="direction" data-choice="a" onclick="toggleSelect(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSelect(this)}">
+        <div class="choice-line">
+          <div class="choice-letter">A</div>
+          <div class="choice-copy"><h2>Focus Control</h2><p>Strongest continuity with the dashboard</p></div>
+        </div>
+        <div class="mock dark-mock">
+          <header class="mock-top">
+            <div class="top-left">
+              <button class="exit"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg> Topics</button>
+              <div class="topic"><b>Information &amp; Ideas</b><span>Medium · Directions</span></div>
+            </div>
+            <div class="timer"><strong>08:42</strong><small>Time on question</small></div>
+            <div class="top-tools">
+              <button class="tool" title="Annotate"><svg viewBox="0 0 24 24"><path d="M4 20h4l11-11-4-4L4 16v4zM13.5 6.5l4 4"/></svg></button>
+              <button class="tool" title="Appearance"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+              <button class="tool" title="Calculator"><svg viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="2"/><path d="M8 6h8M8 11h.01M12 11h.01M16 11h.01M8 15h.01M12 15h.01M16 15h.01M8 19h.01M12 19h4"/></svg></button>
+              <button class="tool" title="More"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1" fill="currentColor" stroke="none"/></svg></button>
+            </div>
+          </header>
+          <div class="mock-main">
+            <section class="pane">
+              <div class="question-meta"><span class="qnum">1</span><span class="difficulty">Medium</span><span class="practice-mode">Practice mode</span></div>
+              <p class="passage">Scientists studying the deep ocean have discovered that hydrothermal vents—cracks in the ocean floor where superheated water exits—support thriving ecosystems despite complete darkness and extreme pressure. Unlike surface ecosystems that rely on photosynthesis, these communities depend on chemosynthesis.</p>
+              <p class="stem">According to the passage, what distinguishes hydrothermal vent ecosystems from surface ecosystems?</p>
+            </section>
+            <section class="pane">
+              <div class="answer-head"><button class="mark"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4V3z"/></svg> Mark for review</button><button class="action">Check answer</button></div>
+              <div class="answers">
+                <div class="answer"><span class="answer-letter">A</span><span>Surface ecosystems experience greater pressure than vent ecosystems</span></div>
+                <div class="answer"><span class="answer-letter">B</span><span>Vent ecosystems rely on chemical energy rather than sunlight</span></div>
+                <div class="answer"><span class="answer-letter">C</span><span>Vent ecosystems are less diverse than surface ecosystems</span></div>
+                <div class="answer"><span class="answer-letter">D</span><span>Surface ecosystems are found at greater ocean depths</span></div>
+              </div>
+            </section>
+          </div>
+          <footer class="mock-foot"><span class="shortcut">A–D choose · Enter check · F flag</span><span class="nav-pill">Question 1 of 255⌃</span><div class="pager"><button class="back">Back</button><button class="next">Next <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button></div></footer>
+        </div>
+        <div class="direction-foot"><span><b>Best for:</b> immersive branded practice.<br/>Dark reading surfaces can feel heavier in long sessions.</span><span class="pick">Choose A</span></div>
+      </article>
+
+      <article class="direction" data-choice="b" onclick="toggleSelect(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSelect(this)}">
+        <div class="choice-line">
+          <div class="choice-letter">B</div>
+          <div class="choice-copy"><h2>Bluebook Air</h2><p>Closest to an official digital-test environment</p></div>
+        </div>
+        <div class="mock light-mock">
+          <header class="mock-top">
+            <div class="top-left">
+              <button class="exit"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg> Topics</button>
+              <div class="topic"><b>Information &amp; Ideas</b><span>Medium · Directions</span></div>
+            </div>
+            <div class="timer"><strong>08:42</strong><small>Time on question</small></div>
+            <div class="top-tools">
+              <button class="tool" title="Annotate"><svg viewBox="0 0 24 24"><path d="M4 20h4l11-11-4-4L4 16v4zM13.5 6.5l4 4"/></svg></button>
+              <button class="tool" title="Appearance"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+              <button class="tool" title="Calculator"><svg viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="2"/><path d="M8 6h8M8 11h.01M12 11h.01M16 11h.01M8 15h.01M12 15h.01M16 15h.01M8 19h.01M12 19h4"/></svg></button>
+              <button class="tool" title="More"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1" fill="currentColor" stroke="none"/></svg></button>
+            </div>
+          </header>
+          <div class="mock-main">
+            <section class="pane">
+              <div class="question-meta"><span class="qnum">1</span><span class="difficulty">Medium</span><span class="practice-mode">Practice mode</span></div>
+              <p class="passage">Scientists studying the deep ocean have discovered that hydrothermal vents—cracks in the ocean floor where superheated water exits—support thriving ecosystems despite complete darkness and extreme pressure. Unlike surface ecosystems that rely on photosynthesis, these communities depend on chemosynthesis.</p>
+              <p class="stem">According to the passage, what distinguishes hydrothermal vent ecosystems from surface ecosystems?</p>
+            </section>
+            <section class="pane">
+              <div class="answer-head"><button class="mark"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4V3z"/></svg> Mark for review</button><button class="action">Check answer</button></div>
+              <div class="answers">
+                <div class="answer"><span class="answer-letter">A</span><span>Surface ecosystems experience greater pressure than vent ecosystems</span></div>
+                <div class="answer"><span class="answer-letter">B</span><span>Vent ecosystems rely on chemical energy rather than sunlight</span></div>
+                <div class="answer"><span class="answer-letter">C</span><span>Vent ecosystems are less diverse than surface ecosystems</span></div>
+                <div class="answer"><span class="answer-letter">D</span><span>Surface ecosystems are found at greater ocean depths</span></div>
+              </div>
+            </section>
+          </div>
+          <footer class="mock-foot"><span class="shortcut">A–D choose · Enter check · F flag</span><span class="nav-pill">Question 1 of 255⌃</span><div class="pager"><button class="back">Back</button><button class="next">Next <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button></div></footer>
+        </div>
+        <div class="direction-foot"><span><b>Best for:</b> familiarity and maximum readability.<br/>Feels less connected to the Taleem visual identity.</span><span class="pick">Choose B</span></div>
+      </article>
+
+      <article class="direction" data-choice="c" onclick="toggleSelect(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSelect(this)}">
+        <div class="choice-line">
+          <div class="choice-letter">C</div>
+          <div class="choice-copy"><h2>Study Hall</h2><p>Brand personality outside, exam paper inside</p></div>
+          <span class="recommended">Recommended</span>
+        </div>
+        <div class="mock hybrid-mock">
+          <header class="mock-top">
+            <div class="top-left">
+              <button class="exit"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg> Topics</button>
+              <div class="topic"><b>Information &amp; Ideas</b><span>Medium · Directions</span></div>
+            </div>
+            <div class="timer"><strong>08:42</strong><small>Time on question</small></div>
+            <div class="top-tools">
+              <button class="tool" title="Annotate"><svg viewBox="0 0 24 24"><path d="M4 20h4l11-11-4-4L4 16v4zM13.5 6.5l4 4"/></svg></button>
+              <button class="tool" title="Appearance"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+              <button class="tool" title="Calculator"><svg viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="2"/><path d="M8 6h8M8 11h.01M12 11h.01M16 11h.01M8 15h.01M12 15h.01M16 15h.01M8 19h.01M12 19h4"/></svg></button>
+              <button class="tool" title="More"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1" fill="currentColor" stroke="none"/></svg></button>
+            </div>
+          </header>
+          <div class="mock-main">
+            <section class="pane">
+              <div class="question-meta"><span class="qnum">1</span><span class="difficulty">Medium</span><span class="practice-mode">Practice mode</span></div>
+              <p class="passage">Scientists studying the deep ocean have discovered that hydrothermal vents—cracks in the ocean floor where superheated water exits—support thriving ecosystems despite complete darkness and extreme pressure. Unlike surface ecosystems that rely on photosynthesis, these communities depend on chemosynthesis.</p>
+              <p class="stem">According to the passage, what distinguishes hydrothermal vent ecosystems from surface ecosystems?</p>
+            </section>
+            <section class="pane">
+              <div class="answer-head"><button class="mark"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4V3z"/></svg> Mark for review</button><button class="action">Check answer</button></div>
+              <div class="answers">
+                <div class="answer"><span class="answer-letter">A</span><span>Surface ecosystems experience greater pressure than vent ecosystems</span></div>
+                <div class="answer"><span class="answer-letter">B</span><span>Vent ecosystems rely on chemical energy rather than sunlight</span></div>
+                <div class="answer"><span class="answer-letter">C</span><span>Vent ecosystems are less diverse than surface ecosystems</span></div>
+                <div class="answer"><span class="answer-letter">D</span><span>Surface ecosystems are found at greater ocean depths</span></div>
+              </div>
+            </section>
+          </div>
+          <footer class="mock-foot"><span class="shortcut">A–D choose · Enter check · F flag</span><span class="nav-pill">Question 1 of 255⌃</span><div class="pager"><button class="back">Back</button><button class="next">Next <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button></div></footer>
+        </div>
+        <div class="direction-foot"><span><b>Best for:</b> branded immersion plus paper-like reading comfort.<br/>The most balanced evolution of the current runner.</span><span class="pick">Choose C</span></div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

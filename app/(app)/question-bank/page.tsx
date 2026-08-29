@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getUser } from '@/lib/supabase/server';
 import { PracticeShell } from '@/components/practice/practice-shell';
 import { computePracticeOverview, type PracticeOverview } from '@/lib/practice/overview';
 
@@ -6,10 +6,7 @@ export const metadata = { title: 'Question Bank — Taleem SAT' };
 
 export default async function QuestionBankPage() {
   const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
 
   let pro = false;
   let overview: PracticeOverview = { subjects: [] };

@@ -10,6 +10,17 @@ import {
   type RefObject,
 } from 'react';
 import {
+  Calculator as CalculatorIcon,
+  Highlighter,
+  Maximize2,
+  Minimize2,
+  Moon,
+  MoreHorizontal,
+  Palette,
+  Ruler,
+  Sun,
+} from 'lucide-react';
+import {
   subscribe as subscribeTheme,
   getSnapshot as getThemeSnapshot,
   getServerSnapshot as getThemeServerSnapshot,
@@ -124,7 +135,7 @@ export function FullscreenToggle() {
       aria-pressed={active}
       title={active ? 'Exit full screen' : 'Full screen'}
     >
-      <span aria-hidden="true">⛶</span>
+      {active ? <Minimize2 aria-hidden="true" /> : <Maximize2 aria-hidden="true" />}
     </button>
   );
 }
@@ -149,7 +160,7 @@ export function AnnotateToggle({
       aria-pressed={on}
       title={disabled ? 'No passage to annotate' : 'Tap words to highlight them'}
     >
-      <span aria-hidden="true">🔖</span>
+      <Highlighter aria-hidden="true" />
     </button>
   );
 }
@@ -214,11 +225,11 @@ export function AppearanceMenu({
   }
 
   return (
-    <MenuBox label="Appearance" icon={<span aria-hidden="true">🎨</span>} open={open} onOpenChange={onOpenChange}>
+    <MenuBox label="Appearance" icon={<Palette aria-hidden="true" />} open={open} onOpenChange={onOpenChange}>
       <p className="ex-menu-label">Theme</p>
       <button type="button" className="ex-menu-row" onClick={toggleTheme}>
         <span>{theme === 'dark' ? 'Dark' : 'Light'}</span>
-        <span aria-hidden="true">{theme === 'dark' ? '🌙' : '☀'}</span>
+        {theme === 'dark' ? <Moon aria-hidden="true" /> : <Sun aria-hidden="true" />}
       </button>
       <p className="ex-menu-label">Reading text size</p>
       {FONT_SIZES.map(f => (
@@ -362,7 +373,7 @@ export function CalculatorButton({
   ];
 
   return (
-    <MenuBox label="Calculator" icon={<span aria-hidden="true">🧮</span>} open={open} onOpenChange={onOpenChange}>
+    <MenuBox label="Calculator" icon={<CalculatorIcon aria-hidden="true" />} open={open} onOpenChange={onOpenChange}>
       <div className="ex-calc">
         <div className="ex-calc-display" aria-live="polite">
           {display}
@@ -408,7 +419,7 @@ export function ReferenceButton({
   onOpenChange: (open: boolean) => void;
 }) {
   return (
-    <MenuBox label="Reference" icon={<span aria-hidden="true">📐</span>} open={open} onOpenChange={onOpenChange}>
+    <MenuBox label="Reference" icon={<Ruler aria-hidden="true" />} open={open} onOpenChange={onOpenChange}>
       <div className="ex-ref">
         {REFERENCE_ROWS.map(r => (
           <div key={r.label} className="ex-ref-row">
@@ -439,7 +450,7 @@ export function MoreMenu({
   onClearMarks: () => void;
 }) {
   return (
-    <MenuBox label="More" icon={<span aria-hidden="true">⋯</span>} open={open} onOpenChange={onOpenChange}>
+    <MenuBox label="More" icon={<MoreHorizontal aria-hidden="true" />} open={open} onOpenChange={onOpenChange}>
       <button
         type="button"
         className={`ex-menu-row${lineReaderOn ? ' on' : ''}`}

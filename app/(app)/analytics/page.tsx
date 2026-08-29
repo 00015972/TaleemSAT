@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getUser } from '@/lib/supabase/server';
 import {
   computeAnalyticsOverview,
   type AnalyticsOverview,
@@ -13,9 +13,7 @@ export const metadata = { title: 'Analytics — Taleem SAT' };
 
 export default async function AnalyticsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) redirect('/login');
 
   const { data: profile } = await supabase

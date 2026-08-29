@@ -8,6 +8,12 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from 'react';
+import {
+  ArrowLeft,
+  ChevronDown,
+  ChevronUp,
+  Grid2X2,
+} from 'lucide-react';
 
 /**
  * Test-taking chrome — the shell a timed section runs inside.
@@ -26,7 +32,13 @@ import {
 export const FONTSIZE_KEY = 'taleem_reading_fontsize';
 export type FontSize = 'standard' | 'large' | 'xl';
 
-export function ExamRoot({ children }: { children: ReactNode }) {
+export function ExamRoot({
+  children,
+  variant = 'default',
+}: {
+  children: ReactNode;
+  variant?: 'default' | 'practice';
+}) {
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-exam', 'on');
@@ -42,7 +54,7 @@ export function ExamRoot({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  return <div className="ex-root">{children}</div>;
+  return <div className={`ex-root${variant === 'practice' ? ' ex-practice' : ''}`}>{children}</div>;
 }
 
 // ─── Top bar ──────────────────────────────────────────────────────────────────
@@ -71,7 +83,7 @@ export function ExamTopBar({
       <div className="ex-top-l">
         {onExit && (
           <button type="button" className="ex-exit" onClick={onExit}>
-            <span aria-hidden="true">←</span> {exitLabel}
+            <ArrowLeft aria-hidden="true" /> {exitLabel}
           </button>
         )}
         <div className="ex-titles">
@@ -85,7 +97,7 @@ export function ExamTopBar({
                 onClick={() => setDirOpen(o => !o)}
                 aria-expanded={dirOpen}
               >
-                Directions <span aria-hidden="true">{dirOpen ? '▴' : '▾'}</span>
+                Directions {dirOpen ? <ChevronUp aria-hidden="true" /> : <ChevronDown aria-hidden="true" />}
               </button>
               {dirOpen && <p className="ex-dir-body">{directions}</p>}
             </>
@@ -214,12 +226,15 @@ export function ExamSplit({
   right,
   storageKey = 'taleem_exam_split',
   overlay,
+  showWatermark = true,
 }: {
   left: ReactNode;
   right: ReactNode;
   storageKey?: string;
   /** Decorative overlay (e.g. the line-reader band) — rendered last, above everything. */
   overlay?: ReactNode;
+  /** Practice can opt out so its clean paper surface never mounts branded image assets. */
+  showWatermark?: boolean;
 }) {
   const persistedPct = useSyncExternalStore(
     subscribeNever,
@@ -264,7 +279,7 @@ export function ExamSplit({
 
   return (
     <div className="ex-split" ref={containerRef}>
-      <ExamWatermark />
+      {showWatermark && <ExamWatermark />}
       <div className="ex-split-pane" style={{ flexBasis: `${pct}%` }}>
         {left}
       </div>
@@ -383,9 +398,13 @@ export function ExamNavigator({
         onClick={() => setOpen(o => !o)}
         aria-expanded={open}
       >
-        <span className="ex-nav-icon" aria-hidden="true">⊞</span>
+        <Grid2X2 className="ex-nav-icon" aria-hidden="true" />
         Question {index + 1} of {total}
-        <span className="ex-nav-caret" aria-hidden="true">{open ? '▾' : '▴'}</span>
+        {open ? (
+          <ChevronDown className="ex-nav-caret" aria-hidden="true" />
+        ) : (
+          <ChevronUp className="ex-nav-caret" aria-hidden="true" />
+        )}
       </button>
     </div>
   );
