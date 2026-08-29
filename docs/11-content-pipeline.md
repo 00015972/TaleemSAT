@@ -210,7 +210,6 @@ For the first big import:
 - [ ] Bulk preview a sample of 20 random questions
 - [ ] Bulk publish in batches of 50 with review between batches
 - [ ] Verify each category has roughly even distribution (no one category has 100 questions and another has 5)
-- [ ] First QOD scheduled for tomorrow
 
 ---
 
@@ -218,7 +217,6 @@ For the first big import:
 
 Target cadence post-launch:
 - **+10 new questions per week** (mix of categories)
-- **1 QOD per day** (scheduled at least 1 week in advance)
 - **Difficulty audit quarterly**
 - **Tag audit quarterly**
 

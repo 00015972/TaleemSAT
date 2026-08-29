@@ -34,6 +34,7 @@ export type PracticeScope = {
   kind: 'topic' | 'category' | 'subject';
   slug: string;
   label: string;
+  subjectSlug: string;
   difficulty: DifficultyFilter;
 };
 
@@ -87,9 +88,10 @@ function pct(attempted: number, total: number) {
 function scopeFor(
   kind: PracticeScope['kind'],
   node: { slug: string; name: string },
-  difficulty: DifficultyFilter
+  difficulty: DifficultyFilter,
+  subjectSlug = node.slug
 ): PracticeScope {
-  return { kind, slug: node.slug, label: node.name, difficulty };
+  return { kind, slug: node.slug, label: node.name, subjectSlug, difficulty };
 }
 
 export function PracticeBrowse({
@@ -478,7 +480,7 @@ function TopicTray({
             type="button"
             className="qba-practice-category"
             disabled={total === 0}
-            onClick={() => onStart(scopeFor('category', category, difficulty))}
+            onClick={() => onStart(scopeFor('category', category, difficulty, subject.slug))}
           >
             Practice all {category.name} <FiArrowRight aria-hidden="true" />
           </button>
@@ -492,6 +494,7 @@ function TopicTray({
           <TopicButton
             key={topic.id}
             topic={topic}
+            subjectSlug={subject.slug}
             difficulty={difficulty}
             pick={pick}
             onStart={onStart}
@@ -559,7 +562,7 @@ function SearchTray({
                     <button
                       type="button"
                       disabled={pick(entry.category.questionCount) === 0}
-                      onClick={() => onStart(scopeFor('category', entry.category, difficulty))}
+                      onClick={() => onStart(scopeFor('category', entry.category, difficulty, group.subject.slug))}
                     >
                       Practice category <FiArrowRight aria-hidden="true" />
                     </button>
@@ -569,6 +572,7 @@ function SearchTray({
                       <TopicButton
                         key={topic.id}
                         topic={topic}
+                        subjectSlug={group.subject.slug}
                         difficulty={difficulty}
                         pick={pick}
                         onStart={onStart}
@@ -587,11 +591,13 @@ function SearchTray({
 
 function TopicButton({
   topic,
+  subjectSlug,
   difficulty,
   pick,
   onStart,
 }: {
   topic: TopicNode;
+  subjectSlug: string;
   difficulty: DifficultyFilter;
   pick: (counts: CountsByDifficulty) => number;
   onStart: (scope: PracticeScope) => void;
@@ -606,7 +612,7 @@ function TopicButton({
       className="qba-topic"
       disabled={total === 0}
       title={total === 0 ? `No ${difficulty} questions in ${topic.name}` : `Practice ${topic.name}`}
-      onClick={() => onStart(scopeFor('topic', topic, difficulty))}
+      onClick={() => onStart(scopeFor('topic', topic, difficulty, subjectSlug))}
     >
       <span
         className="qba-topic-bubble"

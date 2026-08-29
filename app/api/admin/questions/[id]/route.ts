@@ -92,3 +92,56 @@ export async function PATCH(
 
   return Response.json({ id });
 }
+
+/**
+ * Hard delete. `exam_questions` restricts deletion of a question used in an
+ * exam, and `attempts` has no ON DELETE clause (defaults to the same
+ * restrict behavior) — either one blocks this with a 23503 FK violation,
+ * which we surface as a friendly prompt to archive instead.
+ */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const gate = await requireAdmin();
+  if (!gate.ok) return gate.response;
+  const { user } = gate;
+
+  const { id } = await params;
+  const admin = createAdminClient();
+
+  const { data: before } = await admin
+    .from('questions')
+    .select('status, question_text')
+    .eq('id', id)
+    .single();
+
+  if (!before) {
+    return Response.json({ error: 'QUESTION_NOT_FOUND' }, { status: 404 });
+  }
+
+  const { error } = await admin.from('questions').delete().eq('id', id);
+
+  if (error) {
+    if (error.code === '23503') {
+      return Response.json(
+        {
+          error: 'IN_USE',
+          detail: 'This question is used in an exam or already has student attempts recorded. Archive it instead of deleting.',
+        },
+        { status: 409 }
+      );
+    }
+    return Response.json({ error: 'DELETE_FAILED', detail: error.message }, { status: 500 });
+  }
+
+  await logAudit(admin, {
+    actorUserId: user.id,
+    action: 'question.delete',
+    targetType: 'question',
+    targetId: id,
+    before,
+  });
+
+  return Response.json({ id });
+}

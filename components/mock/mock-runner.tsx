@@ -23,8 +23,7 @@ import {
   MATH_DIRECTIONS,
   type MenuKey,
 } from '@/components/exam/exam-toolbar';
-import { PassageReader, type Tool } from '@/components/reading/passage-reader';
-import { WhyPanel } from '@/components/reading/why-panel';
+import { PassageReader } from '@/components/reading/passage-reader';
 import { ChartFigure } from '@/components/reading/chart-figure';
 import { QuestionBody } from '@/components/reading/question-body';
 import { GridInInput } from '@/components/reading/grid-in-input';
@@ -107,7 +106,7 @@ const NO_MARKS: Set<number> = new Set();
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function MockRunner({ pro = false }: { pro?: boolean }) {
+export function MockRunner() {
   const [status, setStatus] = useState<Status>('setup');
   const [subject, setSubject] = useState<Subject>('mixed');
   const [count, setCount] = useState(10);
@@ -132,7 +131,7 @@ export function MockRunner({ pro = false }: { pro?: boolean }) {
 
   // Reading-tool state — mirrors Practice's lifted state so the shared
   // toolbar (Annotate/More's Highlights list/Line reader) works the same way.
-  const [readingTool, setReadingTool] = useState<Tool>('define');
+  const [annotateOn, setAnnotateOn] = useState(false);
   const [lineReaderOn, setLineReaderOn] = useState(false);
   const [openMenu, setOpenMenu] = useState<MenuKey | null>(null);
 
@@ -197,7 +196,7 @@ export function MockRunner({ pro = false }: { pro?: boolean }) {
       setReview(null);
       setElimMode(false);
       setHideClock(false);
-      setReadingTool('define');
+      setAnnotateOn(false);
       setLineReaderOn(false);
       setOpenMenu(null);
       setStartedAt(Date.now());
@@ -318,7 +317,7 @@ export function MockRunner({ pro = false }: { pro?: boolean }) {
     else void submitTest();
   }, [unanswered, submitTest]);
 
-  // ── keyboard: A–D to answer, arrows to page, F to flag ──
+  // ── keyboard: A–D to answer, arrows to page, F to mark ──
   const live = status === 'running';
   useEffect(() => {
     if (!live || !current) return;
@@ -454,7 +453,6 @@ export function MockRunner({ pro = false }: { pro?: boolean }) {
             question={
               <QuestionSide
                 q={q}
-                pro={pro}
                 marks={marks[q.id] ?? NO_MARKS}
                 onMarksChange={next => setMarksFor(q.id, next)}
               />
@@ -487,7 +485,6 @@ export function MockRunner({ pro = false }: { pro?: boolean }) {
                         <QuestionBody text={r.explanation} className="prx-expl-body" />
                       </div>
                     )}
-                    <WhyPanel questionId={q.id} pro={pro} />
                   </div>
                 )}
               </>
@@ -514,7 +511,7 @@ export function MockRunner({ pro = false }: { pro?: boolean }) {
                 <>
                   <span className="ex-lg"><i className="ex-lg-dot ok" /> Correct</span>
                   <span className="ex-lg"><i className="ex-lg-dot bad" /> Missed</span>
-                  <span className="ex-lg"><i className="ex-lg-dot flag" /> Flagged</span>
+                  <span className="ex-lg"><i className="ex-lg-dot flag" /> Marked</span>
                 </>
               }
               action={
@@ -615,8 +612,8 @@ export function MockRunner({ pro = false }: { pro?: boolean }) {
         right={
           <>
             <AnnotateToggle
-              on={readingTool === 'highlight'}
-              onToggle={() => setReadingTool(t => (t === 'highlight' ? 'define' : 'highlight'))}
+              on={annotateOn}
+              onToggle={() => setAnnotateOn(v => !v)}
               disabled={!current?.passage}
             />
             <AppearanceMenu
@@ -688,11 +685,10 @@ export function MockRunner({ pro = false }: { pro?: boolean }) {
           question={
             <QuestionSide
               q={current}
-              pro={pro}
               marks={marks[current.id] ?? NO_MARKS}
               onMarksChange={next => setMarksFor(current.id, next)}
-              tool={readingTool}
-              onToolChange={setReadingTool}
+              annotate={annotateOn}
+              onAnnotateChange={setAnnotateOn}
             />
           }
           choices={
@@ -724,7 +720,7 @@ export function MockRunner({ pro = false }: { pro?: boolean }) {
       )}
 
       <ExamFooter
-        left={<span className="ex-hint">A–D to answer · ← → to move · F to flag</span>}
+        left={<span className="ex-hint">A–D to answer · ← → to move · F to mark</span>}
         center={
           <ExamNavigator
             index={index}
@@ -738,7 +734,7 @@ export function MockRunner({ pro = false }: { pro?: boolean }) {
               <>
                 <span className="ex-lg"><i className="ex-lg-dot done" /> Answered</span>
                 <span className="ex-lg"><i className="ex-lg-dot" /> Unanswered</span>
-                <span className="ex-lg"><i className="ex-lg-dot flag" /> Flagged</span>
+                <span className="ex-lg"><i className="ex-lg-dot flag" /> Marked</span>
               </>
             }
             action={
@@ -845,29 +841,26 @@ function QuestionBar({
 
 function QuestionSide({
   q,
-  pro,
   marks,
   onMarksChange,
-  tool,
-  onToolChange,
+  annotate,
+  onAnnotateChange,
 }: {
   q: MockQuestion;
-  pro: boolean;
   marks: Set<number>;
   onMarksChange: (next: Set<number>) => void;
-  tool?: Tool;
-  onToolChange?: (next: Tool) => void;
+  annotate?: boolean;
+  onAnnotateChange?: (next: boolean) => void;
 }) {
   return (
     <>
       {q.passage && (
         <PassageReader
           text={q.passage}
-          pro={pro}
           marks={marks}
           onMarksChange={onMarksChange}
-          tool={tool}
-          onToolChange={onToolChange}
+          annotate={annotate}
+          onAnnotateChange={onAnnotateChange}
         />
       )}
       <ChartFigure svg={q.chart_svg} />

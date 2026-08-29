@@ -11,7 +11,7 @@
 - Local: `http://localhost:3000/api`
 - Prod: `https://taleemsat.com/api`
 
-**Why `/api/`?** In Next.js App Router, route handlers live under `app/api/` and are served at `/api/*`. This prefix clearly separates data endpoints from rendered pages and avoids URL collisions (e.g., `/qod` is a student page; `/api/qod/today` is its data endpoint). When we add mobile app support, we'll namespace as `/api/v1/*` and freeze that contract.
+**Why `/api/`?** In Next.js App Router, route handlers live under `app/api/` and are served at `/api/*`. This prefix clearly separates data endpoints from rendered pages and avoids URL collisions (e.g., `/practice` is a student page; `/api/attempts` is its data endpoint). When we add mobile app support, we'll namespace as `/api/v1/*` and freeze that contract.
 
 ### Auth
 - Session-based via Supabase Auth cookie. The `getSession()` helper reads the cookie and returns the user (or 401).
@@ -40,7 +40,6 @@
 | `NOT_FOUND` | 404 | Resource doesn't exist |
 | `VALIDATION_FAILED` | 400 | Body failed Zod validation |
 | `RATE_LIMITED` | 429 | Too many requests |
-| `ALREADY_ANSWERED` | 409 | Conflict — already answered today's QOD |
 | `TIER_INSUFFICIENT` | 402 | Feature requires a higher tier |
 | `INTERNAL_ERROR` | 500 | Server bug; logged to Sentry |
 
@@ -191,7 +190,7 @@ Paginated history of attempts for the analytics page.
 **Auth:** required.
 
 **Query params:**
-- `context` — `practice` | `qod` | `mock` | `all` (default: all)
+- `context` — `practice` | `mock` | `all` (default: all)
 - `category_id` — optional filter
 - `limit` — default 20, max 100
 - `cursor` — opaque cursor for pagination
@@ -209,82 +208,6 @@ Paginated history of attempts for the analytics page.
 
 ---
 
-## Question of the Day
-
-### `GET /api/qod/today`
-Get today's QOD. Returns the user's own answer if already answered.
-
-**Auth:** required.
-
-**Response 200 (not yet answered):**
-```json
-{
-  "ok": true,
-  "data": {
-    "question": { "id": "...", "passage": "...", "question_text": "...", "options": {...} },
-    "category_name": "Standard English Conventions",
-    "difficulty": "hard",
-    "answered": false,
-    "user_points": 18,
-    "next_certificate_at": 25
-  }
-}
-```
-
-**Response 200 (already answered):**
-```json
-{
-  "ok": true,
-  "data": {
-    "question": { "...full..." },
-    "answered": true,
-    "selected_answer": "C",
-    "is_correct": false,
-    "correct_answer": "A",
-    "explanation": "...",
-    "points_awarded": 0,
-    "user_points": 18
-  }
-}
-```
-
----
-
-### `POST /api/qod/answer`
-Submit an answer to today's QOD.
-
-**Auth:** required.
-
-**Body:**
-```json
-{ "selected_answer": "A" }
-```
-
-**Response 200:**
-```json
-{
-  "ok": true,
-  "data": {
-    "correct": true,
-    "correct_answer": "A",
-    "explanation": "...",
-    "points_awarded": 1,
-    "user_points": 19,
-    "streak_days": 5,
-    "certificate_earned": null
-  }
-}
-```
-
-**Errors:**
-- `ALREADY_ANSWERED` — user already answered today
-
-**Notes:**
-- If hitting a 25-pt milestone, `certificate_earned: { id, tier: 25 }` is returned and triggers PDF generation in the background.
-- Updates `users.streak_days` and `users.last_qod_answered_at`.
-
----
-
 ## Certificates
 
 ### `GET /api/certificates`
@@ -299,9 +222,7 @@ List the user's certificates.
   "data": {
     "certificates": [
       { "id": "uuid", "tier": 25, "awarded_at": "2026-04-15T...", "pdf_ready": true }
-    ],
-    "current_points": 18,
-    "next_tier": 25
+    ]
   }
 }
 ```
@@ -337,7 +258,6 @@ Performance breakdown for the analytics page.
   "data": {
     "overall_accuracy": 0.68,
     "total_attempts": 142,
-    "streak_days": 4,
     "by_subject": {
       "english": { "accuracy": 0.76, "attempts": 81 },
       "math": { "accuracy": 0.61, "attempts": 61 }
@@ -509,25 +429,11 @@ Bulk import via a hand-converted HTML question-bank file.
 - Every parsed question is staged as an `import_job_items` row (`status: 'pending_review'` or flagged for review) under a new `import_jobs` row.
 - Nothing reaches students until an admin reviews and approves items at `/admin/import-jobs/:id`. See [11-content-pipeline.md](11-content-pipeline.md) for the full review/promote flow.
 
-### `GET /api/admin/qod`
-List scheduled QODs (past + upcoming).
-
-### `POST /api/admin/qod`
-Schedule a QOD for a future date.
-
-**Body:**
-```json
-{ "scheduled_date": "2026-05-15", "question_id": "uuid" }
-```
-
-### `DELETE /api/admin/qod/:id`
-Unschedule (only allowed for future dates).
-
 ### `GET /api/admin/users?tier=pro&search=...`
 List users with filters.
 
 ### `PATCH /api/admin/users/:id`
-Update user (admin overrides: tier, role, points adjustment via `points_ledger`).
+Update user (admin overrides: tier, role).
 
 **Body:** any of `{ tier, role, full_name }` — sensitive changes are logged.
 
@@ -545,9 +451,7 @@ Dashboard overview metrics.
     "wau": 318,
     "mau": 481,
     "questions_count": 200,
-    "attempts_last_24h": 1843,
-    "qod_today_responses": 89,
-    "qod_today_accuracy": 0.62
+    "attempts_last_24h": 1843
   }
 }
 ```
@@ -575,7 +479,6 @@ Capture an email from the landing page (without full signup).
 | `POST /api/auth/signup` | 5 | per IP per hour |
 | `POST /api/auth/login` (via Supabase) | 10 | per email per 15 min |
 | `POST /api/attempts` | 60 | per user per minute |
-| `POST /api/qod/answer` | 5 | per user per hour |
 | `GET /api/ai/insights` | 10 | per user per day |
 | `POST /api/lead` | 5 | per IP per hour |
 | Everything else | 120 | per user per minute |

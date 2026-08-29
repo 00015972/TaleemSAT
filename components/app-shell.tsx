@@ -9,8 +9,6 @@ export type AppShellUser = {
   name: string;
   email: string;
   initials: string;
-  points: number;
-  streak: number;
 };
 
 export function AppShell({

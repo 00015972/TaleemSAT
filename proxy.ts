@@ -48,7 +48,6 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith('/settings') ||
     pathname.startsWith('/question-bank') ||
     pathname.startsWith('/mock') ||
-    pathname.startsWith('/qod') ||
     pathname.startsWith('/analytics') ||
     pathname.startsWith('/certificates');
 

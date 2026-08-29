@@ -10,11 +10,7 @@
 ```
 users ──┬── attempts ──── questions ─── categories ─── subjects
         │
-        ├── qod_answers ── qod_schedule ─── questions
-        │
         ├── certificates
-        │
-        ├── points_ledger
         │
         ├── ai_insights
         │
@@ -95,8 +91,6 @@ Authenticated users. This is our application-level user table; Supabase's `auth.
 | `subscription_id` | text | unique | current active Stripe subscription |
 | `subscription_status` | text | | `active`, `past_due`, `canceled`, null |
 | `current_period_end` | timestamptz | | for grace-period logic |
-| `streak_days` | int | not null default 0 | consecutive days with a QOD answer |
-| `last_qod_answered_at` | date | | for streak tracking |
 | `marketing_opt_in` | boolean | not null default true | from signup form |
 | `created_at` | timestamptz | not null default now() | |
 | `updated_at` | timestamptz | not null default now() | |
@@ -106,7 +100,6 @@ Authenticated users. This is our application-level user table; Supabase's `auth.
 - `(email)` — automatic via unique
 - `(tier)` for tier-based queries
 - `(stripe_customer_id)` for webhook lookups
-- `(last_qod_answered_at)` for streak recovery jobs
 
 ---
 
@@ -152,7 +145,7 @@ Every time a student answers a practice question.
 | `selected_answer` | char(1) | not null check (selected_answer in ('A','B','C','D')) | |
 | `is_correct` | boolean | not null | |
 | `time_taken_ms` | int | check (time_taken_ms >= 0) | how long they spent |
-| `context` | text | not null default 'practice' check (context in ('practice','qod','mock')) | |
+| `context` | text | not null default 'practice' check (context in ('practice','mock')) | |
 | `created_at` | timestamptz | not null default now() | |
 
 **Indexes:**
@@ -162,64 +155,6 @@ Every time a student answers a practice question.
 - `(user_id, context, created_at)` — analytics queries
 
 **No `updated_at`** — attempts are immutable.
-
----
-
-### `qod_schedule`
-Which question is the QOD on which day. Admin sets this in advance.
-
-| Column | Type | Constraints | Notes |
-|---|---|---|---|
-| `id` | uuid | PK | |
-| `scheduled_date` | date | unique not null | exactly one QOD per day |
-| `question_id` | uuid | FK → questions(id) on delete restrict | |
-| `created_by` | uuid | FK → users(id) on delete set null | admin who scheduled |
-| `created_at` | timestamptz | not null default now() | |
-
-**Indexes:**
-- `(scheduled_date)` — unique
-- `(question_id)` — find which days a question has been QOD (prevent reuse)
-
----
-
-### `qod_answers`
-A student's answer to a specific day's QOD. One row per (user, date).
-
-| Column | Type | Constraints | Notes |
-|---|---|---|---|
-| `id` | uuid | PK | |
-| `user_id` | uuid | FK → users(id) on delete cascade | |
-| `qod_schedule_id` | uuid | FK → qod_schedule(id) on delete restrict | |
-| `selected_answer` | char(1) | not null check (selected_answer in ('A','B','C','D')) | |
-| `is_correct` | boolean | not null | |
-| `points_awarded` | int | not null default 0 | typically 0 or 1 |
-| `created_at` | timestamptz | not null default now() | |
-
-**Unique:** `(user_id, qod_schedule_id)` — one attempt per user per day.
-**Indexes:**
-- `(user_id, created_at desc)` — user's QOD history
-- `(qod_schedule_id)` — daily aggregates ("X% of users got it right")
-
----
-
-### `points_ledger`
-Append-only ledger of every point earned. Source of truth for total points.
-
-| Column | Type | Constraints | Notes |
-|---|---|---|---|
-| `id` | uuid | PK | |
-| `user_id` | uuid | FK → users(id) on delete cascade | |
-| `amount` | int | not null | usually +1, but flexible |
-| `reason` | text | not null check (reason in ('qod_correct','admin_adjustment','bonus','penalty')) | |
-| `reference_id` | uuid | | e.g., qod_answers.id |
-| `note` | text | | admin notes for manual adjustments |
-| `created_at` | timestamptz | not null default now() | |
-
-**Indexes:**
-- `(user_id, created_at desc)` — user history
-- `(user_id)` for sum/aggregates
-
-**Why a ledger?** Auditable. We can always reconstruct a user's total: `select sum(amount) from points_ledger where user_id = ?`. If we ever issue a refund or correction, we add a row, not edit history.
 
 ---
 
@@ -339,20 +274,6 @@ RLS is **on** for every table. Default-deny. Policies are listed by table below;
 - **INSERT:** user can insert their own (`user_id = auth.uid()`). Server validates `is_correct`, can't be spoofed.
 - **UPDATE / DELETE:** disabled. Attempts are immutable.
 
-### `qod_schedule`
-- **SELECT:** all authenticated users can read **today's** QOD schedule (filter at policy or query level). Admins can read all.
-- **INSERT / UPDATE / DELETE:** admins only.
-
-### `qod_answers`
-- **SELECT:** user can read their own. Admins can read all.
-- **INSERT:** user can insert their own. Server validates and enforces one-per-day.
-- **UPDATE / DELETE:** disabled.
-
-### `points_ledger`
-- **SELECT:** user can read their own. Admins can read all.
-- **INSERT:** **disabled for client.** Only the server (service role) writes here, to prevent point inflation.
-- **UPDATE / DELETE:** disabled.
-
 ### `certificates`
 - **SELECT:** user can read their own. Admins can read all.
 - **INSERT / UPDATE / DELETE:** server-only.
@@ -407,9 +328,6 @@ create trigger trg_auth_user_created
   after insert on auth.users
   for each row execute function handle_new_auth_user();
 ```
-
-### Streak update on QOD answer
-Logic lives in the API route, not a trigger (easier to test and reason about).
 
 ---
 

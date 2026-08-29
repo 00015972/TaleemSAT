@@ -31,12 +31,11 @@ Each numbered file covers a single concern. They are designed to be read indepen
 
 ## Project at a glance
 
-**Product:** A Digital SAT prep platform. Students sign up, practice questions by category, answer a daily "Question of the Day," earn points + certificates, get AI-powered weakness analysis, and pay monthly for the premium tiers.
+**Product:** A Digital SAT prep platform. Students sign up, practice questions by category, earn certificates, get AI-powered weakness analysis, and pay monthly for the premium tiers.
 
 **Audience:** High-school students preparing for the SAT, primarily in Uzbekistan and the broader region, eventually international.
 
 **Differentiation:**
-- Daily ritual (QOD) builds habit
 - Certificates create dopamine/status
 - AI insights are personalized, not generic
 - Built and taught by a real 1500-scorer

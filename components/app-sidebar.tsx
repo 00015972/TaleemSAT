@@ -6,7 +6,6 @@ import { usePathname } from 'next/navigation';
 import { useSyncExternalStore } from 'react';
 import {
   BarChart3,
-  CalendarDays,
   ChevronsLeft,
   LayoutGrid,
   LogOut,
@@ -32,7 +31,6 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', exact: true, icon: IconGrid, chip: 'green' },
   { href: '/question-bank', label: 'Question Bank', icon: IconBubble, chip: 'gold' },
   { href: '/mock', label: 'Mock Test', icon: IconClock, chip: 'green' },
-  { href: '/qod', label: 'Daily Question', icon: IconCalendar, chip: 'gold' },
   { href: '/analytics', label: 'Analytics', icon: IconChart, chip: 'green' },
 ];
 
@@ -74,7 +72,7 @@ export function AppSidebar({
 }: {
   onNavigate: () => void;
   onCloseMobile: () => void;
-  user: { name: string; email: string; initials: string; points: number; streak: number };
+  user: { name: string; email: string; initials: string };
 }) {
   const pathname = usePathname();
   const collapsed = useSyncExternalStore(
@@ -143,21 +141,6 @@ export function AppSidebar({
           })}
         </nav>
 
-        <div className="sb-stats" title={`${user.streak} day streak · ${user.points} points earned`}>
-          <span className="sb-stat" data-tone="gold">
-            <span className="sb-stat-bub" data-lit={user.streak > 0 ? '' : undefined} aria-hidden="true" />
-            <span className="sb-label sb-stat-text">
-              <strong>{user.streak}</strong> day{user.streak === 1 ? '' : 's'}
-            </span>
-          </span>
-          <span className="sb-stat" data-tone="green">
-            <span className="sb-stat-dot" aria-hidden="true" />
-            <span className="sb-label sb-stat-text">
-              <strong>{user.points}</strong> pts
-            </span>
-          </span>
-        </div>
-
         <div className="sb-div" />
         <nav className="sb-nav" aria-label="Account">
           {UTIL_ITEMS.map(item => {
@@ -215,9 +198,6 @@ function IconGrid() {
 }
 function IconClock() {
   return <Timer size={18} strokeWidth={1.75} />;
-}
-function IconCalendar() {
-  return <CalendarDays size={18} strokeWidth={1.75} />;
 }
 function IconChart() {
   return <BarChart3 size={18} strokeWidth={1.75} />;

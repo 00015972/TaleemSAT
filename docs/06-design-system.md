@@ -193,7 +193,7 @@ The signature pattern. Tiny gold caps with horizontal line. Used at the top of e
 CSS already defined in `landing.html` — port to a Tailwind utility class `.eyebrow`.
 
 ### Question option (`pc-opt`)
-The clickable answer option in practice/QOD. Has states:
+The clickable answer option in practice. Has states:
 - default
 - hover (green border)
 - selected (green border + green-l bg)
@@ -205,7 +205,7 @@ The clickable answer option in practice/QOD. Has states:
 Used in pricing. Three variants: free, pro (featured), elite. Featured has gold border + "Most chosen" tag.
 
 ### Certificate
-Editorial PDF + on-screen mockup. Gold seal, italic name, signature line. See `landing.html` for the rendered mockup; the actual PDF uses `@react-pdf/renderer` with similar styling.
+Editorial PDF + on-screen mockup. Gold seal, italic name, signature line. The PDF uses `@react-pdf/renderer`.
 
 ### Badge / Pill
 - Subject pill (English green, Math gold)
@@ -286,7 +286,7 @@ Editorial PDF + on-screen mockup. Gold seal, italic name, signature line. See `l
 ### Screen readers
 - Semantic HTML first (`<button>`, `<nav>`, `<main>`, `<article>`).
 - `aria-label` for icon-only buttons.
-- `aria-live="polite"` regions for dynamic updates (correct answer reveal, points earned).
+- `aria-live="polite"` regions for dynamic updates (correct answer reveal).
 - `<label>` properly associated with inputs.
 
 ### Motion

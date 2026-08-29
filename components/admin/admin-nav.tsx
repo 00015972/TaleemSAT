@@ -7,7 +7,6 @@ const NAV_LINKS = [
   { href: '/admin', label: 'Operations', active: true, exact: true },
   { href: '/admin/questions', label: 'Questions', active: true },
   { href: '/admin/import-jobs', label: 'Imports', active: true },
-  { href: '/admin/qod', label: 'Daily Question', active: true },
   { href: '/admin/users', label: 'Users', active: true },
   { href: '/admin/subscriptions', label: 'Subscriptions', active: true },
   { href: '/admin/settings', label: 'Settings', active: false },

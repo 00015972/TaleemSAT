@@ -51,6 +51,7 @@ export function QuestionsTable({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [local, setLocal] = useState<Filters>(filters);
   const [working, setWorking] = useState(false);
+  const [message, setMessage] = useState<{ kind: 'info' | 'err'; text: string } | null>(null);
 
   const visibleCategories = local.subject
     ? categories.filter(c => c.subjectId === local.subject)
@@ -98,6 +99,7 @@ export function QuestionsTable({
   async function bulk(action: 'publish' | 'archive') {
     if (selected.size === 0) return;
     setWorking(true);
+    setMessage(null);
     try {
       const res = await fetch('/api/admin/questions/bulk', {
         method: 'POST',
@@ -108,6 +110,42 @@ export function QuestionsTable({
         setSelected(new Set());
         router.refresh();
       }
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function bulkDelete() {
+    if (selected.size === 0) return;
+    const count = selected.size;
+    const ok = window.confirm(
+      `Permanently delete ${count} question${count === 1 ? '' : 's'}? This cannot be undone. ` +
+        `Questions used in an exam or already attempted by students will be skipped — archive those instead.`
+    );
+    if (!ok) return;
+
+    setWorking(true);
+    setMessage(null);
+    try {
+      const res = await fetch('/api/admin/questions/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: Array.from(selected), action: 'delete' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMessage({ kind: 'err', text: data?.detail ?? 'Could not delete those questions.' });
+        return;
+      }
+      const skipped = (data.skipped ?? []) as { id: string; reason: string }[];
+      setMessage({
+        kind: skipped.length > 0 ? 'err' : 'info',
+        text:
+          `Deleted ${data.deleted} question${data.deleted === 1 ? '' : 's'}.` +
+          (skipped.length > 0 ? ` ${skipped.length} skipped: ${skipped[0].reason}` : ''),
+      });
+      setSelected(new Set());
+      router.refresh();
     } finally {
       setWorking(false);
     }
@@ -227,12 +265,24 @@ export function QuestionsTable({
             Archive
           </button>
           <button
+            onClick={bulkDelete}
+            disabled={working}
+            className="adm-btn secondary"
+            style={{ color: 'var(--err)', borderColor: 'color-mix(in srgb, var(--err) 40%, transparent)' }}
+          >
+            Delete
+          </button>
+          <button
             onClick={() => setSelected(new Set())}
             className="text-sm text-muted ml-auto hover:underline"
           >
             Clear
           </button>
         </div>
+      )}
+
+      {message && (
+        <div className={`adm-alert ${message.kind === 'err' ? 'err' : 'info'}`}>{message.text}</div>
       )}
 
       {/* Table */}

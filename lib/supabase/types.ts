@@ -566,125 +566,6 @@ export type Database = {
           },
         ]
       }
-      points_ledger: {
-        Row: {
-          created_at: string
-          delta: number
-          id: string
-          reason: string
-          reference_id: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          delta: number
-          id?: string
-          reason: string
-          reference_id?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          delta?: number
-          id?: string
-          reason?: string
-          reference_id?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "points_ledger_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      qod_answers: {
-        Row: {
-          created_at: string
-          id: string
-          is_correct: boolean
-          points_awarded: number
-          qod_id: string
-          selected_answer: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          is_correct: boolean
-          points_awarded?: number
-          qod_id: string
-          selected_answer: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          is_correct?: boolean
-          points_awarded?: number
-          qod_id?: string
-          selected_answer?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "qod_answers_qod_id_fkey"
-            columns: ["qod_id"]
-            isOneToOne: false
-            referencedRelation: "qod_schedule"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "qod_answers_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      qod_schedule: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          id: string
-          question_id: string
-          scheduled_date: string
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          question_id: string
-          scheduled_date: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          question_id?: string
-          scheduled_date?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "qod_schedule_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "qod_schedule_question_id_fkey"
-            columns: ["question_id"]
-            isOneToOne: false
-            referencedRelation: "questions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       question_ai_explanations: {
         Row: {
           created_at: string
@@ -955,11 +836,8 @@ export type Database = {
           exam_date: string | null
           full_name: string | null
           id: string
-          last_qod_answered_at: string | null
           marketing_opt_in: boolean
-          points: number
           role: Database["public"]["Enums"]["user_role"]
-          streak_days: number
           stripe_customer_id: string | null
           subscription_id: string | null
           subscription_status:
@@ -976,11 +854,8 @@ export type Database = {
           exam_date?: string | null
           full_name?: string | null
           id: string
-          last_qod_answered_at?: string | null
           marketing_opt_in?: boolean
-          points?: number
           role?: Database["public"]["Enums"]["user_role"]
-          streak_days?: number
           stripe_customer_id?: string | null
           subscription_id?: string | null
           subscription_status?:
@@ -997,11 +872,8 @@ export type Database = {
           exam_date?: string | null
           full_name?: string | null
           id?: string
-          last_qod_answered_at?: string | null
           marketing_opt_in?: boolean
-          points?: number
           role?: Database["public"]["Enums"]["user_role"]
-          streak_days?: number
           stripe_customer_id?: string | null
           subscription_id?: string | null
           subscription_status?:
@@ -1083,7 +955,7 @@ export type Database = {
     }
     Enums: {
       ai_kind: "weakness" | "plan" | "prediction"
-      attempt_context: "practice" | "qod" | "mock"
+      attempt_context: "practice" | "mock"
       difficulty: "easy" | "medium" | "hard"
       email_category: "engagement" | "marketing"
       exam_status: "draft" | "published" | "archived"
@@ -1234,7 +1106,7 @@ export const Constants = {
   public: {
     Enums: {
       ai_kind: ["weakness", "plan", "prediction"],
-      attempt_context: ["practice", "qod", "mock"],
+      attempt_context: ["practice", "mock"],
       difficulty: ["easy", "medium", "hard"],
       email_category: ["engagement", "marketing"],
       exam_status: ["draft", "published", "archived"],

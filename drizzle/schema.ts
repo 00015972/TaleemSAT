@@ -51,7 +51,6 @@ export const importItemStatusEnum = pgEnum('import_item_status', [
 ]);
 export const attemptContextEnum = pgEnum('attempt_context', [
   'practice',
-  'qod',
   'mock',
 ]);
 export const aiKindEnum = pgEnum('ai_kind', ['weakness', 'plan', 'prediction']);
@@ -95,9 +94,6 @@ export const users = pgTable(
     fullName: text('full_name'),
     role: roleEnum('role').notNull().default('student'),
     tier: tierEnum('tier').notNull().default('free'),
-    points: integer('points').notNull().default(0),
-    streakDays: integer('streak_days').notNull().default(0),
-    lastQodAnsweredAt: timestamp('last_qod_answered_at', { withTimezone: true }),
     targetSatScore: integer('target_sat_score'),
     examDate: date('exam_date'),
     marketingOptIn: boolean('marketing_opt_in').notNull().default(true),
@@ -190,59 +186,6 @@ export const attempts = pgTable(
   ]
 );
 
-// ─── QOD schedule ───────────────────────────────────────────────────
-export const qodSchedule = pgTable(
-  'qod_schedule',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    scheduledDate: date('scheduled_date').notNull().unique(),
-    questionId: uuid('question_id')
-      .notNull()
-      .references(() => questions.id),
-    createdBy: uuid('created_by').references(() => users.id),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [uniqueIndex('qod_scheduled_date_unique_idx').on(t.scheduledDate)]
-);
-
-// ─── QOD answers ────────────────────────────────────────────────────
-export const qodAnswers = pgTable(
-  'qod_answers',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    qodId: uuid('qod_id')
-      .notNull()
-      .references(() => qodSchedule.id, { onDelete: 'cascade' }),
-    selectedAnswer: text('selected_answer').notNull(),
-    isCorrect: boolean('is_correct').notNull(),
-    pointsAwarded: integer('points_awarded').notNull().default(0),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [
-    uniqueIndex('qod_answers_user_qod_unique_idx').on(t.userId, t.qodId),
-    index('qod_answers_user_id_idx').on(t.userId),
-  ]
-);
-
-// ─── Points ledger ──────────────────────────────────────────────────
-export const pointsLedger = pgTable(
-  'points_ledger',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    delta: integer('delta').notNull(),
-    reason: text('reason').notNull(),
-    referenceId: uuid('reference_id'),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [index('points_ledger_user_id_idx').on(t.userId)]
-);
-
 // ─── Certificates ───────────────────────────────────────────────────
 export const certificates = pgTable(
   'certificates',
@@ -319,8 +262,8 @@ export const auditLog = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     actorUserId: uuid('actor_user_id').references(() => users.id),
-    action: text('action').notNull(), // 'question.create', 'qod.schedule', ...
-    targetType: text('target_type').notNull(), // 'question' | 'qod'
+    action: text('action').notNull(), // 'question.create', 'user.update', ...
+    targetType: text('target_type').notNull(), // 'question' | 'user'
     targetId: uuid('target_id'),
     before: jsonb('before'),
     after: jsonb('after'),

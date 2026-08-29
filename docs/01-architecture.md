@@ -82,7 +82,6 @@ app/
 │   ├── practice/
 │   │   ├── page.tsx        ← category selector
 │   │   └── [subject]/[category]/page.tsx
-│   ├── qod/page.tsx
 │   ├── analytics/page.tsx
 │   ├── certificates/page.tsx
 │   └── settings/page.tsx
@@ -91,13 +90,11 @@ app/
 │   ├── layout.tsx
 │   ├── dashboard/page.tsx
 │   ├── questions/page.tsx
-│   ├── qod/page.tsx
 │   └── users/page.tsx
 │
 ├── api/
 │   ├── questions/route.ts
 │   ├── attempts/route.ts
-│   ├── qod/route.ts
 │   ├── certificates/[id]/route.ts   ← PDF download
 │   ├── stripe/
 │   │   ├── checkout/route.ts
@@ -128,7 +125,7 @@ We don't have a "backend" in the traditional sense — Next.js API routes + Supa
 
 ### API route conventions
 
-- **Naming:** `/api/<resource>/<action>` — e.g., `/api/attempts/submit`, `/api/qod/answer`.
+- **Naming:** `/api/<resource>/<action>` — e.g., `/api/attempts/submit`.
 - **Auth:** Every route checks the Supabase session via a shared `getSession()` helper. Routes that require admin role check `user.role === 'admin'`.
 - **Validation:** Every route validates input with Zod. Return `400` with a friendly error on failure.
 - **Response shape:** `{ ok: true, data: {...} }` or `{ ok: false, error: { code, message } }`.
@@ -159,8 +156,8 @@ We don't have a "backend" in the traditional sense — Next.js API routes + Supa
    - Validates body with Zod
    - Looks up question's correct_answer
    - Inserts row into attempts table
-   - Returns { correct: true|false, explanation, points_earned }
-4. Client reveals explanation + animates points if QOD
+   - Returns { correct: true|false, explanation }
+4. Client reveals explanation
 ```
 
 ### Example 2: AI weakness insight
@@ -239,7 +236,7 @@ We don't need to scale on day one. But the architecture supports it:
 - **Read replicas** — Supabase supports this when we hit the limit (~10k DAU likely fine on a single instance).
 - **CDN for static assets** — Vercel default.
 - **Prompt caching on Claude** — keeps AI costs flat as users grow.
-- **Edge functions for hot reads** — QOD lookup, public landing — can be moved to edge if needed.
+- **Edge functions for hot reads** — public landing — can be moved to edge if needed.
 
 If we ever outgrow Supabase: we're on standard Postgres, so migrating to RDS/Neon/etc. is feasible.
 

@@ -372,21 +372,25 @@ export function ExamNavigator({
       {open && (
         <div className="ex-nav-pop" role="dialog" aria-label="Question navigator">
           <div className="ex-nav-grid">
-            {Array.from({ length: total }, (_, i) => (
-              <button
-                key={i}
-                type="button"
-                className={`ex-bub${i === index ? ' now' : ''} ${bubbleClass(i)}`}
-                onClick={() => {
-                  onJump(i);
-                  setOpen(false);
-                }}
-                aria-label={`Question ${i + 1}`}
-                aria-current={i === index}
-              >
-                {i + 1}
-              </button>
-            ))}
+            {Array.from({ length: total }, (_, i) => {
+              const state = bubbleClass(i);
+              const marked = state.includes('flag');
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  className={`ex-bub${i === index ? ' now' : ''} ${state}`}
+                  onClick={() => {
+                    onJump(i);
+                    setOpen(false);
+                  }}
+                  aria-label={`Question ${i + 1}${marked ? ', marked' : ''}`}
+                  aria-current={i === index}
+                >
+                  {i + 1}
+                </button>
+              );
+            })}
           </div>
           {legend && <div className="ex-nav-legend">{legend}</div>}
           {action && <div className="ex-nav-action">{action}</div>}

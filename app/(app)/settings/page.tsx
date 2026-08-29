@@ -17,22 +17,17 @@ export default async function SettingsPage() {
     : '';
 
   return (
-    <div className="wrap py-5">
-      <div className="app-head">
-        <h1>Settings</h1>
-        <p>Your profile, plan, and security.</p>
-      </div>
-      <SettingsForm
-        userId={user.id}
-        email={user.email!}
-        tier={tier}
-        initial={{
-          fullName: (profile?.full_name as string | null) ?? '',
-          targetScore,
-          examDate: (profile?.exam_date as string | null) ?? '',
-          marketingOptIn: (profile?.marketing_opt_in as boolean | null) ?? true,
-        }}
-      />
-    </div>
+    <SettingsForm
+      userId={user.id}
+      email={user.email!}
+      tier={tier}
+      requestDate={new Date().toISOString().slice(0, 10)}
+      initial={{
+        fullName: (profile?.full_name as string | null) ?? '',
+        targetScore,
+        examDate: (profile?.exam_date as string | null) ?? '',
+        marketingOptIn: (profile?.marketing_opt_in as boolean | null) ?? true,
+      }}
+    />
   );
 }

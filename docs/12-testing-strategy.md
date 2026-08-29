@@ -216,11 +216,10 @@ Run via a small script that runs each SQL test and asserts expected results.
 ### Critical journeys to E2E
 
 1. **Sign-up + first practice** — student creates account, verifies email (mocked), answers a question.
-2. **QOD ritual** — student answers QOD, earns point, sees points update.
-3. **Upgrade flow** — student clicks upgrade, completes Stripe Checkout (test card), lands as Pro.
-4. **Certificate earning** — student earns 25 points, downloads PDF.
-5. **Admin imports HTML question bank** — admin uploads an HTML file, reviews staged items, approves them, sees questions in list.
-6. **Cancel subscription** — Pro user cancels via portal, retains access until period end.
+2. **Upgrade flow** — student clicks upgrade, completes Stripe Checkout (test card), lands as Pro.
+3. **Certificate earning** — student earns 25 points, downloads PDF.
+4. **Admin imports HTML question bank** — admin uploads an HTML file, reviews staged items, approves them, sees questions in list.
+5. **Cancel subscription** — Pro user cancels via portal, retains access until period end.
 
 ### Example
 ```ts
@@ -239,8 +238,8 @@ test('new user can sign up and answer first question', async ({ page }) => {
   await expect(page).toHaveURL('/dashboard');
   await expect(page.locator('text=Welcome')).toBeVisible();
   
-  await page.click('text=Answer today\'s question');
-  await expect(page).toHaveURL('/qod');
+  await page.click('text=Try your first question');
+  await expect(page).toHaveURL(/\/practice/);
   
   await page.click('input[value=A]');
   await page.click('text=Submit');
@@ -267,8 +266,6 @@ Some things are hard or expensive to automate. Manual QA checklist before every 
 - [ ] Answer 3 practice questions in different categories
 - [ ] Wrong answer shows explanation
 - [ ] Correct answer feels good
-- [ ] Answer today's QOD
-- [ ] Streak updates on dashboard
 - [ ] Analytics page renders accurate stats
 - [ ] Upgrade to Pro with Stripe test card 4242 4242 4242 4242
 - [ ] AI insight loads on Pro
@@ -285,10 +282,7 @@ Some things are hard or expensive to automate. Manual QA checklist before every 
 - [ ] Archive question
 - [ ] Import HTML question bank (sample file)
 - [ ] Flagged/unparseable questions are reported correctly in the review queue
-- [ ] Schedule a QOD
-- [ ] Unschedule a QOD
 - [ ] View a user's profile
-- [ ] Adjust a user's points
 - [ ] Audit log shows the change
 
 ---
@@ -409,7 +403,7 @@ When a bug is reported (by user, by Sentry, by us):
 | Severity | Definition | Response |
 |---|---|---|
 | **P0** | Site down, data loss, payment broken, security breach | Fix immediately, postmortem |
-| **P1** | Major feature broken (can't sign up, can't take QOD) | Fix within 24h |
+| **P1** | Major feature broken (can't sign up, can't practice) | Fix within 24h |
 | **P2** | Minor feature broken, workaround exists | Fix within 1 week |
 | **P3** | Cosmetic, edge case | Backlog, fix when convenient |
 

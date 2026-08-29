@@ -362,7 +362,7 @@ We don't have a public maintenance mode at launch. If we need one:
 2. Check Supabase slow query log.
 3. Add indexes if needed.
 4. Cache aggressively at the edge (route segment config `revalidate`).
-5. If a hot read can be cached longer (e.g., today's QOD), use `unstable_cache`.
+5. If a hot read can be cached longer (e.g., the category list), use `unstable_cache`.
 
 ### Scaling Supabase
 - Free → Pro: 8GB DB, 100k MAU, daily backups, 7-day PITR.

@@ -36,14 +36,13 @@ At launch: **two admins** — Mirsodiq (builder) and Bahromjon (instructor). Bot
 ├── /admin/import-jobs      ← HTML import + review queue
 │   ├── /admin/import-jobs/new    ← upload a question-bank HTML file
 │   └── /admin/import-jobs/[id]   ← review/approve staged questions from a job
-├── /admin/qod              ← QOD scheduling
 ├── /admin/users            ← User management
 ├── /admin/subscriptions    ← Subscription overview (read-only)
 └── /admin/settings         ← Admin-only system settings (Phase 10+)
 ```
 
 ### Layout
-- Side nav (left, sticky): Dashboard, Questions, QOD, Users, Subscriptions, Settings.
+- Side nav (left, sticky): Dashboard, Questions, Users, Subscriptions, Settings.
 - Top bar: brand mark, "Student view" toggle, admin name, log out.
 - Visual signal: thin gold bar across the top to make admin obvious — never mistake admin pages for student pages.
 
@@ -61,10 +60,8 @@ The home page. Snapshot of platform health.
 - **Questions live** — published count out of total
 
 ### Engagement section
-- QOD today: number of responses, accuracy rate.
 - Attempts last 24h (line chart, hourly).
 - Top categories by volume (last 7 days).
-- Average daily streak across users.
 
 ### Health section
 - Errors caught by Sentry today (link out).
@@ -72,7 +69,6 @@ The home page. Snapshot of platform health.
 - AI cost today (sum of tokens × rate).
 
 ### Alerts
-- "No QOD scheduled for tomorrow" — red banner.
 - "X subscriptions in past_due" — orange banner.
 - "Y users joined today but didn't verify email" — info.
 
@@ -164,37 +160,6 @@ HTML is the only bulk-import path — a hand-converted question-bank file, parse
 
 ---
 
-## QOD scheduling (`/admin/qod`)
-
-### Layout
-- **Calendar view** at the top — past month + upcoming 30 days. Each day shows the QOD's category (color-coded) or "Empty" if not scheduled.
-- **Today's QOD card** — full preview, response count, accuracy %.
-- **Upcoming list** — scheduled QODs, click to view or unschedule (only future).
-- **Past list** — historical QODs with response stats.
-
-### Schedule a QOD
-1. Click an empty day in calendar (or "Schedule for tomorrow" CTA).
-2. Question picker modal opens:
-   - Search bar + filters (subject, category, difficulty)
-   - List of questions, with a "Used as QOD on" badge if previously scheduled
-   - Click question → preview on right side
-3. Confirm → row inserted into `qod_schedule`.
-
-### Rotation prevention
-- The picker warns if a question was used as QOD within the last 90 days.
-- Hard-prevents re-use within 30 days (configurable).
-- Why? To ensure freshness and prevent students from seeing the same question twice in a season.
-
-### Auto-suggest (Phase 10)
-- Pick from questions with high difficulty + low recent attempt count.
-- Suggest a balance across categories.
-
-### Unschedule
-- Only future-dated QODs can be unscheduled.
-- Confirmation required.
-
----
-
 ## Users (`/admin/users`)
 
 ### List view
@@ -203,11 +168,9 @@ HTML is the only bulk-import path — a hand-converted question-bank file, parse
   - Full name
   - Tier (badge: Free/Pro/Elite)
   - Role (badge: Student/Admin)
-  - Streak
-  - Total points
   - Created date
   - Last active
-- Filters: tier, role, streak >0, exam date upcoming
+- Filters: tier, role, exam date upcoming
 - Search by name or email
 
 ### User detail view (`/admin/users/:id`)
@@ -215,15 +178,13 @@ HTML is the only bulk-import path — a hand-converted question-bank file, parse
 Sections:
 - **Profile** — name, email, exam date, target score, tier, role, marketing opt-in
 - **Subscription** — current plan, status, next renewal, Stripe customer link
-- **Activity** — last login, total attempts, accuracy, streak
-- **Points ledger** — last 20 entries
+- **Activity** — last login, total attempts, accuracy
 - **Certificates earned** — list with download links (admin can download anyone's cert)
 - **Recent attempts** — last 50 with question link
 - **Admin notes** — free-text textarea for admin notes (e.g., "Refunded via Stripe on 5/12")
 
 ### Admin actions on a user
 - **Change tier manually** (e.g., gift Pro to a beta tester) — writes audit log entry
-- **Adjust points** — adds a `points_ledger` entry with reason=admin_adjustment + note
 - **Reset password** — sends Supabase password reset
 - **Toggle email verified** — for support cases
 - **Soft delete** — sets `deleted_at`, account becomes non-functional but data retained for 30 days
@@ -277,7 +238,7 @@ audit_log
 - id uuid PK
 - actor_user_id uuid FK users(id)
 - action text  -- 'question.create', 'user.tier_change', etc.
-- target_type text  -- 'question', 'user', 'qod'
+- target_type text  -- 'question', 'user'
 - target_id uuid
 - before jsonb
 - after jsonb
@@ -287,9 +248,7 @@ audit_log
 
 ### What's logged
 - All admin actions on the question bank (create, update, archive, import)
-- QOD schedule changes
 - User role / tier changes
-- Manual points adjustments
 - Admin password resets
 
 ### What's not logged
@@ -319,7 +278,6 @@ The admin panel must be usable by Bahromjon without a tech background. Specifica
 ### Must have good defaults
 - New questions default to `draft`.
 - Import default status: `draft`.
-- Date pickers default to "tomorrow" for QOD scheduling.
 
 ### Quick training docs
 We'll prepare a `docs/admin-guide.md` (different from this — written for non-technical Bahromjon) when Phase 4 ships. It will be a step-by-step with screenshots.

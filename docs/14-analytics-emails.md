@@ -55,8 +55,7 @@ Names are `category.action` lowercase with underscores. **Properties** are liste
 #### Onboarding
 - `onboarding.first_question_attempted`
 - `onboarding.first_question_correct`
-- `onboarding.first_qod_answered`
-- `onboarding.completed` — all 3 steps done
+- `onboarding.completed` — both steps done
 
 #### Practice
 - `practice.question_loaded` — `{ category_slug, difficulty }`
@@ -65,12 +64,6 @@ Names are `category.action` lowercase with underscores. **Properties** are liste
 - `practice.explanation_viewed` — `{ category_slug, is_correct }`
 - `practice.next_clicked` — `{ category_slug }`
 - `practice.quota_exhausted` — `{ tier: 'free' }`
-
-#### QOD
-- `qod.viewed` — `{ already_answered }`
-- `qod.attempt_submitted` — `{ is_correct, time_taken_ms }`
-- `qod.points_earned` — `{ new_total, streak_days }`
-- `qod.streak_extended` — `{ streak_days }`
 
 #### Certificates
 - `certificate.earned` — `{ tier: 25 }`
@@ -95,7 +88,6 @@ Names are `category.action` lowercase with underscores. **Properties** are liste
 - `admin.question_created`
 - `admin.question_published`
 - `admin.html_imported` — `{ imported, flagged }`
-- `admin.qod_scheduled` — `{ for_date }`
 
 #### Marketing pages
 - `marketing.cta_clicked` — `{ cta: 'hero'|'pricing-free'|'pricing-pro'|... }`
@@ -134,7 +126,6 @@ posthog.capture({
 - `role`
 - `target_sat_score`
 - `exam_date`
-- `streak_days` (updated daily)
 - `total_attempts` (updated daily)
 - `overall_accuracy` (updated daily)
 - `created_at`
@@ -160,15 +151,15 @@ Target: 30% of signups reach `onboarding.completed` within 24h.
 #### Funnel 2: Activation → Habit
 ```
 onboarding.completed
-  → qod.attempt_submitted (day 1)
-    → qod.attempt_submitted (day 3)
-      → qod.attempt_submitted (day 7)
+  → practice.attempt_submitted (day 1)
+    → practice.attempt_submitted (day 3)
+      → practice.attempt_submitted (day 7)
 ```
 Target: 25% retention day 7.
 
 #### Funnel 3: Habit → Conversion
 ```
-qod.attempt_submitted (3+ times)
+practice.attempt_submitted (3+ times)
   → certificate.paywall_shown OR practice.quota_exhausted
     → subscription.upgrade_clicked
       → subscription.checkout_completed
@@ -187,7 +178,7 @@ Target: 80% retention month 1 → 2, 70% month 2 → 3.
 
 ### Dashboards we maintain
 
-1. **Daily ops** — DAU, signups, QOD response rate, conversion events.
+1. **Daily ops** — DAU, signups, conversion events.
 2. **Weekly retention** — cohort retention curves by signup week.
 3. **Monthly business** — MRR, churn, LTV, top categories by volume.
 4. **Per-category performance** — which categories are easiest, where students struggle.
@@ -246,8 +237,6 @@ We're disciplined about email volume. If it's not useful, we don't send.
 
 | Trigger | Subject | Cadence |
 |---|---|---|
-| QOD reminder | "Today's SAT question is ready" | Daily, ~10am local, only if user hasn't answered |
-| Streak at risk | "Don't lose your N-day streak" | Once, ~8pm local, if streak ≥ 5 and not yet answered |
 | Certificate earned | "🏆 You earned a 25-point certificate" | Triggered |
 | Inactivity nudge | "Your SAT is in N days. Let's get back to it." | Once, 14 days after last activity, if exam_date is set |
 | Weekly progress recap | "Your week with Taleem SAT" | Mondays, only if user practiced last week |
@@ -349,40 +338,14 @@ export async function sendEmail(opts: {
 
 ---
 
-### Scheduled emails (QOD reminder, etc.)
+### Scheduled emails
 
 Triggered via **Vercel Cron Jobs** (built-in in Pro plan) or **Supabase pg_cron** + edge functions.
-
-Example cron:
-```js
-// app/api/cron/qod-reminder/route.ts
-// Runs every hour; emails users whose local time is ~10am and haven't answered today's QOD.
-
-export async function GET(req: Request) {
-  // Verify CRON_SECRET header from Vercel
-  if (req.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
-    return new Response('Unauthorized', { status: 401 });
-  }
-  
-  const usersToEmail = await getUsersDueForQodReminder();
-  for (const user of usersToEmail) {
-    await sendEmail({
-      to: user.email,
-      subject: "Today's SAT question is ready",
-      template: <QodReminderEmail name={user.full_name} />,
-      type: 'engagement',
-      userId: user.id,
-    });
-  }
-}
-```
 
 `vercel.json`:
 ```json
 {
   "crons": [
-    { "path": "/api/cron/qod-reminder", "schedule": "0 * * * *" },
-    { "path": "/api/cron/streak-at-risk", "schedule": "0 20 * * *" },
     { "path": "/api/cron/weekly-recap", "schedule": "0 8 * * MON" }
   ]
 }
@@ -446,9 +409,7 @@ Users can re-subscribe from `/settings/notifications`.
 ### A/B testing emails (Phase 10+)
 
 PostHog feature flags can drive email variant selection. Examples to test:
-- Subject lines for QOD reminder
 - Welcome email CTA copy
-- Streak-at-risk timing (8pm vs 9pm)
 
 Statistical significance: at least 500 sends per variant before deciding.
 

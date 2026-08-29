@@ -9,8 +9,6 @@ export type UserRow = {
   fullName: string | null;
   role: 'student' | 'admin';
   tier: 'free' | 'pro' | 'elite';
-  points: number;
-  streakDays: number;
   createdAt: string;
 };
 
@@ -158,15 +156,13 @@ export function UsersTable({
               <th>User</th>
               <th>Role</th>
               <th>Tier</th>
-              <th className="hidden md:table-cell text-right">Points</th>
-              <th className="hidden md:table-cell text-right">Streak</th>
               <th className="hidden lg:table-cell">Joined</th>
             </tr>
           </thead>
           <tbody>
             {users.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center py-12 text-muted text-sm">
+                <td colSpan={4} className="text-center py-12 text-muted text-sm">
                   No users match these filters.
                 </td>
               </tr>
@@ -214,22 +210,6 @@ export function UsersTable({
                         <option value="pro">Pro</option>
                         <option value="elite">Elite</option>
                       </select>
-                    </td>
-                    <td
-                      className="hidden md:table-cell text-right"
-                      style={{ fontFamily: 'var(--mono)', fontSize: '0.8rem' }}
-                    >
-                      {u.points}
-                    </td>
-                    <td
-                      className="hidden md:table-cell text-right"
-                      style={{ fontFamily: 'var(--mono)', fontSize: '0.8rem' }}
-                    >
-                      {u.streakDays > 0 ? (
-                        <span style={{ color: 'var(--green)' }}>{u.streakDays}d</span>
-                      ) : (
-                        <span className="text-muted">—</span>
-                      )}
                     </td>
                     <td className="hidden lg:table-cell text-muted">
                       {formatDate(u.createdAt)}

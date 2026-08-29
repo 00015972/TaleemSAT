@@ -41,9 +41,9 @@ Step 3: Email verification banner shown
    ↓ Verification link clicked (separate tab)
 Step 4: Dashboard (/dashboard) — "Welcome" tour
    ↓ "Try your first question" CTA
-Step 5: QOD page (/qod)
+Step 5: Practice page (/practice)
    ↓ Answers, sees result
-Step 6: Dashboard again — points updated
+Step 6: Dashboard again
 ```
 
 ### Key moments and screens
@@ -71,40 +71,27 @@ Top of every authenticated page until verified:
 └─────────────────────────────────────────────────────────┘
 ```
 - Practice routes are blocked behind this banner.
-- QOD answer is blocked.
 - Settings is accessible.
 
 #### 1.4 First-time dashboard
 - Hero card: "Welcome to Taleem SAT, Madina"
-- Three-step onboarding checklist:
+- Two-step onboarding checklist:
   - [ ] Verify your email
   - [ ] Answer your first practice question
-  - [ ] Try the Question of the Day
-- After 3 steps complete, checklist disappears.
-
-#### 1.5 QOD first answer
-- Big featured card, "Your first daily question!"
-- After submit:
-  - **Correct:** Confetti animation. "+1 point earned. 24 more for your first certificate."
-  - **Wrong:** Gentle reveal of correct answer. "It happens. The explanation is below — read it carefully."
-- "Try a practice question" suggested next.
+- After both steps complete, checklist disappears.
 
 ---
 
 ## Flow 2 — Returning daily student (Amir's morning ritual)
 
 ```
-Step 1: Open /dashboard (bookmarked, or arrives from daily reminder email)
-Step 2: Sees QOD widget — clicks "Answer today's question"
-Step 3: QOD page → submits → +1 point or 0 points
-Step 4: "Practice next" CTA → Practice page
-Step 5: 10–20 questions, refreshing for new ones
-Step 6: Leaves the app
+Step 1: Open /dashboard (bookmarked)
+Step 2: "Practice" CTA → Practice page
+Step 3: 10–20 questions, refreshing for new ones
+Step 4: Leaves the app
 ```
 
 ### Dashboard widgets (returning view)
-- Streak counter at top — "🔥 12-day streak"
-- QOD card prominent
 - Exam countdown — "47 days to your SAT"
 - Recent performance — last 7 days of accuracy
 - Suggested categories — AI-driven for Pro+, generic for free
@@ -152,7 +139,6 @@ State H: "Next question" loading
 - Confetti micro-burst (subtle — single particle wave).
 - "Correct!" headline above explanation.
 - "+ Next question" CTA enabled.
-- If QOD context: "+1 point" overlay.
 
 ### State F — Wrong
 - Selected option turns error-red with X.
@@ -177,38 +163,6 @@ State H: "Next question" loading
 - **Out of questions in category:** "You've practiced every question in this category. Try another or wait for new content!" with cross-category suggestions.
 - **Quota exhausted (free tier):** "Daily limit reached. Upgrade to Pro for unlimited practice." with upgrade CTA.
 - **Network error mid-submit:** Toast "Couldn't save your answer. Try again?" with Retry.
-
----
-
-## Flow 4 — QOD lifecycle
-
-### Pre-answer (morning)
-- Big featured card on QOD page.
-- Difficulty + category visible.
-- "+1 point on the line" badge.
-- Points progress bar — "18 / 25 toward next certificate."
-
-### Mid-answer
-- Same as practice question (states C–D).
-- No special difference except QOD framing.
-
-### Post-correct
-- "🎉 +1 point earned!" animation.
-- New points total displayed.
-- If hit a 25-point milestone:
-  - Confetti larger
-  - "You just earned your 25-point certificate!" headline
-  - "View certificate" CTA → certificates page
-
-### Post-wrong
-- "Not today — but tomorrow is a fresh chance."
-- Explanation shown.
-- Suggested practice in that category.
-
-### Already-answered
-- Card shows the question, user's selected answer, correct answer, explanation.
-- "Come back tomorrow!" with countdown to midnight.
-- No retake.
 
 ---
 
@@ -291,40 +245,19 @@ Step 5: Email receipt + welcome
 ## Flow 7 — Earning a certificate
 
 ### Trigger
-- User correctly answers a QOD that brings their points to a milestone (25, 50, 75, 100, 150, 200).
+- User's points reach a milestone (25, 50, 75, 100, 150, 200).
 
 ### Sequence
-1. `POST /api/qod/answer` returns `certificate_earned: { id, tier: 25 }`.
-2. UI shows a special "Certificate earned!" overlay (different from regular +1).
-3. PDF generation queued (background task).
-4. Email: "🏆 You earned a 25-point certificate."
-5. Certificate appears on `/certificates` page within ~30s.
-6. Free tier sees the certificate but cannot download — upgrade prompt.
+1. UI shows a special "Certificate earned!" overlay.
+2. PDF generation queued (background task).
+3. Email: "🏆 You earned a 25-point certificate."
+4. Certificate appears on `/certificates` page within ~30s.
+5. Free tier sees the certificate but cannot download — upgrade prompt.
 
 ### Certificate page (`/certificates`)
 - Top: progress to next tier with bar.
 - Earned section: cards with preview thumbnails + download button.
 - Locked section: greyed cards for future milestones.
-
----
-
-## Flow 8 — Admin sets a QOD
-
-### Admin morning routine
-1. Log in to `/admin`.
-2. See top metric: "No QOD set for tomorrow" warning.
-3. Click → `/admin/qod`.
-4. Calendar view of past QODs + today's + future.
-5. Click "Schedule for tomorrow" → opens question picker.
-6. Filter by category, difficulty, search by text.
-7. Select a question → confirm.
-8. Done.
-
-### Picker UX
-- Search bar at top.
-- Filter dropdowns: subject, category, difficulty.
-- Recently-used-as-QOD questions are flagged ("Used as QOD on 2026-04-15") to avoid repetition.
-- Preview the question as a student would see it.
 
 ---
 
@@ -390,7 +323,7 @@ Examples:
 Three kinds:
 - **Success** (green) — "Question added." Auto-dismiss 3s.
 - **Error** (red) — "Couldn't save." Manual dismiss + Retry button.
-- **Info** (gold) — "Streak saved for tomorrow." Auto-dismiss 4s.
+- **Info** (gold) — Auto-dismiss 4s.
 
 Top-right corner. Stack vertically. Max 3 visible.
 

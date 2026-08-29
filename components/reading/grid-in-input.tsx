@@ -2,10 +2,10 @@
 
 /**
  * The student-produced-response input for a `grid_in` question — replaces
- * the lettered A–D option list. Purely controlled: each shell (practice/QOD/
- * mock) wires it into its own answer-state model, since the three have
- * different check/confirm flows (practice checks on demand, QOD checks once,
- * Mock records continuously and scores at the end).
+ * the lettered A–D option list. Purely controlled: each shell (practice/mock)
+ * wires it into its own answer-state model, since they have different
+ * check/confirm flows (practice checks on demand, Mock records continuously
+ * and scores at the end).
  */
 export function GridInInput({
   value,

@@ -5,11 +5,9 @@ import {
   ArrowRight,
   CalendarDays,
   Check,
-  Flame,
   Pencil,
   Sparkles,
   Target,
-  Trophy,
 } from 'lucide-react';
 import { createClient, getAppProfile, getUser } from '@/lib/supabase/server';
 import { AppMenuButton } from '@/components/app-menu-button';
@@ -45,29 +43,6 @@ export default async function DashboardPage() {
   ]);
 
   const todayStr = new Date().toISOString().slice(0, 10);
-  const [{ data: todayQOD }, { data: recentPoints }] = await Promise.all([
-    supabase
-      .from('qod_schedule')
-      .select('id')
-      .eq('scheduled_date', todayStr)
-      .maybeSingle(),
-    supabase
-      .from('points_ledger')
-      .select('delta')
-      .eq('user_id', user.id)
-      .gte('created_at', new Date(requestNowMs - 7 * DAY_MS).toISOString()),
-  ]);
-
-  const qodAnswered = todayQOD
-    ? (
-        await supabase
-          .from('qod_answers')
-          .select('is_correct')
-          .eq('user_id', user.id)
-          .eq('qod_id', todayQOD.id)
-          .maybeSingle()
-      ).data
-    : null;
 
   const isVerified = Boolean(user.email_confirmed_at);
   const rawName: string =
@@ -81,10 +56,7 @@ export default async function DashboardPage() {
     : null;
 
   const tier = (profile?.tier as string | null) ?? 'free';
-  const streak = profile?.streak_days ?? 0;
-  const points = profile?.points ?? 0;
   const targetScore = profile?.target_sat_score ?? null;
-  const pointsThisWeek = (recentPoints ?? []).reduce((total, row) => total + row.delta, 0);
 
   const todayLabel = new Date(`${todayStr}T00:00:00`).toLocaleDateString('en-US', {
     weekday: 'long',
@@ -118,15 +90,11 @@ export default async function DashboardPage() {
       : null;
 
   const missionItems = [
-    {
-      label: todayQOD ? 'Daily question' : 'Warm-up question',
-      done: todayQOD ? Boolean(qodAnswered) : snapshot.todayCount > 0,
-    },
+    { label: 'Warm-up question', done: snapshot.todayCount > 0 },
     { label: '5 practice answers', done: snapshot.todayCount >= 5 },
     { label: '10 practice answers', done: snapshot.todayCount >= 10 },
   ];
   const missionsCompleted = missionItems.filter(item => item.done).length;
-  const missionHref = todayQOD && !qodAnswered ? '/qod' : '/question-bank';
 
   return (
     <div className="focus-dashboard">
@@ -140,7 +108,7 @@ export default async function DashboardPage() {
               <span className="focus-verify-icon" aria-hidden="true">!</span>
               <div>
                 <strong>Verify your email to unlock every mission.</strong>
-                <p>Practice and the Daily Question are ready as soon as you confirm.</p>
+                <p>Practice is ready as soon as you confirm.</p>
               </div>
             </div>
             <ResendVerificationButton email={user.email!} />
@@ -233,36 +201,13 @@ export default async function DashboardPage() {
         </section>
 
         <section className="focus-missions" aria-label="Daily momentum">
-          <Reveal className="focus-card focus-stat-card focus-streak-card">
-            <p className="focus-label"><Flame size={13} aria-hidden="true" /> Combo streak</p>
-            <p className="focus-stat-value"><CountUp value={streak} /> <small>days</small></p>
-            <p className="focus-stat-copy">
-              {streak > 0 ? 'Keep the chain alive with today’s mission.' : 'Your first streak starts today.'}
-            </p>
-            <div className="focus-streak-cube" aria-hidden="true">
-              <span>{streak}</span>
-              <i />
-            </div>
-          </Reveal>
-
-          <Reveal className="focus-card focus-stat-card focus-xp-card" delay={80}>
-            <p className="focus-label"><Trophy size={13} aria-hidden="true" /> XP collected</p>
-            <p className="focus-stat-value">
-              {pointsThisWeek > 0 ? '+' : ''}<CountUp value={pointsThisWeek} />
-            </p>
-            <p className="focus-stat-copy"><CountUp value={points} /> total points · this week</p>
-            <div className="focus-xp-medal" aria-hidden="true">
-              <span>★</span><i /><b />
-            </div>
-          </Reveal>
-
-          <Reveal className="focus-card focus-stat-card focus-mission-card" delay={160}>
+          <Reveal className="focus-card focus-stat-card focus-mission-card">
             <div className="focus-mission-head">
               <div>
                 <p className="focus-label">Daily missions</p>
                 <p className="focus-stat-value">{missionsCompleted} <small>/ 3</small></p>
               </div>
-              <Link href={missionHref} aria-label="Continue daily missions">
+              <Link href="/question-bank" aria-label="Continue daily missions">
                 <ArrowRight size={16} />
               </Link>
             </div>
@@ -350,8 +295,6 @@ export default async function DashboardPage() {
             <ActivityHeatmap days={snapshot.dailyActivity} />
           </Reveal>
         </section>
-
-        <TodayQuestCard hasQOD={Boolean(todayQOD)} answered={qodAnswered} />
 
         <footer className="focus-footer-note">
           <span>Focus Arcade · live student data</span>
@@ -480,58 +423,5 @@ function ActivityHeatmap({ days }: { days: DayActivity[] }) {
         <span>Rest</span><i /><i className="focus-heat-2" /><i className="focus-heat-3" /><i className="focus-heat-4" /><span>Power day</span>
       </div>
     </>
-  );
-}
-
-function TodayQuestCard({
-  hasQOD,
-  answered,
-}: {
-  hasQOD: boolean;
-  answered: { is_correct: boolean } | null;
-}) {
-  let title = 'Open the practice room';
-  let copy = 'Choose a subject, lock in, and earn your next progress boost.';
-  let href = '/question-bank';
-  let action = 'Start practicing';
-  let state: 'waiting' | 'correct' | 'miss' = 'waiting';
-
-  if (hasQOD && !answered) {
-    title = 'Today’s question is live';
-    copy = 'One focused answer keeps your streak and score quest moving.';
-    href = '/qod';
-    action = 'Answer today’s question';
-  } else if (answered?.is_correct) {
-    title = 'Daily question cleared';
-    copy = 'Correct answer. Your mission chain is safe for today.';
-    href = '/qod';
-    action = 'Review the answer';
-    state = 'correct';
-  } else if (answered) {
-    title = 'Mission logged — keep moving';
-    copy = 'That answer missed, but the review is where the score grows.';
-    href = '/qod';
-    action = 'Review and learn';
-    state = 'miss';
-  }
-
-  return (
-    <Reveal className={`focus-card focus-today-card focus-today-${state}`}>
-      <div className="focus-today-copy">
-        <div className="focus-today-bubbles" aria-hidden="true">
-          {['A', 'B', 'C', 'D'].map((choice, index) => (
-            <span key={choice} className={index === 2 ? 'active' : ''}>{choice}</span>
-          ))}
-        </div>
-        <div>
-          <p className="focus-label">Next action</p>
-          <h2>{title}</h2>
-          <p>{copy}</p>
-        </div>
-      </div>
-      <Link href={href} className="focus-button focus-button-mint">
-        {action} <ArrowRight size={14} />
-      </Link>
-    </Reveal>
   );
 }

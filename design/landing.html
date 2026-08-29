@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Taleem SAT — The Smarter Way to Conquer the Digital SAT</title>
-<meta name="description" content="A modern SAT preparation platform built by a 1500-scorer for ambitious students. Daily questions, AI-powered analysis, and certificates that mean something.">
+<meta name="description" content="A modern SAT preparation platform built by a 1500-scorer for ambitious students. AI-powered analysis and certificates that mean something.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;0,800;1,500;1,600&family=Source+Serif+4:ital,wght@0,400;0,600;1,400;1,500&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -594,138 +594,6 @@ a{color:inherit;text-decoration:none}
 }
 
 /* ─────────────────────────────────────────────
-   QOD FEATURE SECTION
-───────────────────────────────────────────── */
-.qod-section{
-  background:var(--bg-tint);
-  padding:120px 0;
-  position:relative;overflow:hidden;
-  border-top:1px solid var(--border);
-  border-bottom:1px solid var(--border);
-}
-.qod-grid{
-  display:grid;grid-template-columns:1fr 1fr;gap:80px;
-  align-items:center;
-}
-@media(max-width:880px){.qod-grid{grid-template-columns:1fr;gap:48px}}
-
-.qod-text h2{
-  font-family:var(--serif);font-weight:700;
-  font-size:clamp(1.9rem,4vw,2.6rem);
-  line-height:1.15;letter-spacing:-.02em;
-  color:var(--txt);margin-bottom:18px;
-}
-.qod-text h2 em{font-style:italic;color:var(--green);font-weight:500}
-.qod-text > p{
-  font-size:1.02rem;color:var(--muted);line-height:1.75;
-  margin-bottom:28px;max-width:520px;
-}
-.qod-list{margin-top:24px;display:flex;flex-direction:column;gap:18px}
-.qod-item{display:flex;gap:14px;align-items:flex-start}
-.qod-item-num{
-  width:32px;height:32px;flex-shrink:0;
-  background:var(--green);color:#fff;
-  border-radius:50%;display:grid;place-items:center;
-  font-family:var(--serif);font-weight:700;font-size:.85rem;
-}
-.qod-item-text strong{
-  display:block;font-size:.95rem;color:var(--txt);
-  font-weight:600;margin-bottom:3px;
-}
-.qod-item-text span{font-size:.86rem;color:var(--muted);line-height:1.55}
-
-/* MOCK CERTIFICATE */
-.cert-mock{
-  position:relative;perspective:1000px;
-}
-.cert{
-  background:linear-gradient(135deg,#fdfaf2 0%,#f5e9c8 100%);
-  border:2px solid var(--gold);
-  border-radius:8px;
-  padding:32px 28px;
-  position:relative;
-  box-shadow:var(--shad-l);
-  transform:rotate(2deg);
-  transition:transform .5s var(--ease);
-}
-.cert:hover{transform:rotate(0deg) scale(1.02)}
-.cert::before,.cert::after{
-  content:'';position:absolute;
-  width:24px;height:24px;
-  border:1.5px solid var(--gold);
-}
-.cert::before{top:8px;left:8px;border-right:none;border-bottom:none}
-.cert::after{bottom:8px;right:8px;border-left:none;border-top:none}
-.cert-seal{
-  position:absolute;top:-24px;right:24px;
-  width:64px;height:64px;
-  background:radial-gradient(circle,var(--gold) 0%,var(--gold-d) 100%);
-  border-radius:50%;
-  display:grid;place-items:center;
-  color:#fff;font-family:var(--serif);font-weight:700;font-size:.7rem;
-  text-align:center;line-height:1.1;
-  box-shadow:var(--shad-gold),inset 0 2px 4px rgba(255,255,255,.3);
-  border:3px solid #fdfaf2;
-}
-.cert-eyebrow{
-  font-size:.62rem;letter-spacing:.32em;text-transform:uppercase;
-  color:var(--gold-d);text-align:center;font-weight:700;
-  margin-bottom:6px;
-}
-.cert h3{
-  font-family:var(--serif);font-weight:700;
-  font-size:1.5rem;text-align:center;color:#3a2a0a;
-  margin-bottom:18px;letter-spacing:-.01em;
-}
-.cert-divider{
-  width:80px;height:1px;background:var(--gold);
-  margin:0 auto 18px;position:relative;
-}
-.cert-divider::before{
-  content:'◆';position:absolute;
-  top:50%;left:50%;transform:translate(-50%,-50%);
-  background:#fdfaf2;padding:0 8px;color:var(--gold);font-size:10px;
-}
-.cert-body{text-align:center}
-.cert-this{font-family:var(--serif-body);font-style:italic;font-size:.8rem;color:#5a4515;margin-bottom:6px}
-.cert-name{font-family:var(--serif);font-style:italic;font-weight:600;font-size:1.5rem;color:#3a2a0a;margin-bottom:12px}
-.cert-for{font-family:var(--serif-body);font-size:.78rem;color:#5a4515;line-height:1.6;margin-bottom:18px;max-width:280px;margin-left:auto;margin-right:auto}
-.cert-meta{
-  display:flex;justify-content:space-between;align-items:flex-end;
-  margin-top:20px;padding-top:14px;border-top:1px solid rgba(184,146,42,.3);
-}
-.cert-sig{text-align:left}
-.cert-sig-line{
-  font-family:'Brush Script MT',cursive;
-  font-size:1.05rem;color:#3a2a0a;
-  border-bottom:1px solid #3a2a0a;
-  padding-bottom:2px;margin-bottom:4px;
-  width:120px;
-}
-.cert-sig small{font-size:.6rem;color:#5a4515;letter-spacing:.05em}
-.cert-date{text-align:right;font-size:.68rem;color:#5a4515}
-.cert-date strong{display:block;color:#3a2a0a;font-size:.84rem;font-family:var(--serif);font-weight:600;margin-top:2px}
-
-/* points float badge */
-.points-float{
-  position:absolute;
-  top:-20px;left:-20px;
-  background:var(--green);color:#fff;
-  border-radius:50%;width:78px;height:78px;
-  display:grid;place-items:center;
-  box-shadow:var(--shad-l);
-  z-index:5;transform:rotate(-6deg);
-  text-align:center;
-}
-.points-float .num{
-  font-family:var(--serif);font-weight:700;font-size:1.5rem;line-height:1;
-}
-.points-float .lbl{
-  font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;
-  opacity:.85;margin-top:2px;
-}
-
-/* ─────────────────────────────────────────────
    AI / ANALYTICS SECTION
 ───────────────────────────────────────────── */
 .ai-section{padding:120px 0}
@@ -1034,7 +902,6 @@ a{color:inherit;text-decoration:none}
     <nav class="nav">
       <a href="#instructor" class="nav-link">Instructor</a>
       <a href="#practice" class="nav-link">Practice</a>
-      <a href="#qod" class="nav-link">Daily Question</a>
       <a href="#pricing" class="nav-link">Pricing</a>
     </nav>
     <div class="hdr-cta">
@@ -1064,7 +931,7 @@ a{color:inherit;text-decoration:none}
       </h1>
       <p class="hero-sub reveal delay-2">
         A modern preparation platform built by a <strong>1500-scorer</strong> for ambitious students.
-        Daily questions you won't find on the open web, AI that spots your weak points before the exam does,
+        AI that spots your weak points before the exam does,
         and certificates that mean something.
       </p>
       <div class="hero-ctas reveal delay-3">
@@ -1250,77 +1117,6 @@ a{color:inherit;text-decoration:none}
 </section>
 
 <!-- ════════════════════════════════════════════════════
-     QUESTION OF THE DAY
-════════════════════════════════════════════════════ -->
-<section class="qod-section" id="qod">
-  <div class="wrap">
-    <div class="qod-grid">
-      <div class="qod-text">
-        <div class="eyebrow">The daily ritual</div>
-        <h2>One rare question every day. <em>Twenty-five right answers</em> earn you a certificate.</h2>
-        <p>
-          Most students refresh Instagram before bed. We'd like to suggest a better habit. The Question
-          of the Day is one carefully-curated SAT question you won't find on the open web — picked from
-          the rarest and trickiest patterns we've seen across hundreds of student sessions.
-        </p>
-        <div class="qod-list">
-          <div class="qod-item">
-            <div class="qod-item-num">1</div>
-            <div class="qod-item-text">
-              <strong>Get it right, earn a point.</strong>
-              <span>One point per correct daily question. Streaks count.</span>
-            </div>
-          </div>
-          <div class="qod-item">
-            <div class="qod-item-num">2</div>
-            <div class="qod-item-text">
-              <strong>25 points = one personalized certificate.</strong>
-              <span>Issued in your name as a downloadable PDF — keep them, share them, frame them.</span>
-            </div>
-          </div>
-          <div class="qod-item">
-            <div class="qod-item-num">3</div>
-            <div class="qod-item-text">
-              <strong>The harder it gets, the more it matters.</strong>
-              <span>Higher tiers earn certificates that signal real preparation discipline.</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- CERTIFICATE MOCKUP -->
-      <div class="cert-mock">
-        <div class="points-float">
-          <div class="num">25</div>
-          <div class="lbl">points</div>
-        </div>
-        <div class="cert">
-          <div class="cert-seal">25 PTS<br>EARNED</div>
-          <div class="cert-eyebrow">Certificate of Achievement</div>
-          <h3>Taleem SAT</h3>
-          <div class="cert-divider"></div>
-          <div class="cert-body">
-            <p class="cert-this">This certifies that</p>
-            <p class="cert-name">Amir Karimov</p>
-            <p class="cert-for">has demonstrated outstanding consistency by earning twenty-five Question-of-the-Day points through verified daily practice on the Taleem SAT platform.</p>
-            <div class="cert-meta">
-              <div class="cert-sig">
-                <div class="cert-sig-line">B. Jo'raqulov</div>
-                <small>Instructor &amp; Founder</small>
-              </div>
-              <div class="cert-date">
-                Issued
-                <strong>May 2026</strong>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ════════════════════════════════════════════════════
      AI / ANALYTICS
 ════════════════════════════════════════════════════ -->
 <section class="ai-section">
@@ -1413,7 +1209,7 @@ a{color:inherit;text-decoration:none}
     <div class="section-head">
       <div class="eyebrow center">How it works</div>
       <h2>Three steps. <em>No friction.</em></h2>
-      <p>From sign-up to your first correctly-answered Question of the Day in under three minutes.</p>
+      <p>From sign-up to your first correctly-answered practice question in under three minutes.</p>
     </div>
     <div class="steps">
       <div class="step">
@@ -1424,7 +1220,7 @@ a{color:inherit;text-decoration:none}
       <div class="step">
         <span class="step-num">02</span>
         <h3>Practice every day</h3>
-        <p>Pick a category, answer a question, see the explanation. Refresh for another. Don't forget the QOD.</p>
+        <p>Pick a category, answer a question, see the explanation. Refresh for another.</p>
       </div>
       <div class="step">
         <span class="step-num">03</span>
@@ -1456,9 +1252,8 @@ a{color:inherit;text-decoration:none}
           <span class="per">forever</span>
         </div>
         <div class="tier-feats">
-          <div class="tier-feat"><svg class="check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Question of the Day, every day</div>
           <div class="tier-feat"><svg class="check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>5 practice questions per day</div>
-          <div class="tier-feat"><svg class="check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Earn QOD points &amp; certificates</div>
+          <div class="tier-feat"><svg class="check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Earn certificates</div>
           <div class="tier-feat"><svg class="check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Exam countdown</div>
           <div class="tier-feat no"><svg class="x" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Answer explanations</div>
           <div class="tier-feat no"><svg class="x" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>AI weakness detection</div>
@@ -1519,7 +1314,7 @@ a{color:inherit;text-decoration:none}
     <div class="final-inner">
       <div class="final-eyebrow">Your turn</div>
       <h2>The SAT is a test of <em>discipline</em>.<br>So is preparing for it.</h2>
-      <p>Sign up free in under thirty seconds. The next Question of the Day is waiting.</p>
+      <p>Sign up free in under thirty seconds.</p>
       <a href="#" class="btn-cta-final">
         Create your free account
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
@@ -1547,7 +1342,6 @@ a{color:inherit;text-decoration:none}
       <div class="ftr-col">
         <h4>Product</h4>
         <a href="#practice">Practice</a>
-        <a href="#qod">Daily Question</a>
         <a href="#pricing">Pricing</a>
         <a href="#">Mock Tests</a>
       </div>
@@ -1605,7 +1399,7 @@ const io=new IntersectionObserver((entries)=>{
   });
 },{threshold:.12,rootMargin:'0px 0px -60px 0px'});
 
-document.querySelectorAll('.section-head, .cat, .step, .tier, .qod-item, .cred, .ai-feat, .am-bar-row, .stat')
+document.querySelectorAll('.section-head, .cat, .step, .tier, .cred, .ai-feat, .am-bar-row, .stat')
   .forEach(el=>{el.style.opacity='0';io.observe(el);});
 
 /* ─────────────────────────────────────────────

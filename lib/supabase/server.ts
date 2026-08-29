@@ -93,7 +93,7 @@ export const getAppProfile = cache(async () => {
   const { data } = await supabase
     .from('users')
     .select(
-      'full_name, role, tier, points, streak_days, target_sat_score, exam_date, marketing_opt_in, current_period_end'
+      'full_name, role, tier, target_sat_score, exam_date, marketing_opt_in, current_period_end'
     )
     .eq('id', user.id)
     .single();

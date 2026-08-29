@@ -51,7 +51,7 @@ export default async function HomePage() {
         </h1>
 
         <p className="text-lg text-muted leading-relaxed mb-12 max-w-lg mx-auto font-serif-body">
-          We&apos;re building something real. Daily questions, AI analysis, and certificates
+          We&apos;re building something real. AI analysis and certificates
           that mean something. Launching soon.
         </p>
 

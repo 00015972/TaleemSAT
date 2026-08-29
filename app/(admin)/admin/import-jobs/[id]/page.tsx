@@ -1,11 +1,13 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { liveJobCounts } from '@/lib/admin/import-job-counts';
 import {
   ImportReview,
   type ImportItem,
   type ImportJob,
 } from '@/components/admin/import-review';
+import { DeleteImportJobButton } from '@/components/admin/delete-import-job-button';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Review import — Taleem SAT Admin' };
@@ -36,16 +38,30 @@ export default async function ImportJobPage({
     .eq('job_id', id)
     .order('created_at', { ascending: true });
 
+  const { successCount, failedCount } = liveJobCounts(items ?? []);
+  const jobWithLiveCounts: ImportJob = {
+    ...(job as ImportJob),
+    success_count: successCount,
+    failed_count: failedCount,
+  };
+
   return (
     <>
-      <div className="adm-crumbs">
-        <Link href="/admin/import-jobs">Imports</Link>
-        <span>/</span>
-        <span>{job.source_filename ?? 'Review'}</span>
+      <div className="adm-crumbs" style={{ justifyContent: 'space-between', display: 'flex' }}>
+        <div>
+          <Link href="/admin/import-jobs">Imports</Link>
+          <span> / </span>
+          <span>{job.source_filename ?? 'Review'}</span>
+        </div>
+        <DeleteImportJobButton
+          jobId={job.id}
+          filename={job.source_filename}
+          redirectTo="/admin/import-jobs"
+        />
       </div>
 
       <ImportReview
-        initialJob={job as ImportJob}
+        initialJob={jobWithLiveCounts}
         initialItems={(items ?? []) as unknown as ImportItem[]}
       />
     </>

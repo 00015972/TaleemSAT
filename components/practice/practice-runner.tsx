@@ -1,19 +1,25 @@
 'use client';
 
+import Image from 'next/image';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Bookmark, ChevronLeft, ChevronRight, RotateCcw, X } from 'lucide-react';
+import {
+  Bookmark,
+  Calculator,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  RotateCcw,
+  X,
+} from 'lucide-react';
 import {
   ExamRoot,
   ExamTopBar,
-  ExamSplit,
   ExamFooter,
   ExamNavigator,
 } from '@/components/exam/exam-chrome';
 import {
   AnnotateToggle,
   AppearanceMenu,
-  CalculatorButton,
-  ReferenceButton,
   MoreMenu,
   FullscreenToggle,
   LineReaderOverlay,
@@ -21,11 +27,16 @@ import {
   MATH_DIRECTIONS,
   type MenuKey,
 } from '@/components/exam/exam-toolbar';
-import { PassageReader, type Tool } from '@/components/reading/passage-reader';
-import { WhyPanel } from '@/components/reading/why-panel';
 import { ChartFigure } from '@/components/reading/chart-figure';
 import { QuestionBody } from '@/components/reading/question-body';
 import { GridInInput } from '@/components/reading/grid-in-input';
+import { PracticeDesmosPanel } from '@/components/practice/practice-desmos-panel';
+import {
+  PracticeHighlighter,
+  type PracticeHighlights,
+} from '@/components/practice/practice-highlighter';
+import { PracticeReferenceModal } from '@/components/practice/practice-reference-modal';
+import { PracticeWorkspace } from '@/components/practice/practice-workspace';
 import type { PracticeScope } from '@/components/practice/practice-browse';
 import type {
   PracticeBootstrap,
@@ -33,7 +44,7 @@ import type {
   PracticeQuestion,
 } from '@/components/practice/types';
 
-const NO_MARKS: Set<number> = new Set();
+const NO_HIGHLIGHTS: PracticeHighlights = {};
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -45,13 +56,11 @@ export function PracticeRunner({
   scope,
   bootstrap,
   status,
-  pro = false,
   onExit,
 }: {
   scope: PracticeScope;
   bootstrap: PracticeBootstrap | null;
   status: Status;
-  pro?: boolean;
   onExit: () => void;
 }) {
   if (status !== 'ready' || !bootstrap) {
@@ -60,10 +69,9 @@ export function PracticeRunner({
 
   return (
     <ReadyPracticeRunner
-      key={`${scope.kind}:${scope.slug}:${scope.difficulty}`}
+      key={`${scope.kind}:${scope.slug}:${scope.subjectSlug}:${scope.difficulty}`}
       scope={scope}
       bootstrap={bootstrap}
-      pro={pro}
       onExit={onExit}
     />
   );
@@ -111,12 +119,10 @@ function PracticeRunnerState({
 function ReadyPracticeRunner({
   scope,
   bootstrap,
-  pro,
   onExit,
 }: {
   scope: PracticeScope;
   bootstrap: PracticeBootstrap;
-  pro: boolean;
   onExit: () => void;
 }) {
   const manifest = bootstrap.ids;
@@ -141,10 +147,14 @@ function ReadyPracticeRunner({
   // Reading-tool state — lifted so the top-bar Annotate toggle and the
   // Highlights list in More can see/drive it, and so highlights survive
   // paging away from a question and back (they didn't before).
-  const [marks, setMarks] = useState<Record<string, Set<number>>>({});
-  const [readingTool, setReadingTool] = useState<Tool>('define');
+  const [highlights, setHighlights] = useState<Record<string, PracticeHighlights>>({});
+  const [annotateOn, setAnnotateOn] = useState(false);
   const [lineReaderOn, setLineReaderOn] = useState(false);
   const [openMenu, setOpenMenu] = useState<MenuKey | null>(null);
+  const [referenceOpen, setReferenceOpen] = useState(false);
+  const [calculatorOpen, setCalculatorOpen] = useState(false);
+  const referenceButtonRef = useRef<HTMLButtonElement | null>(null);
+  const calculatorButtonRef = useRef<HTMLButtonElement | null>(null);
 
   // Transient, current-question-only state.
   const [picked, setPicked] = useState<string | null>(null);
@@ -224,8 +234,8 @@ function ReadyPracticeRunner({
     });
   }, []);
 
-  const setMarksFor = useCallback((id: string, next: Set<number>) => {
-    setMarks(m => ({ ...m, [id]: next }));
+  const setHighlightsFor = useCallback((id: string, next: PracticeHighlights) => {
+    setHighlights(currentHighlights => ({ ...currentHighlights, [id]: next }));
   }, []);
 
   const selectOption = useCallback(
@@ -275,11 +285,10 @@ function ReadyPracticeRunner({
 
   const currentId = manifest[index]?.id;
   const resolved = currentId !== undefined && solvedAnswer[currentId] !== undefined;
-  // Practice questions carry no subject field — passage presence is the same
-  // proxy the Mock runner already uses for its own Reading-vs-Math ternary.
-  const directionsText = current ? (current.passage ? READING_DIRECTIONS : MATH_DIRECTIONS) : undefined;
+  const isMath = scope.subjectSlug === 'math';
+  const directionsText = current ? (isMath ? MATH_DIRECTIONS : READING_DIRECTIONS) : undefined;
 
-  // A–D/1–4 to pick, Enter to check-or-continue, ←/→ to page, F to flag.
+  // A–D/1–4 to pick, Enter to check-or-continue, ←/→ to page, F to mark.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -341,30 +350,70 @@ function ReadyPracticeRunner({
         }
         right={
           <>
-            <AnnotateToggle
-              on={readingTool === 'highlight'}
-              onToggle={() => setReadingTool(t => (t === 'highlight' ? 'define' : 'highlight'))}
-              disabled={!current?.passage}
-            />
+            {!isMath && (
+              <AnnotateToggle
+                on={annotateOn}
+                onToggle={() => setAnnotateOn(v => !v)}
+                disabled={!current?.passage}
+              />
+            )}
             <AppearanceMenu
               open={openMenu === 'appearance'}
-              onOpenChange={v => setOpenMenu(v ? 'appearance' : null)}
+              onOpenChange={open => {
+                setOpenMenu(open ? 'appearance' : null);
+                if (open) {
+                  setCalculatorOpen(false);
+                  setReferenceOpen(false);
+                }
+              }}
             />
-            <CalculatorButton
-              open={openMenu === 'calculator'}
-              onOpenChange={v => setOpenMenu(v ? 'calculator' : null)}
-            />
-            <ReferenceButton
-              open={openMenu === 'reference'}
-              onOpenChange={v => setOpenMenu(v ? 'reference' : null)}
-            />
+            {isMath && (
+              <>
+                <button
+                  ref={calculatorButtonRef}
+                  type="button"
+                  className={`ex-tool${calculatorOpen ? ' on' : ''}`}
+                  onClick={() => {
+                    setOpenMenu(null);
+                    setReferenceOpen(false);
+                    setCalculatorOpen(open => !open);
+                  }}
+                  aria-expanded={calculatorOpen}
+                  aria-label="Calculator"
+                  title="Calculator"
+                >
+                  <Calculator aria-hidden="true" />
+                </button>
+                <button
+                  ref={referenceButtonRef}
+                  type="button"
+                  className={`ex-tool${referenceOpen ? ' on' : ''}`}
+                  onClick={() => {
+                    setOpenMenu(null);
+                    setCalculatorOpen(false);
+                    setReferenceOpen(true);
+                  }}
+                  aria-expanded={referenceOpen}
+                  aria-label="Reference"
+                  title="Reference"
+                >
+                  <FileText aria-hidden="true" />
+                </button>
+              </>
+            )}
             <MoreMenu
               open={openMenu === 'more'}
-              onOpenChange={v => setOpenMenu(v ? 'more' : null)}
+              onOpenChange={open => {
+                setOpenMenu(open ? 'more' : null);
+                if (open) {
+                  setCalculatorOpen(false);
+                  setReferenceOpen(false);
+                }
+              }}
               lineReaderOn={lineReaderOn}
               onToggleLineReader={() => setLineReaderOn(v => !v)}
-              markCount={currentId ? (marks[currentId]?.size ?? 0) : 0}
-              onClearMarks={() => currentId && setMarksFor(currentId, new Set())}
+              markCount={currentId ? Object.keys(highlights[currentId] ?? {}).length : 0}
+              onClearMarks={() => currentId && setHighlightsFor(currentId, {})}
             />
             <FullscreenToggle />
           </>
@@ -372,23 +421,27 @@ function ReadyPracticeRunner({
       />
 
       {currentId && (
-        <ExamSplit
-          storageKey="taleem_practice_split"
-          showWatermark={false}
+        <PracticeWorkspace
+          calculatorOpen={isMath && calculatorOpen}
+          calculator={isMath ? (
+            <PracticeDesmosPanel
+              open={calculatorOpen}
+              onOpenChange={setCalculatorOpen}
+              returnFocusRef={calculatorButtonRef}
+            />
+          ) : undefined}
           overlay={<LineReaderOverlay active={lineReaderOn} />}
-          left={
+          question={
             <QuestionPane
               seq={index + 1}
               question={current}
               loading={currentLoading}
-              pro={pro}
-              marks={currentId ? (marks[currentId] ?? NO_MARKS) : NO_MARKS}
-              onMarksChange={next => currentId && setMarksFor(currentId, next)}
-              tool={readingTool}
-              onToolChange={setReadingTool}
+              highlights={currentId ? (highlights[currentId] ?? NO_HIGHLIGHTS) : NO_HIGHLIGHTS}
+              onHighlightsChange={next => currentId && setHighlightsFor(currentId, next)}
+              annotate={annotateOn}
             />
           }
-          right={
+          answers={
             <ChoicesPane
               question={current}
               loading={currentLoading}
@@ -400,7 +453,6 @@ function ReadyPracticeRunner({
               eliminated={eliminated[currentId] ?? []}
               elimMode={elimMode}
               checking={checking}
-              pro={pro}
               onSelect={optId => selectOption(currentId, optId)}
               onCheck={checkAnswer}
               onToggleFlag={() => toggleFlag(currentId)}
@@ -413,9 +465,21 @@ function ReadyPracticeRunner({
 
       <ExamFooter
         left={
-          <span className="ex-hint">
-            A–D to choose · Enter to check · ←/→ to page · F to flag
-          </span>
+          <div className="prx-footer-identity">
+            <a
+              className="prx-brand"
+              href="https://t.me/TaleemSAT"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Open the TaleemSAT Telegram channel"
+            >
+              <Image src="/logo.jpg" alt="" width={36} height={36} />
+              <span>TaleemSAT<small>SAT preparation</small></span>
+            </a>
+            <span className="ex-hint">
+              A–D to choose · Enter to check · ←/→ to page · F to mark
+            </span>
+          </div>
         }
         center={
           <ExamNavigator
@@ -452,6 +516,14 @@ function ReadyPracticeRunner({
           </div>
         }
       />
+
+      {isMath && (
+        <PracticeReferenceModal
+          open={referenceOpen}
+          onOpenChange={setReferenceOpen}
+          returnFocusRef={referenceButtonRef}
+        />
+      )}
     </ExamRoot>
   );
 }
@@ -462,20 +534,16 @@ function QuestionPane({
   seq,
   question,
   loading,
-  pro,
-  marks,
-  onMarksChange,
-  tool,
-  onToolChange,
+  highlights,
+  onHighlightsChange,
+  annotate,
 }: {
   seq: number;
   question: PracticeQuestion | null;
   loading: boolean;
-  pro: boolean;
-  marks: Set<number>;
-  onMarksChange: (next: Set<number>) => void;
-  tool: Tool;
-  onToolChange: (next: Tool) => void;
+  highlights: PracticeHighlights;
+  onHighlightsChange: (next: PracticeHighlights) => void;
+  annotate: boolean;
 }) {
   if (loading || !question) return <PaneSkeleton />;
   return (
@@ -488,14 +556,11 @@ function QuestionPane({
         <span className="ex-practice-mode">Practice mode</span>
       </div>
       {question.passage && (
-        <PassageReader
+        <PracticeHighlighter
           text={question.passage}
-          variant="practice"
-          pro={pro}
-          marks={marks}
-          onMarksChange={onMarksChange}
-          tool={tool}
-          onToolChange={onToolChange}
+          highlights={highlights}
+          onHighlightsChange={onHighlightsChange}
+          annotate={annotate}
         />
       )}
       <ChartFigure svg={question.chart_svg} />
@@ -517,7 +582,6 @@ function ChoicesPane({
   eliminated,
   elimMode,
   checking,
-  pro,
   onSelect,
   onCheck,
   onToggleFlag,
@@ -534,7 +598,6 @@ function ChoicesPane({
   eliminated: string[];
   elimMode: boolean;
   checking: boolean;
-  pro: boolean;
   onSelect: (optionId: string) => void;
   onCheck: () => void;
   onToggleFlag: () => void;
@@ -556,7 +619,7 @@ function ChoicesPane({
           onClick={onToggleFlag}
           aria-pressed={flagged}
         >
-          <Bookmark aria-hidden="true" /> {flagged ? 'Marked' : 'Mark for review'}
+          <Bookmark aria-hidden="true" /> <span>Mark for review</span>
         </button>
         <div className="ex-toolbar-right">
           {!isGridIn && (
@@ -603,8 +666,6 @@ function ChoicesPane({
           onElim={onToggleElim}
         />
       )}
-
-      {resolved && <WhyPanel questionId={question.id} pro={pro} />}
     </>
   );
 }
@@ -643,43 +704,43 @@ function ChoiceList({
         if (isKey) cls = ' key';
         else if (isTried) cls = ' tried';
         else if (isPicked) cls = ' sel';
-        if (isElim && !isTried) cls += ' elim';
+        if (isElim && !isTried && !isKey) cls += ' elim';
 
         return (
-          <div
-            key={opt.id}
-            role="button"
-            tabIndex={selectable ? 0 : -1}
-            aria-disabled={!selectable}
-            className={`prx-opt prx-anim${cls}`}
-            style={{ animationDelay: `${0.08 + i * 0.04}s` }}
-            onClick={() => selectable && onSelect(opt.id)}
-            onKeyDown={e => {
-              if (!selectable) return;
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                onSelect(opt.id);
-              }
-            }}
-            aria-pressed={isPicked}
-          >
-            <span className="prx-opt-bub">
-              <span>{opt.id}</span>
-            </span>
-            <span className="prx-opt-text" dangerouslySetInnerHTML={{ __html: opt.text }} />
-            {isKey && <span className="prx-opt-flag" style={{ color: 'var(--ok)' }}>✓</span>}
-            {isTried && <span className="prx-opt-flag" style={{ color: 'var(--err)' }}>✗</span>}
+          <div key={opt.id} className={`prx-choice-row${elimMode ? ' has-eliminator' : ''}`}>
+            <div
+              role="button"
+              tabIndex={selectable ? 0 : -1}
+              aria-disabled={!selectable}
+              className={`prx-opt prx-anim${cls}`}
+              style={{ animationDelay: `${0.08 + i * 0.04}s` }}
+              onClick={() => selectable && onSelect(opt.id)}
+              onKeyDown={e => {
+                if (!selectable) return;
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onSelect(opt.id);
+                }
+              }}
+              aria-pressed={isPicked}
+            >
+              <span className="prx-opt-bub">
+                <span>{opt.id}</span>
+              </span>
+              <span className="prx-opt-text" dangerouslySetInnerHTML={{ __html: opt.text }} />
+              {isKey && <span className="prx-opt-flag" style={{ color: 'var(--ok)' }}>✓</span>}
+              {isTried && <span className="prx-opt-flag" style={{ color: 'var(--err)' }}>✗</span>}
+            </div>
             {interactive && elimMode && !isTried && (
               <button
                 type="button"
-                className="mk-elim-btn show"
-                onClick={e => {
-                  e.stopPropagation();
-                  onElim(opt.id);
-                }}
-                aria-label={isElim ? 'Restore choice' : 'Eliminate choice'}
-                title="Cross out"
+                className={`prx-elim-outside${isElim ? ' is-active' : ''}`}
+                onClick={() => onElim(opt.id)}
+                aria-label={isElim ? `Restore answer choice ${opt.id}` : `Cross out answer choice ${opt.id}`}
+                aria-pressed={isElim}
+                title={isElim ? 'Restore choice' : 'Cross out choice'}
               >
+                <span>{opt.id}</span>
                 {isElim ? <RotateCcw aria-hidden="true" /> : <X aria-hidden="true" />}
               </button>
             )}

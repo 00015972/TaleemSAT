@@ -8,7 +8,7 @@
  * whitespace-trimmed) string match always counts, and otherwise numeric
  * equivalence is checked — with "a/b" read as a fraction, not a decimal.
  *
- * Pure — no I/O — used server-side by every scoring route (practice/qod/mock)
+ * Pure — no I/O — used server-side by every scoring route (practice/mock)
  * so a submission can never be graded differently in two places.
  */
 

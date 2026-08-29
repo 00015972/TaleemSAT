@@ -31,7 +31,7 @@ export default async function UsersPage({
 
   let query = admin
     .from('users')
-    .select('id, email, full_name, role, tier, points, streak_days, created_at', {
+    .select('id, email, full_name, role, tier, created_at', {
       count: 'exact',
     })
     .order('created_at', { ascending: false })
@@ -52,8 +52,6 @@ export default async function UsersPage({
     fullName: u.full_name,
     role: u.role,
     tier: u.tier,
-    points: u.points,
-    streakDays: u.streak_days,
     createdAt: u.created_at,
   }));
 

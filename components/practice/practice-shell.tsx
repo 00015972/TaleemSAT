@@ -15,10 +15,8 @@ const DynamicPracticeRunner = dynamic(
 
 export function PracticeShell({
   overview,
-  pro = false,
 }: {
   overview: PracticeOverview;
-  pro?: boolean;
 }) {
   const [scope, setScope] = useState<PracticeScope | null>(null);
   const [status, setStatus] = useState<Status>('loading');
@@ -85,7 +83,6 @@ export function PracticeShell({
       scope={scope}
       bootstrap={bootstrap}
       status={status}
-      pro={pro}
       onExit={backToTopics}
     />
   );

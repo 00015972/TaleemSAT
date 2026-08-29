@@ -9,7 +9,7 @@
 
 | Adversary | Capability | What they want | Our control |
 |---|---|---|---|
-| Casual cheater (student) | Browser dev tools, can see network traffic | Inflate their points, see explanations without answering, bypass quota | All answer validation server-side; explanations gated until attempt submitted; quota enforced in DB |
+| Casual cheater (student) | Browser dev tools, can see network traffic | See explanations without answering, bypass quota | All answer validation server-side; explanations gated until attempt submitted; quota enforced in DB |
 | Curious student | Can read source maps if we ship them | See "secret" features, find unpublished questions | RLS blocks reads of unpublished questions; no secrets in client code |
 | Refund-abuse | Sign up, use, refund | Free access | Stripe refund policy + chargeback monitoring |
 | Bot / scraper | Mass requests | Mirror our question bank | Rate limiting + Cloudflare bot detection + watermarked content (future) |
@@ -77,7 +77,7 @@ Two role levels: `student` (default) and `admin`. Defined in `users.role`.
 
 ### Principles
 1. **Users can only read/write their own rows.** `auth.uid() = user_id` is the most common policy.
-2. **Sensitive writes are server-only.** Points ledger, certificates, subscriptions — no client writes ever.
+2. **Sensitive writes are server-only.** Certificates, subscriptions — no client writes ever.
 3. **Public read-only data is explicit.** Questions are readable by anyone authenticated, but only `status = 'published'`.
 4. **Admin overrides are explicit, not implicit.** Every admin-only policy lists the admin check.
 
@@ -181,7 +181,6 @@ Implemented via Upstash Redis + middleware. Limits documented in [03-api-referen
 ### Key abuse vectors
 - **Mass signup:** 5 signups per IP per hour
 - **Login brute force:** 10 attempts per email per 15 min (Supabase default + our overlay)
-- **QOD answer spam:** 5 per user per hour (prevents fast spam-clicking through options)
 - **AI insight abuse (cost):** 10 per user per day
 - **Question scraping:** 60 question fetches per user per minute
 
@@ -201,10 +200,9 @@ When limit exceeded: return `429 RATE_LIMITED` with `Retry-After` header.
 ## Audit logging
 
 ### What we log
-- All admin actions (question CRUD, QOD scheduling, user role changes, manual points adjustments) — written to a future `audit_log` table.
+- All admin actions (question CRUD, user role changes) — written to a future `audit_log` table.
 - All authentication events — Supabase logs these.
 - All Stripe webhook events — `stripe_events` table.
-- All `points_ledger` entries (immutable history).
 
 ### What we don't log
 - Successful student practice attempts (the `attempts` table itself is the audit trail).

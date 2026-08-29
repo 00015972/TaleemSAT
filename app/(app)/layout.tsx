@@ -29,8 +29,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         name: name || user.email || 'Student',
         email: user.email ?? '',
         initials,
-        points: (profile?.points as number | null) ?? 0,
-        streak: (profile?.streak_days as number | null) ?? 0,
       }}
     >
       {children}

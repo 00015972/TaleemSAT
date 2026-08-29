@@ -10,6 +10,7 @@ import {
 } from 'react-icons/fi';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { StatusPill } from '@/components/admin/import-status-pill';
+import { DeleteImportJobButton } from '@/components/admin/delete-import-job-button';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Imports — Taleem SAT Admin' };
@@ -38,7 +39,39 @@ export default async function ImportJobsPage() {
     .order('created_at', { ascending: false })
     .limit(50);
 
-  const rows = jobs ?? [];
+  // Per-job `count`-only queries — a single row-select across every job's
+  // items would be silently truncated by PostgREST's default row cap once
+  // the combined item count crosses it, undercounting whichever jobs' rows
+  // fell past the cutoff (e.g. showing "0/110" for a fully-extracted file).
+  // A `head: true` count has no rows to cap, so this scales past that limit.
+  const jobIds = (jobs ?? []).map(j => j.id);
+  const countPairs = await Promise.all(
+    jobIds.map(async jobId => {
+      const [{ count: successCount }, { count: failedCount }] = await Promise.all([
+        admin
+          .from('import_job_items')
+          .select('id', { count: 'exact', head: true })
+          .eq('job_id', jobId)
+          .in('status', ['pending_review', 'approved']),
+        admin
+          .from('import_job_items')
+          .select('id', { count: 'exact', head: true })
+          .eq('job_id', jobId)
+          .eq('status', 'verification_failed'),
+      ]);
+      return [jobId, { successCount: successCount ?? 0, failedCount: failedCount ?? 0 }] as const;
+    })
+  );
+  const countsByJob = new Map(countPairs);
+
+  const rows = (jobs ?? []).map(job => {
+    const live = countsByJob.get(job.id);
+    return {
+      ...job,
+      success_count: live?.successCount ?? job.success_count,
+      failed_count: live?.failedCount ?? job.failed_count,
+    };
+  });
   const totalQuestions = rows.reduce((sum, job) => sum + Math.max(0, job.total_count), 0);
   const totalExtracted = rows.reduce((sum, job) => sum + Math.max(0, job.success_count), 0);
   const totalNeedsReview = rows.reduce((sum, job) => sum + Math.max(0, job.failed_count), 0);
@@ -197,13 +230,19 @@ export default async function ImportJobsPage() {
                         <time dateTime={job.created_at}>{formatWhen(job.created_at)}</time>
                       </td>
                       <td className="imports-studio-action">
-                        <Link
-                          href={`/admin/import-jobs/${job.id}`}
-                          aria-label={`Review ${filename}`}
-                          title={`Review ${filename}`}
-                        >
-                          <FiArrowUpRight aria-hidden="true" />
-                        </Link>
+                        <div className="flex items-center gap-2 justify-end">
+                          <DeleteImportJobButton
+                            jobId={job.id}
+                            filename={job.source_filename}
+                          />
+                          <Link
+                            href={`/admin/import-jobs/${job.id}`}
+                            aria-label={`Review ${filename}`}
+                            title={`Review ${filename}`}
+                          >
+                            <FiArrowUpRight aria-hidden="true" />
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   );
