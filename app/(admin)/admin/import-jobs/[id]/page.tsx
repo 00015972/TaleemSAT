@@ -6,7 +6,7 @@ import {
   ImportReview,
   type ImportItem,
   type ImportJob,
-} from '@/components/admin/import-review';
+} from '@/components/admin/import-review-stream';
 import { DeleteImportJobButton } from '@/components/admin/delete-import-job-button';
 
 export const dynamic = 'force-dynamic';
@@ -46,13 +46,13 @@ export default async function ImportJobPage({
   };
 
   return (
-    <>
-      <div className="adm-crumbs" style={{ justifyContent: 'space-between', display: 'flex' }}>
-        <div>
+    <div className="import-cockpit-route">
+      <div className="import-cockpit-routebar">
+        <nav className="import-cockpit-breadcrumb" aria-label="Breadcrumb">
           <Link href="/admin/import-jobs">Imports</Link>
-          <span> / </span>
-          <span>{job.source_filename ?? 'Review'}</span>
-        </div>
+          <span aria-hidden="true">/</span>
+          <span>Review workspace</span>
+        </nav>
         <DeleteImportJobButton
           jobId={job.id}
           filename={job.source_filename}
@@ -64,6 +64,6 @@ export default async function ImportJobPage({
         initialJob={jobWithLiveCounts}
         initialItems={(items ?? []) as unknown as ImportItem[]}
       />
-    </>
+    </div>
   );
 }

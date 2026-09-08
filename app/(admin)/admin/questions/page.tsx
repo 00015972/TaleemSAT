@@ -32,13 +32,6 @@ export default async function QuestionsPage({
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
 
-  // Filter option sources
-  const [{ data: subjectRows }, { data: categoryRows }, { data: topicRows }] = await Promise.all([
-    admin.from('subjects').select('id, name').order('display_order'),
-    admin.from('categories').select('id, name, subject_id').order('display_order'),
-    admin.from('topics').select('id, name, category_id').order('display_order'),
-  ]);
-
   let query = admin
     .from('questions')
     .select(
@@ -63,7 +56,25 @@ export default async function QuestionsPage({
     query = query.or(`question_text.ilike."%${escaped}%",source_ref.ilike."%${escaped}%"`);
   }
 
-  const { data: rows, count } = await query;
+  const [
+    { data: subjectRows },
+    { data: categoryRows },
+    { data: topicRows },
+    { data: rows, count },
+    { count: inventoryTotal },
+    { count: publishedTotal },
+    { count: draftTotal },
+    { count: archivedTotal },
+  ] = await Promise.all([
+    admin.from('subjects').select('id, name').order('display_order'),
+    admin.from('categories').select('id, name, subject_id').order('display_order'),
+    admin.from('topics').select('id, name, category_id').order('display_order'),
+    query,
+    admin.from('questions').select('id', { count: 'exact', head: true }),
+    admin.from('questions').select('id', { count: 'exact', head: true }).eq('status', 'published'),
+    admin.from('questions').select('id', { count: 'exact', head: true }).eq('status', 'draft'),
+    admin.from('questions').select('id', { count: 'exact', head: true }).eq('status', 'archived'),
+  ]);
 
   const questions: QuestionRow[] = (rows ?? []).map(r => {
     const category = Array.isArray(r.categories) ? r.categories[0] : r.categories;
@@ -96,7 +107,7 @@ export default async function QuestionsPage({
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
-    <div className="p-6 md:p-8">
+    <div className="questions-cockpit-route">
       <QuestionsTable
         questions={questions}
         subjects={subjects}
@@ -105,6 +116,12 @@ export default async function QuestionsPage({
         total={total}
         page={page}
         totalPages={totalPages}
+        inventory={{
+          total: inventoryTotal ?? 0,
+          published: publishedTotal ?? 0,
+          draft: draftTotal ?? 0,
+          archived: archivedTotal ?? 0,
+        }}
         filters={{
           subject: sp.subject ?? '',
           category: sp.category ?? '',

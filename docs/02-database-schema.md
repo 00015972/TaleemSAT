@@ -9,7 +9,8 @@
 
 ```
 users ──┬── attempts ──── questions ─── categories ─── subjects
-        │
+        ├── progression_events ─── attempts
+        ├── daily_progress
         ├── certificates
         │
         ├── ai_insights
@@ -92,6 +93,11 @@ Authenticated users. This is our application-level user table; Supabase's `auth.
 | `subscription_status` | text | | `active`, `past_due`, `canceled`, null |
 | `current_period_end` | timestamptz | | for grace-period logic |
 | `marketing_opt_in` | boolean | not null default true | from signup form |
+| `timezone` | text | not null default `Asia/Tashkent` | saved IANA zone used for future progression dates |
+| `total_xp` | int | not null default 0, check >= 0 | rebuildable lifetime-XP cache |
+| `current_streak` | int | not null default 0, check >= 0 | rebuildable active-streak cache |
+| `longest_streak` | int | not null default 0, check >= current_streak | retained personal best |
+| `last_streak_date` | date | | most recent local date that reached five new questions |
 | `created_at` | timestamptz | not null default now() | |
 | `updated_at` | timestamptz | not null default now() | |
 | `deleted_at` | timestamptz | | soft delete for account deletion requests |
@@ -155,6 +161,56 @@ Every time a student answers a practice question.
 - `(user_id, context, created_at)` — analytics queries
 
 **No `updated_at`** — attempts are immutable.
+
+Attempts can be read by their owner but are inserted only by trusted, server-side grading routes. An `AFTER INSERT` trigger creates progression atomically, so a saved attempt can never receive a client-supplied correctness bonus.
+
+---
+
+### `progression_events`
+
+Immutable XP ledger. A row is created only for the earliest scored attempt by one student on one SAT question, regardless of whether it came from practice or a mock test.
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | uuid | PK | |
+| `user_id` | uuid | FK → users(id) on delete cascade | |
+| `question_id` | uuid | FK → questions(id) on delete restrict | |
+| `attempt_id` | uuid | FK → attempts(id) on delete restrict, unique | source scored attempt |
+| `context` | `attempt_context` | not null | `practice` or `mock` snapshot |
+| `is_correct` | boolean | not null | first-attempt result snapshot |
+| `base_xp` | int | not null, exactly 5 | effort award |
+| `correct_bonus_xp` | int | not null, 0 or 5 | 5 only when `is_correct` |
+| `xp_delta` | int | not null, base + bonus | 5 or 10 |
+| `activity_date` | date | not null | saved-timezone local date at award time |
+| `timezone` | text | not null | IANA-zone snapshot; later changes do not regroup history |
+| `streak_extended` | boolean | not null default false | true only on the day's fifth qualifying question |
+| `created_at` | timestamptz | not null default now() | copied from the source attempt |
+
+**Unique:** `(user_id, question_id)` is the exactly-once award boundary.
+
+**Indexes:** `(user_id, activity_date, created_at)`, `(user_id, created_at)`, `(question_id)`, plus the unique attempt index.
+
+---
+
+### `daily_progress`
+
+Rebuildable read model for dashboard streaks, weekly XP, and daily missions.
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | uuid | PK | |
+| `user_id` | uuid | FK → users(id) on delete cascade | |
+| `activity_date` | date | not null | event-local calendar date |
+| `qualifying_question_count` | int | not null default 0, check >= 0 | first-ever questions only |
+| `xp_earned` | int | not null default 0, check >= 0 | sum of that day's ledger deltas |
+| `streak_earned` | boolean | not null default false | becomes true at five qualifying questions |
+| `streak_crossed_at` | timestamptz | required when earned | when question five was recorded |
+| `created_at` | timestamptz | not null default now() | |
+| `updated_at` | timestamptz | not null default now() | |
+
+**Unique:** `(user_id, activity_date)`.
+
+The source-of-truth order is `attempts` → `progression_events` → `daily_progress` and cached fields on `users`. The ledger is never recreated by the summary rebuild; the latter two layers may be deterministically repaired from it.
 
 ---
 
@@ -271,8 +327,14 @@ RLS is **on** for every table. Default-deny. Policies are listed by table below;
 
 ### `attempts`
 - **SELECT:** user can read their own attempts. Admins can read all.
-- **INSERT:** user can insert their own (`user_id = auth.uid()`). Server validates `is_correct`, can't be spoofed.
+- **INSERT:** trusted grading routes only. Browser-role insert privilege is revoked so `is_correct` cannot be spoofed.
 - **UPDATE / DELETE:** disabled. Attempts are immutable.
+
+### `progression_events` and `daily_progress`
+
+- **SELECT:** authenticated students can read only their own rows.
+- **INSERT / UPDATE / DELETE:** service role only.
+- Progression counters on `users` are not browser-writable. Authenticated users retain column-level update access only to normal profile fields and `timezone`.
 
 ### `certificates`
 - **SELECT:** user can read their own. Admins can read all.

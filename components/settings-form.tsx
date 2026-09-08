@@ -6,6 +6,7 @@ import {
   CalendarDays,
   Check,
   Crown,
+  Globe2,
   LockKeyhole,
   Mail,
   Save,
@@ -29,6 +30,7 @@ type SettingsFormProps = {
   userId: string;
   email: string;
   tier: string;
+  timezone: string;
   requestDate: string;
   initial: Profile;
 };
@@ -77,6 +79,7 @@ export function SettingsForm({
   userId,
   email,
   tier,
+  timezone,
   requestDate,
   initial,
 }: SettingsFormProps) {
@@ -219,6 +222,16 @@ export function SettingsForm({
                   <span>Locked</span>
                 </div>
                 <p>Email is verified and cannot be changed here.</p>
+              </div>
+
+              <div className="settings-field">
+                <label htmlFor="settings-timezone">Study timezone</label>
+                <div className="settings-field-with-icon">
+                  <Globe2 size={16} aria-hidden="true" />
+                  <input id="settings-timezone" type="text" value={timezone} disabled />
+                  <span>Auto</span>
+                </div>
+                <p>Detected from this device and used for daily streak boundaries.</p>
               </div>
 
               <div className="settings-field-row">

@@ -100,3 +100,17 @@ export const getAppProfile = cache(async () => {
 
   return data;
 });
+
+/** Progression timezone is separate so admin/auth layouts keep working during migration rollout. */
+export const getStoredTimezone = cache(async (): Promise<string | null> => {
+  const [supabase, user] = await Promise.all([createClient(), getClaimsUser()]);
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from('users')
+    .select('timezone')
+    .eq('id', user.id)
+    .single();
+
+  return error ? null : data.timezone;
+});

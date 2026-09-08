@@ -3,6 +3,25 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import {
+  FiActivity,
+  FiArchive,
+  FiArrowUpRight,
+  FiBookOpen,
+  FiCheck,
+  FiCheckCircle,
+  FiChevronLeft,
+  FiChevronRight,
+  FiClock,
+  FiFilter,
+  FiInbox,
+  FiPlus,
+  FiRefreshCw,
+  FiSearch,
+  FiSliders,
+  FiTrash2,
+  FiX,
+} from 'react-icons/fi';
 
 export type QuestionRow = {
   id: string;
@@ -28,6 +47,22 @@ type Filters = {
   q: string;
 };
 
+type Inventory = {
+  total: number;
+  published: number;
+  draft: number;
+  archived: number;
+};
+
+const EMPTY_FILTERS: Filters = {
+  subject: '',
+  category: '',
+  topic: '',
+  difficulty: '',
+  status: '',
+  q: '',
+};
+
 export function QuestionsTable({
   questions,
   subjects,
@@ -36,6 +71,7 @@ export function QuestionsTable({
   total,
   page,
   totalPages,
+  inventory,
   filters,
 }: {
   questions: QuestionRow[];
@@ -45,6 +81,7 @@ export function QuestionsTable({
   total: number;
   page: number;
   totalPages: number;
+  inventory: Inventory;
   filters: Filters;
 }) {
   const router = useRouter();
@@ -54,13 +91,14 @@ export function QuestionsTable({
   const [message, setMessage] = useState<{ kind: 'info' | 'err'; text: string } | null>(null);
 
   const visibleCategories = local.subject
-    ? categories.filter(c => c.subjectId === local.subject)
+    ? categories.filter(category => category.subjectId === local.subject)
     : categories;
   const visibleTopics = local.category
-    ? topics.filter(t => t.categoryId === local.category)
+    ? topics.filter(topic => topic.categoryId === local.category)
     : topics;
+  const activeFilterCount = Object.values(local).filter(Boolean).length;
 
-  function applyFilters(next: Filters) {
+  function paramsFor(next: Filters) {
     const params = new URLSearchParams();
     if (next.subject) params.set('subject', next.subject);
     if (next.category) params.set('category', next.category);
@@ -68,22 +106,33 @@ export function QuestionsTable({
     if (next.difficulty) params.set('difficulty', next.difficulty);
     if (next.status) params.set('status', next.status);
     if (next.q) params.set('q', next.q);
-    router.push(`/admin/questions?${params.toString()}`);
+    return params;
+  }
+
+  function applyFilters(next: Filters) {
+    const params = paramsFor(next);
+    const query = params.toString();
+    router.push(query ? `/admin/questions?${query}` : '/admin/questions');
   }
 
   function setFilter(patch: Partial<Filters>) {
     const next = { ...local, ...patch };
-    // Reset category when subject changes, and topic when category changes —
-    // each tier only makes sense scoped to its parent.
     if (patch.subject !== undefined) next.category = '';
     if (patch.subject !== undefined || patch.category !== undefined) next.topic = '';
     setLocal(next);
-    if (!('q' in patch)) applyFilters(next); // selects apply immediately
+    if (!('q' in patch)) applyFilters(next);
+  }
+
+  function resetFilters() {
+    setLocal(EMPTY_FILTERS);
+    setSelected(new Set());
+    setMessage(null);
+    applyFilters(EMPTY_FILTERS);
   }
 
   function toggle(id: string) {
-    setSelected(prev => {
-      const next = new Set(prev);
+    setSelected(previous => {
+      const next = new Set(previous);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
@@ -91,8 +140,8 @@ export function QuestionsTable({
   }
 
   function toggleAll() {
-    setSelected(prev =>
-      prev.size === questions.length ? new Set() : new Set(questions.map(q => q.id))
+    setSelected(previous =>
+      previous.size === questions.length ? new Set() : new Set(questions.map(question => question.id))
     );
   }
 
@@ -101,15 +150,24 @@ export function QuestionsTable({
     setWorking(true);
     setMessage(null);
     try {
-      const res = await fetch('/api/admin/questions/bulk', {
+      const response = await fetch('/api/admin/questions/bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: Array.from(selected), action }),
       });
-      if (res.ok) {
-        setSelected(new Set());
-        router.refresh();
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage({ kind: 'err', text: data?.detail ?? `Could not ${action} those questions.` });
+        return;
       }
+      setMessage({
+        kind: 'info',
+        text: `${selected.size} question${selected.size === 1 ? '' : 's'} ${action === 'publish' ? 'published' : 'archived'}.`,
+      });
+      setSelected(new Set());
+      router.refresh();
+    } catch {
+      setMessage({ kind: 'err', text: 'The operation could not be completed. Please try again.' });
     } finally {
       setWorking(false);
     }
@@ -118,22 +176,22 @@ export function QuestionsTable({
   async function bulkDelete() {
     if (selected.size === 0) return;
     const count = selected.size;
-    const ok = window.confirm(
+    const confirmed = window.confirm(
       `Permanently delete ${count} question${count === 1 ? '' : 's'}? This cannot be undone. ` +
         `Questions used in an exam or already attempted by students will be skipped — archive those instead.`
     );
-    if (!ok) return;
+    if (!confirmed) return;
 
     setWorking(true);
     setMessage(null);
     try {
-      const res = await fetch('/api/admin/questions/bulk', {
+      const response = await fetch('/api/admin/questions/bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: Array.from(selected), action: 'delete' }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
         setMessage({ kind: 'err', text: data?.detail ?? 'Could not delete those questions.' });
         return;
       }
@@ -146,240 +204,338 @@ export function QuestionsTable({
       });
       setSelected(new Set());
       router.refresh();
+    } catch {
+      setMessage({ kind: 'err', text: 'The delete request could not be completed. Please try again.' });
     } finally {
       setWorking(false);
     }
   }
 
-  function gotoPage(p: number) {
-    const params = new URLSearchParams();
-    if (local.subject) params.set('subject', local.subject);
-    if (local.category) params.set('category', local.category);
-    if (local.topic) params.set('topic', local.topic);
-    if (local.difficulty) params.set('difficulty', local.difficulty);
-    if (local.status) params.set('status', local.status);
-    if (local.q) params.set('q', local.q);
-    params.set('page', String(p));
+  function gotoPage(nextPage: number) {
+    const params = paramsFor(local);
+    params.set('page', String(nextPage));
     router.push(`/admin/questions?${params.toString()}`);
   }
 
   const allSelected = questions.length > 0 && selected.size === questions.length;
 
   return (
-    <div>
-      {/* Header */}
-      <div className="flex items-end justify-between mb-5 gap-4 flex-wrap">
-        <div className="adm-head" style={{ marginBottom: 0 }}>
+    <section className="questions-cockpit">
+      <div className="questions-cockpit-ambient" aria-hidden="true" />
+
+      <header className="questions-cockpit-header questions-cockpit-enter">
+        <div>
+          <div className="questions-cockpit-eyebrow">
+            <span className="questions-cockpit-live-dot" aria-hidden="true" />
+            Live content operations
+          </div>
           <h1>Questions</h1>
-          <p>{total.toLocaleString('en-US')} in the bank</p>
+          <p>
+            High-density control for <strong>{inventory.total.toLocaleString('en-US')}</strong> question records.
+          </p>
         </div>
-        <div className="flex gap-2">
-          <Link href="/admin/questions/new" className="adm-btn">
-            New question
-          </Link>
-        </div>
+        <Link href="/admin/questions/new" className="questions-cockpit-create">
+          <FiPlus aria-hidden="true" />
+          Create question
+        </Link>
+      </header>
+
+      <div className="questions-cockpit-metrics" aria-label="Question inventory overview">
+        <MetricCard
+          icon={<FiBookOpen aria-hidden="true" />}
+          label="Total inventory"
+          value={inventory.total}
+          detail={`${subjects.length} subject${subjects.length === 1 ? '' : 's'} in the library`}
+          tone="primary"
+          delay={0.08}
+        />
+        <MetricCard
+          icon={<FiCheckCircle aria-hidden="true" />}
+          label="Published"
+          value={inventory.published}
+          detail={inventory.total > 0 ? `${Math.round((inventory.published / inventory.total) * 100)}% currently live` : 'No questions yet'}
+          tone="green"
+          delay={0.13}
+        />
+        <MetricCard
+          icon={<FiClock aria-hidden="true" />}
+          label="Draft queue"
+          value={inventory.draft}
+          detail="Waiting for publication"
+          tone="gold"
+          delay={0.18}
+        />
+        <MetricCard
+          icon={<FiArchive aria-hidden="true" />}
+          label="Archived"
+          value={inventory.archived}
+          detail="Retained outside the live bank"
+          tone="muted"
+          delay={0.23}
+        />
       </div>
 
-      {/* Filter toolbar */}
-      <div className="adm-toolbar">
-        <FilterSelect
-          label="Subject"
-          value={local.subject}
-          onChange={v => setFilter({ subject: v })}
-          options={subjects}
-          width={100}
-        />
-        <FilterSelect
-          label="Category"
-          value={local.category}
-          onChange={v => setFilter({ category: v })}
-          options={visibleCategories}
-          width={130}
-        />
-        <FilterSelect
-          label="Skill"
-          value={local.topic}
-          onChange={v => setFilter({ topic: v })}
-          options={visibleTopics}
-          width={140}
-        />
-        <FilterSelect
-          label="Difficulty"
-          value={local.difficulty}
-          onChange={v => setFilter({ difficulty: v })}
-          options={[
-            { value: 'easy', label: 'Easy' },
-            { value: 'medium', label: 'Medium' },
-            { value: 'hard', label: 'Hard' },
-          ]}
-          width={95}
-        />
-        <FilterSelect
-          label="Status"
-          value={local.status}
-          onChange={v => setFilter({ status: v })}
-          options={[
-            { value: 'draft', label: 'Draft' },
-            { value: 'published', label: 'Published' },
-            { value: 'archived', label: 'Archived' },
-          ]}
-          width={100}
-        />
-        <div className="adm-filter flex-1 min-w-[140px]">
-          <span>Search</span>
-          <input
-            className="form-input"
-            value={local.q}
-            placeholder="Search question text or ID…"
-            onChange={e => setLocal({ ...local, q: e.target.value })}
-            onKeyDown={e => {
-              if (e.key === 'Enter') applyFilters(local);
-            }}
+      <div className="questions-cockpit-controls questions-cockpit-enter">
+        <div className="questions-cockpit-control-head">
+          <div>
+            <FiSliders aria-hidden="true" />
+            <span>Find and refine</span>
+            {activeFilterCount > 0 && (
+              <span className="questions-cockpit-filter-count">{activeFilterCount} active</span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={resetFilters}
+            disabled={activeFilterCount === 0}
+            className="questions-cockpit-reset"
+          >
+            <FiRefreshCw aria-hidden="true" />
+            Reset
+          </button>
+        </div>
+
+        <div className="questions-cockpit-filter-row">
+          <div className="questions-cockpit-search">
+            <FiSearch aria-hidden="true" />
+            <label htmlFor="questions-search" className="sr-only">Search questions</label>
+            <input
+              id="questions-search"
+              value={local.q}
+              placeholder="Search question text or source ID…"
+              onChange={event => setLocal({ ...local, q: event.target.value })}
+              onKeyDown={event => {
+                if (event.key === 'Enter') applyFilters(local);
+              }}
+            />
+            <button type="button" onClick={() => applyFilters(local)} aria-label="Apply search">
+              Search
+            </button>
+          </div>
+          <FilterSelect
+            label="Subject"
+            value={local.subject}
+            onChange={value => setFilter({ subject: value })}
+            options={subjects}
+          />
+          <FilterSelect
+            label="Category"
+            value={local.category}
+            onChange={value => setFilter({ category: value })}
+            options={visibleCategories}
+          />
+          <FilterSelect
+            label="Skill"
+            value={local.topic}
+            onChange={value => setFilter({ topic: value })}
+            options={visibleTopics}
+          />
+          <FilterSelect
+            label="Difficulty"
+            value={local.difficulty}
+            onChange={value => setFilter({ difficulty: value })}
+            options={[
+              { value: 'easy', label: 'Easy' },
+              { value: 'medium', label: 'Medium' },
+              { value: 'hard', label: 'Hard' },
+            ]}
+          />
+          <FilterSelect
+            label="Status"
+            value={local.status}
+            onChange={value => setFilter({ status: value })}
+            options={[
+              { value: 'draft', label: 'Draft' },
+              { value: 'published', label: 'Published' },
+              { value: 'archived', label: 'Archived' },
+            ]}
           />
         </div>
       </div>
 
-      {/* Bulk action bar */}
       {selected.size > 0 && (
-        <div
-          className="flex items-center gap-3 px-4 py-2.5 rounded mb-3"
-          style={{
-            background: 'color-mix(in srgb, var(--green) 10%, transparent)',
-            border: '1px solid color-mix(in srgb, var(--green) 30%, transparent)',
-          }}
-        >
-          <span
-            className="text-xs font-semibold"
-            style={{ fontFamily: 'var(--mono)', color: 'var(--green)' }}
-          >
-            {selected.size} selected
-          </span>
-          <button onClick={() => bulk('publish')} disabled={working} className="adm-btn">
-            Publish
-          </button>
+        <div className="questions-cockpit-bulk" role="region" aria-label="Bulk question actions">
+          <div className="questions-cockpit-bulk-count">
+            <span><FiCheck aria-hidden="true" /></span>
+            <strong>{selected.size}</strong> selected
+          </div>
+          <div className="questions-cockpit-bulk-actions">
+            <button type="button" onClick={() => bulk('publish')} disabled={working}>
+              <FiCheckCircle aria-hidden="true" /> Publish
+            </button>
+            <button type="button" onClick={() => bulk('archive')} disabled={working}>
+              <FiArchive aria-hidden="true" /> Archive
+            </button>
+            <button type="button" onClick={bulkDelete} disabled={working} className="danger">
+              <FiTrash2 aria-hidden="true" /> Delete
+            </button>
+          </div>
           <button
-            onClick={() => bulk('archive')}
-            disabled={working}
-            className="adm-btn secondary"
-          >
-            Archive
-          </button>
-          <button
-            onClick={bulkDelete}
-            disabled={working}
-            className="adm-btn secondary"
-            style={{ color: 'var(--err)', borderColor: 'color-mix(in srgb, var(--err) 40%, transparent)' }}
-          >
-            Delete
-          </button>
-          <button
+            type="button"
             onClick={() => setSelected(new Set())}
-            className="text-sm text-muted ml-auto hover:underline"
+            className="questions-cockpit-bulk-clear"
+            aria-label="Clear question selection"
           >
-            Clear
+            <FiX aria-hidden="true" />
           </button>
         </div>
       )}
 
       {message && (
-        <div className={`adm-alert ${message.kind === 'err' ? 'err' : 'info'}`}>{message.text}</div>
-      )}
-
-      {/* Table */}
-      <div className="adm-table-wrap">
-        <table className="adm-table">
-          <thead>
-            <tr>
-              <th className="w-10">
-                <input type="checkbox" checked={allSelected} onChange={toggleAll} />
-              </th>
-              <th className="hidden sm:table-cell">ID</th>
-              <th>Question</th>
-              <th className="hidden md:table-cell">Subject</th>
-              <th className="hidden lg:table-cell">Category</th>
-              <th>Difficulty</th>
-              <th>Status</th>
-              <th className="text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {questions.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="text-center py-12 text-muted text-sm">
-                  No questions match these filters.
-                </td>
-              </tr>
-            ) : (
-              questions.map(q => (
-                <tr key={q.id}>
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={selected.has(q.id)}
-                      onChange={() => toggle(q.id)}
-                    />
-                  </td>
-                  <td className="hidden sm:table-cell">
-                    <code className="text-xs text-muted" style={{ fontFamily: 'var(--mono)' }}>
-                      {q.sourceRef ?? '—'}
-                    </code>
-                  </td>
-                  <td>
-                    <Link
-                      href={`/admin/questions/${q.id}/edit`}
-                      className="q-preview hover:underline"
-                    >
-                      {q.preview}
-                      {q.preview.length >= 80 ? '…' : ''}
-                    </Link>
-                  </td>
-                  <td className="hidden md:table-cell text-muted">{q.subjectName}</td>
-                  <td className="hidden lg:table-cell text-muted">{q.categoryName}</td>
-                  <td>
-                    <DifficultyPill difficulty={q.difficulty} />
-                  </td>
-                  <td>
-                    <StatusPill status={q.status} />
-                  </td>
-                  <td className="text-right">
-                    <Link
-                      href={`/admin/questions/${q.id}/edit`}
-                      className="text-sm font-medium hover:underline"
-                      style={{ color: 'var(--green)' }}
-                    >
-                      Edit
-                    </Link>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="adm-pager">
-          <button
-            onClick={() => gotoPage(page - 1)}
-            disabled={page <= 1}
-            className="adm-btn secondary"
-          >
-            ← Prev
-          </button>
-          <span className="where">
-            Page {page} / {totalPages}
-          </span>
-          <button
-            onClick={() => gotoPage(page + 1)}
-            disabled={page >= totalPages}
-            className="adm-btn secondary"
-          >
-            Next →
+        <div
+          className={`questions-cockpit-alert ${message.kind}`}
+          role={message.kind === 'err' ? 'alert' : 'status'}
+        >
+          {message.kind === 'err' ? <FiActivity aria-hidden="true" /> : <FiCheckCircle aria-hidden="true" />}
+          <span>{message.text}</span>
+          <button type="button" onClick={() => setMessage(null)} aria-label="Dismiss message">
+            <FiX aria-hidden="true" />
           </button>
         </div>
       )}
-    </div>
+
+      <section className="questions-cockpit-ledger questions-cockpit-enter" aria-labelledby="question-ledger-title">
+        <div className="questions-cockpit-ledger-head">
+          <div>
+            <span className="questions-cockpit-ledger-icon"><FiFilter aria-hidden="true" /></span>
+            <div>
+              <h2 id="question-ledger-title">Question ledger</h2>
+              <p>{total.toLocaleString('en-US')} {total === 1 ? 'record' : 'records'} match this view</p>
+            </div>
+          </div>
+          <span className="questions-cockpit-sync">
+            <span aria-hidden="true" /> Synchronized
+          </span>
+        </div>
+
+        <div className="questions-cockpit-table-wrap">
+          <table className="questions-cockpit-table">
+            <thead>
+              <tr>
+                <th className="questions-cockpit-check-cell">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleAll}
+                    aria-label="Select all questions on this page"
+                  />
+                </th>
+                <th>Source ID</th>
+                <th>Question / classification</th>
+                <th>Subject</th>
+                <th>Difficulty</th>
+                <th>Status</th>
+                <th><span className="sr-only">Edit</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {questions.length === 0 ? (
+                <tr className="questions-cockpit-empty-row">
+                  <td colSpan={7}>
+                    <div className="questions-cockpit-empty">
+                      <span><FiInbox aria-hidden="true" /></span>
+                      <h3>{activeFilterCount > 0 ? 'No matching questions' : 'The question bank is empty'}</h3>
+                      <p>
+                        {activeFilterCount > 0
+                          ? 'Try broadening your filters or clearing the current search.'
+                          : 'Create the first question to start building the content library.'}
+                      </p>
+                      {activeFilterCount > 0 ? (
+                        <button type="button" onClick={resetFilters}><FiRefreshCw aria-hidden="true" /> Clear filters</button>
+                      ) : (
+                        <Link href="/admin/questions/new"><FiPlus aria-hidden="true" /> Create question</Link>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                questions.map((question, index) => (
+                  <tr
+                    key={question.id}
+                    className={selected.has(question.id) ? 'is-selected' : ''}
+                    style={{ animationDelay: `${0.25 + Math.min(index, 10) * 0.025}s` }}
+                  >
+                    <td className="questions-cockpit-check-cell" data-label="Select">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(question.id)}
+                        onChange={() => toggle(question.id)}
+                        aria-label={`Select question ${question.sourceRef ?? question.id}`}
+                      />
+                    </td>
+                    <td data-label="Source ID">
+                      <code className="questions-cockpit-source">{question.sourceRef ?? '—'}</code>
+                    </td>
+                    <td className="questions-cockpit-question-cell" data-label="Question">
+                      <Link href={`/admin/questions/${question.id}/edit`}>
+                        {question.preview}{question.preview.length >= 80 ? '…' : ''}
+                      </Link>
+                      <span>{question.categoryName}</span>
+                    </td>
+                    <td data-label="Subject"><span className="questions-cockpit-subject">{question.subjectName}</span></td>
+                    <td data-label="Difficulty"><DifficultyPill difficulty={question.difficulty} /></td>
+                    <td data-label="Status"><StatusPill status={question.status} /></td>
+                    <td className="questions-cockpit-row-action">
+                      <Link
+                        href={`/admin/questions/${question.id}/edit`}
+                        aria-label={`Edit question ${question.sourceRef ?? question.id}`}
+                        title="Edit question"
+                      >
+                        <FiArrowUpRight aria-hidden="true" />
+                      </Link>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {totalPages > 1 && (
+        <nav className="questions-cockpit-pager questions-cockpit-enter" aria-label="Question pages">
+          <button type="button" onClick={() => gotoPage(page - 1)} disabled={page <= 1}>
+            <FiChevronLeft aria-hidden="true" /> Previous
+          </button>
+          <div>
+            <span>Page</span>
+            <strong>{page}</strong>
+            <span>of {totalPages}</span>
+          </div>
+          <button type="button" onClick={() => gotoPage(page + 1)} disabled={page >= totalPages}>
+            Next <FiChevronRight aria-hidden="true" />
+          </button>
+        </nav>
+      )}
+    </section>
+  );
+}
+
+function MetricCard({
+  icon,
+  label,
+  value,
+  detail,
+  tone,
+  delay,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  detail: string;
+  tone: 'primary' | 'green' | 'gold' | 'muted';
+  delay: number;
+}) {
+  return (
+    <article className={`questions-cockpit-metric ${tone}`} style={{ animationDelay: `${delay}s` }}>
+      <div className="questions-cockpit-metric-head">
+        <span>{icon}</span>
+        <label>{label}</label>
+      </div>
+      <strong>{value.toLocaleString('en-US')}</strong>
+      <small>{detail}</small>
+      <i aria-hidden="true"><span /><span /><span /><span /><span /></i>
+    </article>
   );
 }
 
@@ -388,63 +544,38 @@ function FilterSelect({
   value,
   onChange,
   options,
-  width = 120,
 }: {
   label: string;
   value: string;
-  onChange: (v: string) => void;
+  onChange: (value: string) => void;
   options: FilterOption[];
-  width?: number;
 }) {
   return (
-    <div className="adm-filter">
+    <label className="questions-cockpit-filter">
       <span>{label}</span>
-      <select
-        className="form-input"
-        style={{ width }}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-      >
+      <select value={value} onChange={event => onChange(event.target.value)}>
         <option value="">All</option>
-        {options.map(o => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
+        {options.map(option => (
+          <option key={option.value} value={option.value}>{option.label}</option>
         ))}
       </select>
-    </div>
+    </label>
   );
 }
 
 function StatusPill({ status }: { status: string }) {
-  const colors: Record<string, string> = {
-    published: 'var(--ok)',
-    draft: 'var(--gold-d)',
-    archived: 'var(--muted)',
-  };
-  const color = colors[status] ?? 'var(--muted)';
   return (
-    <span
-      className="adm-pill"
-      style={{ color, background: `color-mix(in srgb, ${color} 12%, transparent)` }}
-    >
+    <span className={`questions-cockpit-pill status-${status}`}>
+      <span aria-hidden="true" />
       {status}
     </span>
   );
 }
 
 function DifficultyPill({ difficulty }: { difficulty: string }) {
-  const colors: Record<string, string> = {
-    easy: 'var(--ok)',
-    medium: 'var(--gold-d)',
-    hard: 'var(--err)',
-  };
-  const color = colors[difficulty] ?? 'var(--muted)';
   return (
-    <span
-      className="adm-pill"
-      style={{ color, background: `color-mix(in srgb, ${color} 12%, transparent)` }}
-    >
+    <span className={`questions-cockpit-pill difficulty-${difficulty}`}>
+      <span aria-hidden="true" />
       {difficulty}
     </span>
   );

@@ -1,9 +1,15 @@
 import { redirect } from 'next/navigation';
-import { getAppProfile, getClaimsUser } from '@/lib/supabase/server';
+import { getAppProfile, getClaimsUser, getStoredTimezone } from '@/lib/supabase/server';
 import { AppShell } from '@/components/app-shell';
+import { TimezoneSync } from '@/components/progression/timezone-sync';
+import { FALLBACK_TIMEZONE } from '@/lib/progression/dates';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const [user, profile] = await Promise.all([getClaimsUser(), getAppProfile()]);
+  const [user, profile, storedTimezone] = await Promise.all([
+    getClaimsUser(),
+    getAppProfile(),
+    getStoredTimezone(),
+  ]);
 
   if (!user) {
     redirect('/login');
@@ -31,6 +37,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         initials,
       }}
     >
+      <TimezoneSync
+        savedTimeZone={storedTimezone ?? FALLBACK_TIMEZONE}
+      />
       {children}
     </AppShell>
   );

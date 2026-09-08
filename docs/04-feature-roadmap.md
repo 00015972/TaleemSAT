@@ -73,6 +73,23 @@
 
 ---
 
+## Phase 3 — Attempt-driven streaks and XP (restored)
+
+**Goal:** Reward actual SAT work from Practice and Mock Test without restoring Daily Questions or granting progress for visits.
+
+| Task | Notes |
+|---|---|
+| Immutable progression ledger | One award for the first-ever scored `(user, question)` attempt |
+| XP | 5 for effort + 5 when that first attempt is correct |
+| Daily streak | Earned after 5 new questions on the saved-timezone local date |
+| Practice + mock feedback | Server-confirmed per-answer and test-summary rewards |
+| Dashboard momentum row | Combo Streak, weekly/lifetime XP, and 1/5/10-question missions |
+| Historical backfill | Earliest existing attempt per student/question, idempotently rebuilt |
+
+**Done when:** Repeats still affect performance analytics but never grant more XP, five new questions extend the streak exactly once, and opening or refreshing the application performs no progression write.
+
+---
+
 ## Phase 4 — Admin panel + content pipeline (5–7 days)
 
 **Goal:** Admins can manage the entire question bank without touching SQL. The full 200 questions are loaded.
@@ -218,11 +235,11 @@ For sanity, listing what we're **not** doing:
 ## Dependencies between phases
 
 ```
-Phase 0 ──► Phase 1 ──► Phase 2 ──► Phase 5 ──► Phase 6
-                  │              │
-                  │              └─► Phase 4 (admin) ─┐
-                  │                                    │
-                  └────────────────► Phase 7 ──────────┴──► Phase 8 ──► Launch
+Phase 0 ──► Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 5 ──► Phase 6
+                  │                    │
+                  │                    └─► Phase 4 (admin) ─┐
+                  │                                          │
+                  └──────────────────────► Phase 7 ───────────┴──► Phase 8 ──► Launch
                                                                           │
                                                                           ▼
                                                                        Phase 9, 10

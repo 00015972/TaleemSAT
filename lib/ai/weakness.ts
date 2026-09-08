@@ -25,7 +25,6 @@ Return JSON only, matching this schema:
   "weak_subtopics": ["string", ...],
   "reasoning": "string — 2-3 sentences, why this matters",
   "recommendation": "string — specific action, 1-2 sentences",
-  "estimated_score_gain": "string — e.g., '40-60 points'",
   "urgency": "high|medium|low — based on days_until_exam"
 }
 
@@ -41,7 +40,6 @@ export const WeaknessSchema = z.object({
   weak_subtopics: z.array(z.string()).max(8).default([]),
   reasoning: z.string().min(1),
   recommendation: z.string().min(1),
-  estimated_score_gain: z.string().min(1),
   urgency: z.enum(['high', 'medium', 'low']),
 });
 
@@ -68,6 +66,7 @@ export function buildWeaknessSummary(
     : null;
 
   return {
+    prompt_version: 'score-observatory-v1',
     user: {
       target_sat_score: profile.target_sat_score,
       exam_date: profile.exam_date,

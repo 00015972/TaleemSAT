@@ -5,9 +5,11 @@ import {
   ArrowRight,
   CalendarDays,
   Check,
+  Flame,
   Pencil,
   Sparkles,
   Target,
+  Trophy,
 } from 'lucide-react';
 import { createClient, getAppProfile, getUser } from '@/lib/supabase/server';
 import { AppMenuButton } from '@/components/app-menu-button';
@@ -21,6 +23,7 @@ import {
 import { AccuracyTrendChart } from '@/components/dashboard/accuracy-trend';
 import { Reveal } from '@/components/dashboard/reveal';
 import { CountUp } from '@/components/dashboard/count-up';
+import { computeProgressionSnapshot } from '@/lib/progression/dashboard';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Dashboard — Taleem SAT' };
@@ -37,12 +40,13 @@ export default async function DashboardPage() {
   // eslint-disable-next-line react-hooks/purity
   const requestNowMs = Date.now();
 
-  const [profile, snapshot] = await Promise.all([
+  const [profile, snapshot, progression] = await Promise.all([
     getAppProfile(),
     computeDashboardSnapshot(supabase, user.id),
+    computeProgressionSnapshot(supabase, user.id, new Date(requestNowMs)),
   ]);
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = progression.today.activityDate;
 
   const isVerified = Boolean(user.email_confirmed_at);
   const rawName: string =
@@ -90,11 +94,20 @@ export default async function DashboardPage() {
       : null;
 
   const missionItems = [
-    { label: 'Warm-up question', done: snapshot.todayCount > 0 },
-    { label: '5 practice answers', done: snapshot.todayCount >= 5 },
-    { label: '10 practice answers', done: snapshot.todayCount >= 10 },
+    { label: '1 new question', done: progression.today.newQuestions >= 1 },
+    { label: '5 new questions', done: progression.today.newQuestions >= 5 },
+    { label: '10 new questions', done: progression.today.newQuestions >= 10 },
   ];
   const missionsCompleted = missionItems.filter(item => item.done).length;
+  const questionsToStreak = Math.max(
+    0,
+    progression.today.goal - progression.today.newQuestions
+  );
+  const streakCopy = progression.today.streakEarned
+    ? 'Streak protected for today.'
+    : progression.currentStreak > 0
+      ? `${questionsToStreak} new question${questionsToStreak === 1 ? '' : 's'} to extend today.`
+      : `${questionsToStreak} new question${questionsToStreak === 1 ? '' : 's'} to start your streak.`;
 
   return (
     <div className="focus-dashboard">
@@ -201,7 +214,34 @@ export default async function DashboardPage() {
         </section>
 
         <section className="focus-missions" aria-label="Daily momentum">
-          <Reveal className="focus-card focus-stat-card focus-mission-card">
+          <Reveal className="focus-card focus-stat-card focus-streak-card">
+            <p className="focus-label"><Flame size={13} aria-hidden="true" /> Combo streak</p>
+            <p className="focus-stat-value">
+              <CountUp value={progression.currentStreak} /> <small>days</small>
+            </p>
+            <p className="focus-stat-copy">
+              {streakCopy} <span>Best: {progression.longestStreak} days</span>
+            </p>
+            <div className="focus-streak-cube" aria-hidden="true">
+              <span>{progression.currentStreak}</span>
+              <i />
+            </div>
+          </Reveal>
+
+          <Reveal className="focus-card focus-stat-card focus-xp-card" delay={80}>
+            <p className="focus-label"><Trophy size={13} aria-hidden="true" /> XP collected</p>
+            <p className="focus-stat-value">
+              {progression.weekXp > 0 ? '+' : ''}<CountUp value={progression.weekXp} />
+            </p>
+            <p className="focus-stat-copy">
+              Monday–today <span><CountUp value={progression.totalXp} /> lifetime XP</span>
+            </p>
+            <div className="focus-xp-medal" aria-hidden="true">
+              <span>★</span><i /><b />
+            </div>
+          </Reveal>
+
+          <Reveal className="focus-card focus-stat-card focus-mission-card" delay={160}>
             <div className="focus-mission-head">
               <div>
                 <p className="focus-label">Daily missions</p>
@@ -219,7 +259,9 @@ export default async function DashboardPage() {
               ))}
             </div>
             <p className="focus-stat-copy">
-              {missionsCompleted === 3 ? 'All clear. You owned today.' : 'Claim the next progress boost.'}
+              {missionsCompleted === 3
+                ? 'All clear. You owned today.'
+                : `${progression.today.newQuestions} new question${progression.today.newQuestions === 1 ? '' : 's'} logged today.`}
             </p>
           </Reveal>
         </section>

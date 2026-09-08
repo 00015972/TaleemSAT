@@ -187,6 +187,50 @@ export type Database = {
           },
         ]
       }
+      daily_progress: {
+        Row: {
+          activity_date: string
+          created_at: string
+          id: string
+          qualifying_question_count: number
+          streak_crossed_at: string | null
+          streak_earned: boolean
+          updated_at: string
+          user_id: string
+          xp_earned: number
+        }
+        Insert: {
+          activity_date: string
+          created_at?: string
+          id?: string
+          qualifying_question_count?: number
+          streak_crossed_at?: string | null
+          streak_earned?: boolean
+          updated_at?: string
+          user_id: string
+          xp_earned?: number
+        }
+        Update: {
+          activity_date?: string
+          created_at?: string
+          id?: string
+          qualifying_question_count?: number
+          streak_crossed_at?: string | null
+          streak_earned?: boolean
+          updated_at?: string
+          user_id?: string
+          xp_earned?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       certificates: {
         Row: {
           awarded_at: string
@@ -686,6 +730,76 @@ export type Database = {
           },
         ]
       }
+      progression_events: {
+        Row: {
+          activity_date: string
+          attempt_id: string
+          base_xp: number
+          context: Database["public"]["Enums"]["attempt_context"]
+          correct_bonus_xp: number
+          created_at: string
+          id: string
+          is_correct: boolean
+          question_id: string
+          streak_extended: boolean
+          timezone: string
+          user_id: string
+          xp_delta: number
+        }
+        Insert: {
+          activity_date: string
+          attempt_id: string
+          base_xp?: number
+          context: Database["public"]["Enums"]["attempt_context"]
+          correct_bonus_xp?: number
+          created_at?: string
+          id?: string
+          is_correct: boolean
+          question_id: string
+          streak_extended?: boolean
+          timezone: string
+          user_id: string
+          xp_delta: number
+        }
+        Update: {
+          activity_date?: string
+          attempt_id?: string
+          base_xp?: number
+          context?: Database["public"]["Enums"]["attempt_context"]
+          correct_bonus_xp?: number
+          created_at?: string
+          id?: string
+          is_correct?: boolean
+          question_id?: string
+          streak_extended?: boolean
+          timezone?: string
+          user_id?: string
+          xp_delta?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "progression_events_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: true
+            referencedRelation: "attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "progression_events_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "progression_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stripe_events: {
         Row: {
           id: string
@@ -831,11 +945,14 @@ export type Database = {
       users: {
         Row: {
           created_at: string
+          current_streak: number
           current_period_end: string | null
           email: string
           exam_date: string | null
           full_name: string | null
           id: string
+          last_streak_date: string | null
+          longest_streak: number
           marketing_opt_in: boolean
           role: Database["public"]["Enums"]["user_role"]
           stripe_customer_id: string | null
@@ -845,15 +962,20 @@ export type Database = {
             | null
           target_sat_score: number | null
           tier: Database["public"]["Enums"]["user_tier"]
+          timezone: string
+          total_xp: number
           updated_at: string
         }
         Insert: {
           created_at?: string
+          current_streak?: number
           current_period_end?: string | null
           email: string
           exam_date?: string | null
           full_name?: string | null
           id: string
+          last_streak_date?: string | null
+          longest_streak?: number
           marketing_opt_in?: boolean
           role?: Database["public"]["Enums"]["user_role"]
           stripe_customer_id?: string | null
@@ -863,15 +985,20 @@ export type Database = {
             | null
           target_sat_score?: number | null
           tier?: Database["public"]["Enums"]["user_tier"]
+          timezone?: string
+          total_xp?: number
           updated_at?: string
         }
         Update: {
           created_at?: string
+          current_streak?: number
           current_period_end?: string | null
           email?: string
           exam_date?: string | null
           full_name?: string | null
           id?: string
+          last_streak_date?: string | null
+          longest_streak?: number
           marketing_opt_in?: boolean
           role?: Database["public"]["Enums"]["user_role"]
           stripe_customer_id?: string | null
@@ -881,6 +1008,8 @@ export type Database = {
             | null
           target_sat_score?: number | null
           tier?: Database["public"]["Enums"]["user_tier"]
+          timezone?: string
+          total_xp?: number
           updated_at?: string
         }
         Relationships: []
@@ -952,6 +1081,11 @@ export type Database = {
         Returns: Json
       }
       is_admin: { Args: never; Returns: boolean }
+      progression_timezone: {
+        Args: { p_timezone: string }
+        Returns: string
+      }
+      rebuild_progression_summaries: { Args: never; Returns: undefined }
     }
     Enums: {
       ai_kind: "weakness" | "plan" | "prediction"

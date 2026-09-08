@@ -204,6 +204,9 @@ cython_debug/
 # Temporary file for partial code execution
 tempCodeRunnerFile.py
 
+# Local visual brainstorming previews
+.superpowers/
+
 # Ruff stuff:
 .ruff_cache/
 

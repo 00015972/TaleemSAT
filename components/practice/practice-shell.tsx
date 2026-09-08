@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PracticeBrowse, type PracticeScope } from '@/components/practice/practice-browse';
 import type { PracticeBootstrap } from '@/components/practice/types';
 import type { PracticeOverview } from '@/lib/practice/overview';
@@ -15,22 +15,20 @@ const DynamicPracticeRunner = dynamic(
 
 export function PracticeShell({
   overview,
+  initialScope = null,
 }: {
   overview: PracticeOverview;
+  initialScope?: PracticeScope | null;
 }) {
-  const [scope, setScope] = useState<PracticeScope | null>(null);
+  const [scope, setScope] = useState<PracticeScope | null>(initialScope);
   const [status, setStatus] = useState<Status>('loading');
   const [bootstrap, setBootstrap] = useState<PracticeBootstrap | null>(null);
   const activeRequest = useRef<AbortController | null>(null);
 
-  async function startScope(target: PracticeScope) {
+  async function loadScope(target: PracticeScope) {
     activeRequest.current?.abort();
     const controller = new AbortController();
     activeRequest.current = controller;
-
-    setScope(target);
-    setStatus('loading');
-    setBootstrap(null);
 
     const scopeKey =
       target.kind === 'topic'
@@ -65,6 +63,26 @@ export function PracticeShell({
       if (activeRequest.current === controller) activeRequest.current = null;
     }
   }
+
+  function startScope(target: PracticeScope) {
+    setScope(target);
+    setStatus('loading');
+    setBootstrap(null);
+    void loadScope(target);
+  }
+
+  useEffect(() => {
+    const timer = initialScope
+      ? window.setTimeout(() => void loadScope(initialScope), 0)
+      : null;
+    return () => {
+      if (timer !== null) window.clearTimeout(timer);
+      activeRequest.current?.abort();
+    };
+    // initialScope is a server-validated mount-time instruction. The keyed
+    // PracticeShell remounts when it changes, so this must run exactly once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function backToTopics() {
     activeRequest.current?.abort();

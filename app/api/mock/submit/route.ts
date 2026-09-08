@@ -2,6 +2,8 @@ import { createClient, getClaimsUser } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { NextRequest } from 'next/server';
 import { gridInAnswerMatches } from '@/lib/grading/grid-in';
+import { loadProgressionAfterAttempts } from '@/lib/progression/server';
+import type { MockProgressionSummary } from '@/lib/progression/types';
 
 /**
  * Scores a finished mock test. The client sends its answers; the server is the
@@ -43,10 +45,15 @@ export async function POST(request: NextRequest) {
   }
 
   const ids = [...new Set(answers.map(a => a.questionId).filter(Boolean))];
-  const { data: qs } = await supabase
+  const { data: qs, error: questionError } = await supabase
     .from('questions')
     .select('id, correct_answer, accepted_answers, explanation, status, question_type')
-    .in('id', ids);
+    .in('id', ids)
+    .eq('status', 'published');
+
+  if (questionError) {
+    return Response.json({ error: 'QUESTION_LOAD_FAILED' }, { status: 500 });
+  }
 
   const map = new Map((qs ?? []).map(q => [q.id, q]));
 
@@ -81,13 +88,46 @@ export async function POST(request: NextRequest) {
     };
   });
 
+  const admin = createAdminClient();
+  let attemptIds: string[] = [];
   if (inserts.length > 0) {
-    const admin = createAdminClient();
-    await admin.from('attempts').insert(inserts);
+    const { data: inserted, error: insertError } = await admin
+      .from('attempts')
+      .insert(inserts)
+      .select('id');
+    if (insertError) {
+      return Response.json({ error: 'ATTEMPT_SAVE_FAILED' }, { status: 500 });
+    }
+    attemptIds = (inserted ?? []).map(row => row.id);
   }
+
+  let progress: Awaited<ReturnType<typeof loadProgressionAfterAttempts>>;
+  try {
+    progress = await loadProgressionAfterAttempts(admin, user.id, attemptIds);
+  } catch {
+    return Response.json({ error: 'PROGRESSION_READ_FAILED' }, { status: 500 });
+  }
+  const awardsByQuestion = new Map(progress.awards.map(award => [award.questionId, award]));
+  const rewardedQuestions = new Set<string>();
+  const rewardedResults = results.map(result => {
+    const award = awardsByQuestion.get(result.questionId);
+    const isFirstEver = Boolean(award) && !rewardedQuestions.has(result.questionId);
+    if (isFirstEver) rewardedQuestions.add(result.questionId);
+    return {
+      ...result,
+      isFirstEver,
+      xpAwarded: isFirstEver ? (award?.xpAwarded ?? 0) : 0,
+    };
+  });
+  const progression: MockProgressionSummary = {
+    newQuestions: progress.awards.length,
+    xpAwarded: progress.awards.reduce((sum, award) => sum + award.xpAwarded, 0),
+    streakExtended: progress.awards.some(award => award.streakExtended),
+    snapshot: progress.snapshot,
+  };
 
   const total = results.length;
   const correct = results.filter(r => r.isCorrect).length;
 
-  return Response.json({ results, summary: { total, correct } });
+  return Response.json({ results: rewardedResults, summary: { total, correct }, progression });
 }

@@ -2,14 +2,28 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import type { IconType } from 'react-icons';
+import {
+  FiBookOpen,
+  FiCreditCard,
+  FiSettings,
+  FiUploadCloud,
+  FiUsers,
+} from 'react-icons/fi';
 
-const NAV_LINKS = [
-  { href: '/admin', label: 'Operations', active: true, exact: true },
-  { href: '/admin/questions', label: 'Questions', active: true },
-  { href: '/admin/import-jobs', label: 'Imports', active: true },
-  { href: '/admin/users', label: 'Users', active: true },
-  { href: '/admin/subscriptions', label: 'Subscriptions', active: true },
-  { href: '/admin/settings', label: 'Settings', active: false },
+const NAV_LINKS: {
+  href: string;
+  label: string;
+  icon: IconType;
+  active: boolean;
+  exact?: boolean;
+  section?: 'Workspace' | 'Management';
+}[] = [
+  { href: '/admin/questions', label: 'Questions', icon: FiBookOpen, active: true, section: 'Workspace' },
+  { href: '/admin/import-jobs', label: 'Imports', icon: FiUploadCloud, active: true },
+  { href: '/admin/users', label: 'Users', icon: FiUsers, active: true, section: 'Management' },
+  { href: '/admin/subscriptions', label: 'Subscriptions', icon: FiCreditCard, active: true },
+  { href: '/admin/settings', label: 'Settings', icon: FiSettings, active: false },
 ];
 
 export function AdminNav() {
@@ -22,26 +36,40 @@ export function AdminNav() {
 
   return (
     <nav className="adm-nav">
-      {NAV_LINKS.map(link => {
+      {NAV_LINKS.map((link, index) => {
+        const Icon = link.icon;
+        const sectionLabel = link.section ? (
+          <span className="admin-cockpit-nav-label" key={`${link.href}-section`}>
+            {link.section}
+          </span>
+        ) : null;
+
         if (!link.active) {
           return (
-            <span key={link.href} className="adm-nav-link off" title="Coming soon">
-              <span className="mark" />
-              {link.label}
-            </span>
+            <div key={link.href}>
+              {sectionLabel}
+              <span className="adm-nav-link off" title="Coming soon">
+                <span className="mark"><Icon aria-hidden="true" /></span>
+                <span>{link.label}</span>
+                <small>Soon</small>
+              </span>
+            </div>
           );
         }
 
         const active = isActive(link.href, link.exact);
         return (
-          <Link
-            key={link.href}
-            href={link.href}
-            className={`adm-nav-link${active ? ' on' : ''}`}
-          >
-            <span className="mark" />
-            {link.label}
-          </Link>
+          <div key={link.href}>
+            {sectionLabel}
+            <Link
+              href={link.href}
+              className={`adm-nav-link${active ? ' on' : ''}`}
+              style={{ '--admin-nav-index': index } as React.CSSProperties}
+            >
+              <span className="mark"><Icon aria-hidden="true" /></span>
+              <span>{link.label}</span>
+            </Link>
+          </div>
         );
       })}
     </nav>

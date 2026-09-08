@@ -37,7 +37,9 @@ import {
 } from '@/components/practice/practice-highlighter';
 import { PracticeReferenceModal } from '@/components/practice/practice-reference-modal';
 import { PracticeWorkspace } from '@/components/practice/practice-workspace';
+import { QuestionRewardFeedback } from '@/components/progression/reward-feedback';
 import type { PracticeScope } from '@/components/practice/practice-browse';
+import type { ProgressionOutcome } from '@/lib/progression/types';
 import type {
   PracticeBootstrap,
   PracticeOption,
@@ -140,6 +142,9 @@ function ReadyPracticeRunner({
   const [tries, setTries] = useState<Record<string, string[]>>({});
   const [solvedAnswer, setSolvedAnswer] = useState<Record<string, string>>({});
   const [firstResult, setFirstResult] = useState<Record<string, boolean>>({});
+  const [progressionByQuestion, setProgressionByQuestion] = useState<
+    Record<string, ProgressionOutcome | null>
+  >({});
   const [flagged, setFlagged] = useState<Set<string>>(new Set());
   const [eliminated, setEliminated] = useState<Record<string, string[]>>({});
   const [elimMode, setElimMode] = useState(false);
@@ -159,6 +164,7 @@ function ReadyPracticeRunner({
   // Transient, current-question-only state.
   const [picked, setPicked] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
+  const [checkError, setCheckError] = useState('');
   const [qStartedAt, setQStartedAt] = useState<number | null>(() => Date.now());
 
   const loadQuestion = useCallback(async (id: string): Promise<PracticeQuestion | null> => {
@@ -192,6 +198,7 @@ function ReadyPracticeRunner({
       const entry = manifest[clamped];
       setIndex(clamped);
       setPicked(null);
+      setCheckError('');
 
       const hit = cacheRef.current.get(entry.id);
       if (hit) {
@@ -242,6 +249,7 @@ function ReadyPracticeRunner({
     (id: string, optionId: string) => {
       if (solvedAnswer[id] !== undefined) return;
       if ((tries[id] ?? []).includes(optionId)) return;
+      setCheckError('');
       setPicked(optionId);
     },
     [solvedAnswer, tries]
@@ -252,6 +260,7 @@ function ReadyPracticeRunner({
     const id = manifest[index].id;
     const isFirst = firstResult[id] === undefined;
     setChecking(true);
+    setCheckError('');
     try {
       const res = await fetch('/api/practice/answer', {
         method: 'POST',
@@ -263,9 +272,22 @@ function ReadyPracticeRunner({
           recordAttempt: isFirst,
         }),
       });
-      const data = (await res.json()) as { isCorrect: boolean };
-      if (isFirst) setFirstResult(r => ({ ...r, [id]: data.isCorrect }));
-      if (data.isCorrect) {
+      const data = (await res.json()) as {
+        isCorrect?: boolean;
+        progression?: ProgressionOutcome | null;
+      };
+      if (!res.ok || typeof data.isCorrect !== 'boolean') {
+        throw new Error('Attempt was not saved');
+      }
+      const isCorrect = data.isCorrect;
+      if (isFirst) setFirstResult(r => ({ ...r, [id]: isCorrect }));
+      if (isFirst) {
+        setProgressionByQuestion(currentProgression => ({
+          ...currentProgression,
+          [id]: data.progression ?? null,
+        }));
+      }
+      if (isCorrect) {
         setSolvedAnswer(s => ({ ...s, [id]: picked }));
       } else {
         setTries(t => ({ ...t, [id]: [...(t[id] ?? []), picked] }));
@@ -275,6 +297,7 @@ function ReadyPracticeRunner({
       setPicked(null);
     } catch {
       // leave the pick in place so the student can just retry Check
+      setCheckError("Couldn't save this answer. Check your connection and try again.");
     } finally {
       setChecking(false);
     }
@@ -453,6 +476,8 @@ function ReadyPracticeRunner({
               eliminated={eliminated[currentId] ?? []}
               elimMode={elimMode}
               checking={checking}
+              progression={progressionByQuestion[currentId] ?? null}
+              checkError={checkError}
               onSelect={optId => selectOption(currentId, optId)}
               onCheck={checkAnswer}
               onToggleFlag={() => toggleFlag(currentId)}
@@ -582,6 +607,8 @@ function ChoicesPane({
   eliminated,
   elimMode,
   checking,
+  progression,
+  checkError,
   onSelect,
   onCheck,
   onToggleFlag,
@@ -598,6 +625,8 @@ function ChoicesPane({
   eliminated: string[];
   elimMode: boolean;
   checking: boolean;
+  progression: ProgressionOutcome | null;
+  checkError: string;
   onSelect: (optionId: string) => void;
   onCheck: () => void;
   onToggleFlag: () => void;
@@ -643,6 +672,9 @@ function ChoicesPane({
           )}
         </div>
       </div>
+
+      <QuestionRewardFeedback outcome={progression} />
+      {checkError && <p className="progress-save-error" role="alert">{checkError}</p>}
 
       {isGridIn ? (
         <GridInInput

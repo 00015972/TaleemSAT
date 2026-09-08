@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import type { CSSProperties } from 'react';
+import { FiArrowLeft, FiEdit3 } from 'react-icons/fi';
 import { createClient } from '@/lib/supabase/server';
 import {
   QuestionForm,
@@ -71,16 +73,26 @@ export default async function EditQuestionPage({
   };
 
   return (
-    <div className="p-6 md:p-8 max-w-[96rem]">
-      <div className="adm-crumbs">
-        <Link href="/admin/questions">Questions</Link>
-        <span>/</span>
-        <span className="here">Edit</span>
-      </div>
-      <div className="adm-head">
-        <h1>Edit question</h1>
-        <StatusBadge status={question.status} />
-      </div>
+    <section className="question-studio-route">
+      <header className="question-studio-route-head question-studio-enter">
+        <Link href="/admin/questions" className="question-studio-route-back">
+          <FiArrowLeft aria-hidden="true" />
+          Questions
+        </Link>
+        <div className="question-studio-route-title">
+          <span className="question-studio-route-icon" aria-hidden="true">
+            <FiEdit3 />
+          </span>
+          <div>
+            <p>Question workshop / Edit</p>
+            <div className="question-studio-route-title-line">
+              <h1>Edit question</h1>
+              <StatusBadge status={question.status} />
+            </div>
+            <span>Refine each stage, confirm the student view, and save when every detail is ready.</span>
+          </div>
+        </div>
+      </header>
       <QuestionForm
         mode="edit"
         questionId={question.id}
@@ -88,7 +100,7 @@ export default async function EditQuestionPage({
         categories={categories}
         initial={initial}
       />
-    </div>
+    </section>
   );
 }
 
@@ -100,14 +112,7 @@ function StatusBadge({ status }: { status: string }) {
   };
   const color = colors[status] ?? 'var(--muted)';
   return (
-    <span
-      className="adm-pill"
-      style={{
-        color,
-        background: `color-mix(in srgb, ${color} 12%, transparent)`,
-        border: `1px solid color-mix(in srgb, ${color} 30%, transparent)`,
-      }}
-    >
+    <span className="question-studio-route-status" style={{ '--status-color': color } as CSSProperties}>
       {status}
     </span>
   );

@@ -94,6 +94,7 @@ Step 4: Leaves the app
 ### Dashboard widgets (returning view)
 - Exam countdown — "47 days to your SAT"
 - Recent performance — last 7 days of accuracy
+- Daily Momentum — current/best streak, current-week/lifetime XP, and 1/5/10 new-question missions
 - Suggested categories — AI-driven for Pro+, generic for free
 - Recent activity feed
 
@@ -102,6 +103,15 @@ Step 4: Leaves the app
 - Eliminate-option mode (toggle in toolbar) — strike out wrong answers
 - Highlight mode (toggle) — highlight passage text
 - Both toggles: persist per session, not per question
+
+### Daily Momentum rules
+
+- A submitted SAT question qualifies only on the student's first-ever scored attempt, across both Practice and Mock Test.
+- The award is 5 XP for effort plus a 5 XP correct-answer bonus.
+- Five qualifying new questions on the saved-timezone local date protect or extend the streak. Visits, refreshes, answer selections, explanations, and familiar-question retries do not.
+- Reward feedback is server-confirmed: `+5 XP`, `+10 XP`, `N/5 new questions`, a streak extension, or `No new XP — already attempted`.
+- A missed streak displays as zero and is persisted as reset when the student next begins qualifying work. The longest streak remains visible.
+- The XP card uses Monday through the student's current local date; prior events retain the timezone/date captured when they were earned.
 
 ---
 
@@ -152,7 +162,7 @@ State H: "Next question" loading
   - **Why the right answer is right** (always shown)
   - **Why each wrong answer is wrong** (collapsible)
   - **Key rule** (always shown — the takeaway)
-- Light editorial styling — Source Serif 4, gold tag for the rule.
+- Light editorial styling — regular-weight Manrope, with a gold tag for the rule.
 
 ### State H — Next question loading
 - Card content fades out.
@@ -264,7 +274,7 @@ Step 5: Email receipt + welcome
 ## Flow 9 — Admin imports an HTML question bank
 
 ### Sequence
-1. `/admin/import-jobs` → "New import" → `/admin/import-jobs/new`.
+1. `/admin` redirects to `/admin/questions`; imports begin at `/admin/import-jobs` → "New import" → `/admin/import-jobs/new`.
 2. Drag-and-drop area (or "Choose file") accepts a hand-converted `.html` question-bank file — see [15-html-import-schema.md](15-html-import-schema.md) for the required shape.
 3. Click "Start import" → file uploads, server parses it synchronously (no AI involved — the HTML already tags question text, options, correct answer, explanation).
 4. Redirect to `/admin/import-jobs/:id` — the review queue for this job.

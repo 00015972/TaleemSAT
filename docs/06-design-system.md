@@ -12,7 +12,7 @@
 Think: a serious test-prep brochure from a top university × the polish of Stripe × the warmth of a hand-bound notebook. Not "AI startup with gradient violet buttons."
 
 ### Three principles we don't break
-1. **Serif for headlines, sans for UI.** Playfair Display gives gravity. DM Sans gives clarity.
+1. **Manrope for content and headlines, sans for UI.** Manrope gives questions a clean, modern reading rhythm. DM Sans keeps interface chrome compact and clear.
 2. **Gold accent is precious, not loud.** Use it sparingly — for the eyebrow lines, important borders, accent words. Never as a primary background.
 3. **Warm > cold.** Cream (#f7f5f0) not stark white. The platform should feel inviting, not clinical.
 
@@ -63,9 +63,9 @@ Re-mapped on `[data-theme="dark"]` — colors shift to warm-dark tones. Never pu
 ## Typography
 
 ### Font families
-- **Display:** `'Playfair Display'`, Georgia, serif — for H1, H2, brand wordmark, big numbers (stats, step numbers)
+- **Display:** `'Manrope'`, ui-sans-serif, sans-serif — for H1, H2, brand wordmark, big numbers (stats, step numbers)
 - **Body:** `'DM Sans'`, system-ui, sans-serif — for everything UI
-- **Editorial:** `'Source Serif 4'`, Georgia, serif — for question passages, quotes, anywhere we want "read me carefully" feel
+- **Editorial:** `'Manrope'`, ui-sans-serif, sans-serif — for question passages, choices, and rationales, with semantic bold and italic emphasis preserved
 - **Mono:** `'JetBrains Mono'`, ui-monospace — for code, IDs, technical labels
 
 All loaded from Google Fonts with `display=swap`.
@@ -86,8 +86,8 @@ All loaded from Google Fonts with `display=swap`.
 | `text-display` | clamp(2.5rem, 5vw, 4.5rem) | 1.05 | Landing hero |
 
 ### Type rules
-- **H1, H2, H3:** Playfair Display, weight 600 or 700, slight negative letter-spacing (`-0.02em`).
-- **Italic accent words inside headlines:** Playfair italic weight 500, color `--green` (visual signature throughout the site).
+- **H1, H2, H3:** Manrope, weight 600 or 700, slight negative letter-spacing (`-0.02em`).
+- **Italic accent words inside headlines:** Manrope italic/oblique weight 500, color `--green` (visual signature throughout the site).
 - **Body text:** DM Sans 400, weight 500–600 for emphasis.
 - **Eyebrow labels:** DM Sans 700, uppercase, letter-spacing 0.22em, paired with gold horizontal line.
 - **Numbers:** Tabular figures (`font-variant-numeric: tabular-nums`) anywhere they're compared (scores, points, timer).

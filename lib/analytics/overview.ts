@@ -1,22 +1,34 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types';
-
-/**
- * Aggregates a user's practice attempt history into the stats the analytics
- * page renders and the AI insight prompt consumes. One DB read, aggregated in
- * JS. Shared so the page and the AI route compute the exact same numbers.
- */
+import { computePracticeOverview } from '@/lib/practice/overview';
+import {
+  buildReadinessSeries,
+  computeFocusedDrillGain,
+  computeReadiness,
+  DAY_MS,
+  type ReadinessAttempt,
+  type ReadinessPoint,
+  type ReadinessSnapshot,
+} from './readiness';
 
 export type CategoryStat = {
+  id: string | null;
+  slug: string;
   category: string;
   subject: string;
   subjectSlug: string;
   attempts: number;
   correct: number;
-  accuracy: number; // 0..1
+  accuracy: number;
   avgTimeMs: number;
   topWrongTags: string[];
+  recentAttempts: number;
+  recentCorrect: number;
+  recentAccuracy: number;
+  recent14Attempts: number;
+  previous14Attempts: number;
+  accuracyChange: number | null;
 };
 
 export type SubjectStat = {
@@ -24,27 +36,27 @@ export type SubjectStat = {
   subjectSlug: string;
   attempts: number;
   correct: number;
-  accuracy: number; // 0..1
+  accuracy: number;
 };
 
 export type WeeklyPoint = {
-  weekStart: string; // ISO date (YYYY-MM-DD)
+  weekStart: string;
   attempts: number;
   correct: number;
-  accuracy: number; // 0..1
+  accuracy: number;
 };
 
 export type DailyPoint = {
-  date: string; // ISO date (YYYY-MM-DD)
+  date: string;
   attempts: number;
   correct: number;
-  accuracy: number; // 0..1
+  accuracy: number;
 };
 
 export type AnalyticsOverview = {
   total: number;
   correct: number;
-  overallAccuracy: number; // 0..1
+  overallAccuracy: number;
   bySubject: SubjectStat[];
   byCategory: CategoryStat[];
   trend: {
@@ -52,8 +64,18 @@ export type AnalyticsOverview = {
     prev7Accuracy: number | null;
     direction: 'improving' | 'declining' | 'flat' | 'insufficient';
   };
-  weekly: WeeklyPoint[]; // most recent 8 weeks, oldest first
-  daily: DailyPoint[]; // most recent 14 days, oldest first
+  weekly: WeeklyPoint[];
+  daily: DailyPoint[];
+  readiness: {
+    current: ReadinessSnapshot;
+    series: ReadinessPoint[];
+    potentialGain: number | null;
+  };
+  signals: {
+    power: CategoryStat | null;
+    rising: CategoryStat | null;
+    priority: CategoryStat | null;
+  };
 };
 
 type AttemptRow = {
@@ -63,58 +85,96 @@ type AttemptRow = {
   questions: {
     category_id: string | null;
     tags: string[] | null;
-    categories: { name: string } | null;
+    categories: { id: string; name: string; slug: string } | null;
     subjects: { name: string; slug: string } | null;
   } | null;
 };
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+type CategoryAccumulator = {
+  id: string | null;
+  slug: string;
+  category: string;
+  subject: string;
+  subjectSlug: string;
+  attempts: number;
+  correct: number;
+  timeSum: number;
+  timeCount: number;
+  wrongTags: Map<string, number>;
+};
+
+function accuracyOf(rows: AttemptRow[]) {
+  return rows.length ? rows.filter(row => row.is_correct).length / rows.length : null;
+}
+
+function rowsInWindow(rows: AttemptRow[], end: number, startDays: number, endDays = 0) {
+  return rows.filter(row => {
+    const timestamp = new Date(row.created_at).getTime();
+    return timestamp <= end - endDays * DAY_MS && timestamp > end - startDays * DAY_MS;
+  });
+}
+
+function categorySlug(row: AttemptRow) {
+  return row.questions?.categories?.slug ?? 'uncategorized';
+}
+
+function categoryWindow(rows: AttemptRow[], slug: string) {
+  return rows.filter(row => categorySlug(row) === slug);
+}
 
 export async function computeAnalyticsOverview(
   supabase: SupabaseClient<Database>,
-  userId: string
+  userId: string,
+  asOf: Date = new Date()
 ): Promise<AnalyticsOverview> {
-  const { data } = await supabase
-    .from('attempts')
-    .select(
-      'is_correct, time_taken_ms, created_at, questions(category_id, tags, categories(name), subjects(name, slug))'
-    )
-    .eq('user_id', userId)
-    .order('created_at', { ascending: true });
+  const [attemptResult, practiceOverview] = await Promise.all([
+    supabase
+      .from('attempts')
+      .select(
+        'is_correct, time_taken_ms, created_at, questions(category_id, tags, categories(id, name, slug), subjects(name, slug))'
+      )
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true }),
+    computePracticeOverview(supabase),
+  ]);
 
-  const rows = (data ?? []) as unknown as AttemptRow[];
+  if (attemptResult.error) {
+    throw new Error(`Analytics attempts query failed: ${attemptResult.error.message}`);
+  }
+
+  const rows = (attemptResult.data ?? []) as unknown as AttemptRow[];
+  const availableCategorySlugs = practiceOverview.subjects.flatMap(subject =>
+    subject.categories
+      .filter(category => category.questionCount.all > 0)
+      .map(category => category.slug)
+  );
+  const end = asOf.getTime();
+  const recent30Rows = rowsInWindow(rows, end, 30);
+  const recent14Rows = rowsInWindow(rows, end, 14);
+  const previous14Rows = rowsInWindow(rows, end, 28, 14);
 
   const total = rows.length;
-  const correct = rows.filter(r => r.is_correct).length;
-
-  const catMap = new Map<
-    string,
-    {
-      category: string;
-      subject: string;
-      subjectSlug: string;
-      attempts: number;
-      correct: number;
-      timeSum: number;
-      timeCount: number;
-      wrongTags: Map<string, number>;
-    }
-  >();
+  const correct = rows.filter(row => row.is_correct).length;
+  const catMap = new Map<string, CategoryAccumulator>();
   const subjMap = new Map<
     string,
     { subject: string; subjectSlug: string; attempts: number; correct: number }
   >();
 
-  for (const r of rows) {
-    const q = r.questions;
-    const catName = q?.categories?.name ?? 'Uncategorized';
-    const subjName = q?.subjects?.name ?? 'Unknown';
-    const subjSlug = q?.subjects?.slug ?? 'unknown';
-    const key = `${subjSlug}::${catName}`;
+  for (const row of rows) {
+    const question = row.questions;
+    const category = question?.categories;
+    const catName = category?.name ?? 'Uncategorized';
+    const catSlug = category?.slug ?? 'uncategorized';
+    const subjName = question?.subjects?.name ?? 'Unknown';
+    const subjSlug = question?.subjects?.slug ?? 'unknown';
+    const key = `${subjSlug}::${catSlug}`;
 
-    let c = catMap.get(key);
-    if (!c) {
-      c = {
+    let categoryStat = catMap.get(key);
+    if (!categoryStat) {
+      categoryStat = {
+        id: category?.id ?? question?.category_id ?? null,
+        slug: catSlug,
         category: catName,
         subject: subjName,
         subjectSlug: subjSlug,
@@ -124,111 +184,133 @@ export async function computeAnalyticsOverview(
         timeCount: 0,
         wrongTags: new Map(),
       };
-      catMap.set(key, c);
+      catMap.set(key, categoryStat);
     }
-    c.attempts += 1;
-    if (r.is_correct) c.correct += 1;
-    if (typeof r.time_taken_ms === 'number') {
-      c.timeSum += r.time_taken_ms;
-      c.timeCount += 1;
+    categoryStat.attempts += 1;
+    if (row.is_correct) categoryStat.correct += 1;
+    if (typeof row.time_taken_ms === 'number') {
+      categoryStat.timeSum += row.time_taken_ms;
+      categoryStat.timeCount += 1;
     }
-    if (!r.is_correct && q?.tags) {
-      for (const t of q.tags) c.wrongTags.set(t, (c.wrongTags.get(t) ?? 0) + 1);
+    if (!row.is_correct && question?.tags) {
+      for (const tag of question.tags) {
+        categoryStat.wrongTags.set(tag, (categoryStat.wrongTags.get(tag) ?? 0) + 1);
+      }
     }
 
-    let s = subjMap.get(subjSlug);
-    if (!s) {
-      s = { subject: subjName, subjectSlug: subjSlug, attempts: 0, correct: 0 };
-      subjMap.set(subjSlug, s);
+    let subjectStat = subjMap.get(subjSlug);
+    if (!subjectStat) {
+      subjectStat = { subject: subjName, subjectSlug: subjSlug, attempts: 0, correct: 0 };
+      subjMap.set(subjSlug, subjectStat);
     }
-    s.attempts += 1;
-    if (r.is_correct) s.correct += 1;
+    subjectStat.attempts += 1;
+    if (row.is_correct) subjectStat.correct += 1;
   }
 
   const byCategory: CategoryStat[] = [...catMap.values()]
-    .map(c => ({
-      category: c.category,
-      subject: c.subject,
-      subjectSlug: c.subjectSlug,
-      attempts: c.attempts,
-      correct: c.correct,
-      accuracy: c.attempts ? c.correct / c.attempts : 0,
-      avgTimeMs: c.timeCount ? Math.round(c.timeSum / c.timeCount) : 0,
-      topWrongTags: [...c.wrongTags.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3)
-        .map(e => e[0]),
-    }))
-    .sort((a, b) => b.attempts - a.attempts);
+    .map(category => {
+      const recent = categoryWindow(recent30Rows, category.slug);
+      const recent14 = categoryWindow(recent14Rows, category.slug);
+      const previous14 = categoryWindow(previous14Rows, category.slug);
+      const recentCorrect = recent.filter(row => row.is_correct).length;
+      const recent14Accuracy = accuracyOf(recent14);
+      const previous14Accuracy = accuracyOf(previous14);
+      return {
+        id: category.id,
+        slug: category.slug,
+        category: category.category,
+        subject: category.subject,
+        subjectSlug: category.subjectSlug,
+        attempts: category.attempts,
+        correct: category.correct,
+        accuracy: category.attempts ? category.correct / category.attempts : 0,
+        avgTimeMs: category.timeCount ? Math.round(category.timeSum / category.timeCount) : 0,
+        topWrongTags: [...category.wrongTags.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([tag]) => tag),
+        recentAttempts: recent.length,
+        recentCorrect,
+        recentAccuracy: recent.length ? recentCorrect / recent.length : 0,
+        recent14Attempts: recent14.length,
+        previous14Attempts: previous14.length,
+        accuracyChange:
+          recent14Accuracy === null || previous14Accuracy === null
+            ? null
+            : recent14Accuracy - previous14Accuracy,
+      };
+    })
+    .sort((a, b) => b.recentAttempts - a.recentAttempts || b.attempts - a.attempts);
 
   const bySubject: SubjectStat[] = [...subjMap.values()]
-    .map(s => ({
-      subject: s.subject,
-      subjectSlug: s.subjectSlug,
-      attempts: s.attempts,
-      correct: s.correct,
-      accuracy: s.attempts ? s.correct / s.attempts : 0,
+    .map(subject => ({
+      subject: subject.subject,
+      subjectSlug: subject.subjectSlug,
+      attempts: subject.attempts,
+      correct: subject.correct,
+      accuracy: subject.attempts ? subject.correct / subject.attempts : 0,
     }))
     .sort((a, b) => b.attempts - a.attempts);
 
-  // Recent trend: last 7 days vs the 7 days before that.
-  const now = Date.now();
-  const ageMs = (iso: string) => now - new Date(iso).getTime();
-  const last7 = rows.filter(r => ageMs(r.created_at) <= 7 * DAY_MS);
-  const prev7 = rows.filter(r => {
-    const age = ageMs(r.created_at);
-    return age > 7 * DAY_MS && age <= 14 * DAY_MS;
-  });
-  const accuracyOf = (arr: AttemptRow[]) =>
-    arr.length ? arr.filter(r => r.is_correct).length / arr.length : null;
+  const last7 = rowsInWindow(rows, end, 7);
+  const prev7 = rowsInWindow(rows, end, 14, 7);
   const last7Accuracy = accuracyOf(last7);
   const prev7Accuracy = accuracyOf(prev7);
-
   let direction: AnalyticsOverview['trend']['direction'] = 'insufficient';
   if (last7Accuracy !== null && prev7Accuracy !== null) {
     const delta = last7Accuracy - prev7Accuracy;
-    direction =
-      Math.abs(delta) < 0.03 ? 'flat' : delta > 0 ? 'improving' : 'declining';
+    direction = Math.abs(delta) < 0.03 ? 'flat' : delta > 0 ? 'improving' : 'declining';
   }
 
-  // Weekly buckets — last 8 weeks, oldest first.
   const weekly: WeeklyPoint[] = [];
-  for (let i = 7; i >= 0; i--) {
-    const start = now - (i + 1) * 7 * DAY_MS;
-    const end = now - i * 7 * DAY_MS;
-    const bucket = rows.filter(r => {
-      const t = new Date(r.created_at).getTime();
-      return t > start && t <= end;
+  for (let index = 7; index >= 0; index -= 1) {
+    const start = end - (index + 1) * 7 * DAY_MS;
+    const finish = end - index * 7 * DAY_MS;
+    const bucket = rows.filter(row => {
+      const timestamp = new Date(row.created_at).getTime();
+      return timestamp > start && timestamp <= finish;
     });
-    const bCorrect = bucket.filter(r => r.is_correct).length;
+    const bucketCorrect = bucket.filter(row => row.is_correct).length;
     weekly.push({
       weekStart: new Date(start).toISOString().slice(0, 10),
       attempts: bucket.length,
-      correct: bCorrect,
-      accuracy: bucket.length ? bCorrect / bucket.length : 0,
+      correct: bucketCorrect,
+      accuracy: bucket.length ? bucketCorrect / bucket.length : 0,
     });
   }
 
-  // Daily buckets — last 14 calendar days (local), oldest first. Denser than
-  // the weekly view, so the progress chart has shape even for newer students.
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
+  const endOfToday = new Date(asOf);
+  endOfToday.setUTCHours(23, 59, 59, 999);
   const daily: DailyPoint[] = [];
-  for (let i = 13; i >= 0; i--) {
-    const dayStart = startOfToday.getTime() - i * DAY_MS;
-    const dayEnd = dayStart + DAY_MS;
-    const bucket = rows.filter(r => {
-      const t = new Date(r.created_at).getTime();
-      return t >= dayStart && t < dayEnd;
+  for (let index = 29; index >= 0; index -= 1) {
+    const dayEnd = endOfToday.getTime() - index * DAY_MS;
+    const dayStart = dayEnd - DAY_MS + 1;
+    const bucket = rows.filter(row => {
+      const timestamp = new Date(row.created_at).getTime();
+      return timestamp >= dayStart && timestamp <= dayEnd;
     });
-    const dCorrect = bucket.filter(r => r.is_correct).length;
+    const bucketCorrect = bucket.filter(row => row.is_correct).length;
     daily.push({
-      date: new Date(dayStart).toISOString().slice(0, 10),
+      date: new Date(dayEnd).toISOString().slice(0, 10),
       attempts: bucket.length,
-      correct: dCorrect,
-      accuracy: bucket.length ? dCorrect / bucket.length : 0,
+      correct: bucketCorrect,
+      accuracy: bucket.length ? bucketCorrect / bucket.length : 0,
     });
   }
+
+  const readinessAttempts: ReadinessAttempt[] = rows.map(row => ({
+    isCorrect: row.is_correct,
+    createdAt: row.created_at,
+    categorySlug: categorySlug(row),
+  }));
+  const readinessAsOf = new Date(asOf);
+  readinessAsOf.setUTCHours(23, 59, 59, 999);
+  const currentReadiness = computeReadiness(
+    readinessAttempts,
+    availableCategorySlugs,
+    readinessAsOf
+  );
+  const signals = deriveSignals(byCategory);
 
   return {
     total,
@@ -239,5 +321,43 @@ export async function computeAnalyticsOverview(
     trend: { last7Accuracy, prev7Accuracy, direction },
     weekly,
     daily,
+    readiness: {
+      current: currentReadiness,
+      series: buildReadinessSeries(readinessAttempts, availableCategorySlugs, readinessAsOf),
+      potentialGain: computeFocusedDrillGain(
+        readinessAttempts,
+        availableCategorySlugs,
+        signals.priority?.slug ?? null,
+        readinessAsOf
+      ),
+    },
+    signals,
   };
+}
+
+function deriveSignals(byCategory: CategoryStat[]): AnalyticsOverview['signals'] {
+  const reliable = byCategory.filter(category => category.recentAttempts >= 3);
+  const power = [...reliable].sort(
+    (a, b) => b.recentAccuracy - a.recentAccuracy || b.recentAttempts - a.recentAttempts
+  )[0] ?? null;
+
+  const priorityPool = reliable.filter(category => category.slug !== power?.slug);
+  const priority = [...(priorityPool.length ? priorityPool : reliable)].sort((a, b) => {
+    const bLeverage = (1 - b.recentAccuracy) * Math.sqrt(b.recentAttempts);
+    const aLeverage = (1 - a.recentAccuracy) * Math.sqrt(a.recentAttempts);
+    return bLeverage - aLeverage || a.recentAccuracy - b.recentAccuracy;
+  })[0] ?? null;
+
+  const rising = [...reliable]
+    .filter(
+      category =>
+        category.slug !== power?.slug &&
+        category.slug !== priority?.slug &&
+        category.recent14Attempts >= 2 &&
+        category.previous14Attempts >= 2 &&
+        (category.accuracyChange ?? 0) > 0
+    )
+    .sort((a, b) => (b.accuracyChange ?? 0) - (a.accuracyChange ?? 0))[0] ?? null;
+
+  return { power, rising, priority };
 }

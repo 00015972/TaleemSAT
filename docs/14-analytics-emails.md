@@ -272,7 +272,7 @@ export function WelcomeEmail({ name, verifyUrl }: Props) {
       <Head />
       <Body style={{ background: '#f7f5f0', fontFamily: 'DM Sans, sans-serif' }}>
         <Container style={{ maxWidth: 560, padding: 32, background: '#fff' }}>
-          <Heading style={{ fontFamily: 'Playfair Display, serif', color: '#1a5c38' }}>
+          <Heading style={{ fontFamily: 'Manrope, sans-serif', color: '#1a5c38' }}>
             Welcome to Taleem SAT, {name}.
           </Heading>
           <Text>One small step before you start practicing — verify your email.</Text>

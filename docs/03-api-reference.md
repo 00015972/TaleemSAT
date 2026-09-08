@@ -146,41 +146,89 @@ Fetch a single question. Used after attempt submission to show the explanation.
 
 ---
 
-## Attempts
+## Attempts and progression
 
-### `POST /api/attempts`
-Submit an answer to a practice question.
+### `POST /api/practice/answer`
+
+Grade a practice answer. The runner sends `recordAttempt: true` only for its first check of the loaded question; later self-correction guesses are graded but not stored. Exactly-once XP eligibility is still enforced in the database across every session and context.
 
 **Auth:** required.
 
 **Body:**
 ```json
 {
-  "question_id": "uuid",
-  "selected_answer": "B",
-  "time_taken_ms": 24500,
-  "context": "practice"
+  "questionId": "uuid",
+  "selectedAnswer": "B",
+  "timeTakenMs": 24500,
+  "recordAttempt": true
 }
 ```
 
 **Response 200:**
 ```json
 {
-  "ok": true,
-  "data": {
-    "attempt_id": "uuid",
-    "correct": false,
-    "correct_answer": "C",
-    "explanation": "...",
-    "quota_remaining": 4
+  "isCorrect": true,
+  "correctAnswer": "B",
+  "explanation": "...",
+  "progression": {
+    "isFirstEver": true,
+    "baseXp": 5,
+    "bonusXp": 5,
+    "xpAwarded": 10,
+    "streakExtended": false,
+    "snapshot": {
+      "timezone": "Asia/Tashkent",
+      "today": { "activityDate": "2026-09-08", "newQuestions": 3, "xpEarned": 25, "streakEarned": false, "goal": 5 },
+      "weekXp": 65,
+      "totalXp": 420,
+      "currentStreak": 2,
+      "longestStreak": 8,
+      "lastStreakDate": "2026-09-07"
+    }
   }
 }
 ```
 
 **Notes:**
-- Server looks up `correct_answer` server-side (client can't spoof it).
-- Increments daily quota counter for free-tier users.
-- `quota_remaining` only present for free tier.
+- The correct answer and explanation are returned only for a correct check; a wrong unlimited-retry guess does not reveal the key.
+- A correct first-ever answer awards 10 XP; an incorrect one awards 5 XP. A familiar question reports `isFirstEver: false` and zero award.
+- If attempt persistence or database progression fails, the route returns 500 and the client keeps the answer retryable without showing XP.
+
+**Errors:** `AUTH_REQUIRED`, `INVALID_JSON`, `MISSING_FIELDS`, `INVALID_RECORD_ATTEMPT`, `QUESTION_NOT_FOUND`, `ATTEMPT_SAVE_FAILED`, `PROGRESSION_READ_FAILED`.
+
+---
+
+### `POST /api/mock/submit`
+
+Server-grade and save the answered questions in one mock-test submission. Each published, answered question creates a `mock` attempt; unanswered questions award nothing.
+
+The response contains per-question grading plus `isFirstEver` and `xpAwarded`, and one aggregate progression object:
+
+```json
+{
+  "results": [
+    { "questionId": "uuid", "correctAnswer": "A", "isCorrect": true, "explanation": "...", "isFirstEver": true, "xpAwarded": 10 }
+  ],
+  "summary": { "total": 10, "correct": 7 },
+  "progression": { "newQuestions": 6, "xpAwarded": 50, "streakExtended": true, "snapshot": { "today": { "newQuestions": 7, "goal": 5 } } }
+}
+```
+
+Previously attempted questions are still scored and retained in ordinary attempt analytics, but cannot grant another event or award. Duplicate question IDs cannot display or add the same award twice.
+
+**Errors:** `AUTH_REQUIRED`, `INVALID_JSON`, `MISSING_FIELDS`, `QUESTION_LOAD_FAILED`, `ATTEMPT_SAVE_FAILED`, `PROGRESSION_READ_FAILED`.
+
+---
+
+### `POST /api/profile/timezone`
+
+Save the authenticated student's browser-detected IANA timezone. This changes the local-date boundary for future progression events only.
+
+```json
+{ "timezone": "Asia/Tashkent" }
+```
+
+Returns `{ "timezone": "Asia/Tashkent" }`. Invalid or blank zones return `400 INVALID_TIMEZONE`; unauthenticated calls return `401 AUTH_REQUIRED`.
 
 ---
 

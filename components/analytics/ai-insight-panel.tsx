@@ -1,6 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { ArrowRight, RefreshCw, Sparkles } from 'lucide-react';
+import type { CategoryStat } from '@/lib/analytics/overview';
 
 type Insight = {
   headline: string;
@@ -8,7 +11,6 @@ type Insight = {
   weak_subtopics: string[];
   reasoning: string;
   recommendation: string;
-  estimated_score_gain: string;
   urgency: 'high' | 'medium' | 'low';
 };
 
@@ -24,18 +26,10 @@ type State =
   | { name: 'rate_limited' }
   | { name: 'error' };
 
-const URGENCY_STYLE: Record<Insight['urgency'], { bg: string; color: string }> = {
-  high: { bg: 'color-mix(in srgb, var(--err) 14%, transparent)', color: 'var(--err)' },
-  medium: { bg: 'color-mix(in srgb, var(--gold-d) 16%, transparent)', color: 'var(--gold-d)' },
-  low: { bg: 'color-mix(in srgb, var(--green) 14%, transparent)', color: 'var(--green-d)' },
-};
-
-/** Fetch + map to a render state. Module-level and pure — no setState — so the
- *  mount effect can resolve it in a `.then` without tripping react-hooks rules. */
 async function fetchInsightState(refresh: boolean): Promise<State> {
   try {
-    const res = await fetch(`/api/ai/insights${refresh ? '?refresh=1' : ''}`);
-    const data = (await res.json()) as ApiResponse;
+    const response = await fetch(`/api/ai/insights${refresh ? '?refresh=1' : ''}`);
+    const data = (await response.json()) as ApiResponse;
     if (data.ok) return { name: 'ok', insight: data.insight, cached: data.cached };
     if (data.reason === 'insufficient_data') {
       return { name: 'insufficient', have: data.have, needed: data.needed };
@@ -47,14 +41,25 @@ async function fetchInsightState(refresh: boolean): Promise<State> {
   }
 }
 
-export function AiInsightPanel() {
+function categoryMatches(priority: CategoryStat, insight: Insight) {
+  const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
+  return normalize(priority.category) === normalize(insight.weak_category);
+}
+
+export function AiInsightPanel({
+  priority,
+  potentialGain,
+}: {
+  priority: CategoryStat | null;
+  potentialGain: number | null;
+}) {
   const [state, setState] = useState<State>({ name: 'loading' });
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     let active = true;
-    fetchInsightState(false).then(s => {
-      if (active) setState(s);
+    fetchInsightState(false).then(next => {
+      if (active) setState(next);
     });
     return () => {
       active = false;
@@ -63,100 +68,103 @@ export function AiInsightPanel() {
 
   async function refresh() {
     setRefreshing(true);
-    const s = await fetchInsightState(true);
-    setState(s);
+    const next = await fetchInsightState(true);
+    setState(next);
     setRefreshing(false);
   }
 
-  if (state.name === 'loading') {
+  if (!priority) {
     return (
-      <div className="an-insight">
-        <div className="an-skel" style={{ width: '40%', height: '0.8rem', marginBottom: '0.9rem' }} />
-        <div className="an-skel" style={{ width: '85%', height: '1.2rem', marginBottom: '0.7rem' }} />
-        <div className="an-skel" style={{ width: '100%', marginBottom: '0.4rem' }} />
-        <div className="an-skel" style={{ width: '90%' }} />
+      <div className="observatory-coach-copy">
+        <p className="observatory-label"><Sparkles size={13} /> Coach signal · calibrating</p>
+        <h2>Build the evidence.<span>Reveal the leverage.</span></h2>
+        <p>Practice at least three questions in a few skill categories and your highest-impact signal will appear here.</p>
+        <Link href="/question-bank" className="observatory-outline-button">
+          Build your baseline <ArrowRight size={14} />
+        </Link>
+        <CoachArtwork />
       </div>
     );
   }
 
-  if (state.name === 'insufficient') {
-    return (
-      <div className="an-lock">
-        <p className="app-label" style={{ marginBottom: '0.4rem' }}>AI insight</p>
-        <p className="text-sm" style={{ color: 'var(--txt-soft)' }}>
-          Answer <strong>{state.needed - state.have}</strong> more practice question
-          {state.needed - state.have === 1 ? '' : 's'} to unlock your personalized
-          weakness analysis.
-        </p>
-      </div>
-    );
-  }
-
-  if (state.name === 'rate_limited') {
-    return (
-      <div className="an-lock">
-        <p className="text-sm" style={{ color: 'var(--txt-soft)' }}>
-          You&apos;ve refreshed your insight several times today. Check back tomorrow
-          for a fresh analysis.
-        </p>
-      </div>
-    );
-  }
-
-  if (state.name === 'error') {
-    return (
-      <div className="an-insight">
-        <div className="an-insight-head">
-          <p className="app-label">AI insight</p>
-        </div>
-        <p className="text-sm" style={{ color: 'var(--txt-soft)' }}>
-          Insight unavailable right now.
-        </p>
-        <button className="an-refresh" onClick={refresh} disabled={refreshing}>
-          {refreshing ? 'Retrying…' : 'Try again'}
-        </button>
-      </div>
-    );
-  }
-
-  const { insight, cached } = state;
-  const urg = URGENCY_STYLE[insight.urgency];
+  const compatible = state.name === 'ok' && categoryMatches(priority, state.insight);
+  const reasoning = compatible
+    ? state.insight.reasoning
+    : `Your recent work shows the clearest opportunity in ${priority.category}. A short, focused set will add useful evidence and train the pattern while it is fresh.`;
+  const recommendation = compatible ? state.insight.recommendation : null;
+  const subtopics = compatible ? state.insight.weak_subtopics : priority.topWrongTags;
 
   return (
-    <div className="an-insight">
-      <div className="an-insight-head">
-        <p className="app-label">AI insight</p>
-        <span className="an-urg" style={{ background: urg.bg, color: urg.color }}>
-          {insight.urgency} priority
-        </span>
+    <div className="observatory-coach-copy" aria-busy={state.name === 'loading'}>
+      <div className="observatory-coach-topline">
+        <p className="observatory-label"><Sparkles size={13} /> Coach signal · highest leverage</p>
+        {state.name === 'ok' && (
+          <span className={`observatory-urgency is-${state.insight.urgency}`}>
+            {state.insight.urgency} priority
+          </span>
+        )}
       </div>
 
-      <h3 className="an-insight-headline">{insight.headline}</h3>
+      <h2>Fix {priority.category}.<span>Unlock the climb.</span></h2>
 
-      {insight.weak_subtopics.length > 0 && (
-        <div className="an-chips">
-          {insight.weak_subtopics.map(t => (
-            <span key={t} className="an-chip">{t}</span>
-          ))}
+      {subtopics.length > 0 && (
+        <div className="observatory-coach-tags">
+          {subtopics.slice(0, 3).map(tag => <span key={tag}>{tag}</span>)}
         </div>
       )}
 
-      <p className="an-insight-body">{insight.reasoning}</p>
+      <p>{reasoning}</p>
+      {recommendation && <p className="observatory-coach-recommendation">{recommendation}</p>}
 
-      <div className="an-rec">
-        <p className="app-label" style={{ marginBottom: '0.3rem' }}>What to do</p>
-        <p className="an-insight-body" style={{ margin: 0 }}>{insight.recommendation}</p>
-        <p className="an-gain">Estimated gain: {insight.estimated_score_gain}</p>
+      <div className="observatory-coach-actions">
+        <Link
+          href={`/question-bank?category=${encodeURIComponent(priority.slug)}&mode=focus`}
+          className="observatory-outline-button"
+        >
+          Start 12-question drill <ArrowRight size={14} />
+        </Link>
+        {potentialGain !== null && (
+          <span className="observatory-gain">
+            +{potentialGain} readiness if 9 of 12 are correct
+          </span>
+        )}
       </div>
 
-      <div className="an-insight-foot">
-        <span className="text-xs" style={{ color: 'var(--muted)' }}>
-          {cached ? 'Cached analysis' : 'Fresh analysis'}
-        </span>
-        <button className="an-refresh" onClick={refresh} disabled={refreshing}>
-          {refreshing ? 'Refreshing…' : 'Refresh'}
+      <div className="observatory-coach-status">
+        <span>{statusCopy(state, compatible)}</span>
+        <button type="button" onClick={refresh} disabled={refreshing}>
+          <RefreshCw size={12} className={refreshing ? 'is-spinning' : ''} />
+          {refreshing ? 'Refreshing' : 'Refresh coach'}
         </button>
       </div>
+      <CoachArtwork />
+    </div>
+  );
+}
+
+function statusCopy(state: State, compatible: boolean) {
+  if (state.name === 'loading') return 'Loading the coach narrative…';
+  if (state.name === 'insufficient') {
+    const remaining = Math.max(0, state.needed - state.have);
+    return `${remaining} more answer${remaining === 1 ? '' : 's'} unlock the full coach note`;
+  }
+  if (state.name === 'rate_limited') return 'Using today’s deterministic signal';
+  if (state.name === 'error') return 'Coach narrative is temporarily unavailable';
+  if (!compatible) return 'Deterministic signal kept; narrative is recalibrating';
+  return state.cached ? 'Cached coach narrative' : 'Fresh coach narrative';
+}
+
+function CoachArtwork() {
+  return (
+    <div className="observatory-coach-art" aria-hidden="true">
+      <i className="observatory-coach-orb" />
+      <span className="observatory-drill-paper">
+        <i />
+        <strong>NEXT<br />DRILL</strong>
+        <b><i /><i /><i className="filled" /><i /></b>
+        <i />
+      </span>
+      <em>✦</em>
     </div>
   );
 }

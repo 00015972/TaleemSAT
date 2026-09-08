@@ -9,6 +9,7 @@ import {
   date,
   uniqueIndex,
   index,
+  check,
   pgEnum,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
@@ -94,6 +95,11 @@ export const users = pgTable(
     fullName: text('full_name'),
     role: roleEnum('role').notNull().default('student'),
     tier: tierEnum('tier').notNull().default('free'),
+    timezone: text('timezone').notNull().default('Asia/Tashkent'),
+    totalXp: integer('total_xp').notNull().default(0),
+    currentStreak: integer('current_streak').notNull().default(0),
+    longestStreak: integer('longest_streak').notNull().default(0),
+    lastStreakDate: date('last_streak_date'),
     targetSatScore: integer('target_sat_score'),
     examDate: date('exam_date'),
     marketingOptIn: boolean('marketing_opt_in').notNull().default(true),
@@ -107,6 +113,13 @@ export const users = pgTable(
   (t) => [
     index('users_role_idx').on(t.role),
     index('users_tier_idx').on(t.tier),
+    check(
+      'users_progression_counters_nonnegative_chk',
+      sql`${t.totalXp} >= 0
+        and ${t.currentStreak} >= 0
+        and ${t.longestStreak} >= 0
+        and ${t.longestStreak} >= ${t.currentStreak}`
+    ),
   ]
 );
 
@@ -183,6 +196,77 @@ export const attempts = pgTable(
     index('attempts_user_id_created_at_idx').on(t.userId, t.createdAt),
     index('attempts_question_id_idx').on(t.questionId),
     index('attempts_user_question_idx').on(t.userId, t.questionId),
+  ]
+);
+
+// ─── Attempt-driven progression ────────────────────────────────────
+export const progressionEvents = pgTable(
+  'progression_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    questionId: uuid('question_id')
+      .notNull()
+      .references(() => questions.id, { onDelete: 'restrict' }),
+    attemptId: uuid('attempt_id')
+      .notNull()
+      .references(() => attempts.id, { onDelete: 'restrict' }),
+    context: attemptContextEnum('context').notNull(),
+    isCorrect: boolean('is_correct').notNull(),
+    baseXp: integer('base_xp').notNull().default(5),
+    correctBonusXp: integer('correct_bonus_xp').notNull().default(0),
+    xpDelta: integer('xp_delta').notNull(),
+    activityDate: date('activity_date').notNull(),
+    timezone: text('timezone').notNull(),
+    streakExtended: boolean('streak_extended').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('progression_events_user_question_unique').on(t.userId, t.questionId),
+    uniqueIndex('progression_events_attempt_unique').on(t.attemptId),
+    index('progression_events_user_activity_idx').on(t.userId, t.activityDate, t.createdAt),
+    index('progression_events_user_created_at_idx').on(t.userId, t.createdAt),
+    index('progression_events_question_id_idx').on(t.questionId),
+    check(
+      'progression_events_xp_shape_chk',
+      sql`${t.baseXp} = 5
+        and ${t.correctBonusXp} in (0, 5)
+        and ${t.correctBonusXp} = case when ${t.isCorrect} then 5 else 0 end
+        and ${t.xpDelta} = ${t.baseXp} + ${t.correctBonusXp}`
+    ),
+  ]
+);
+
+export const dailyProgress = pgTable(
+  'daily_progress',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    activityDate: date('activity_date').notNull(),
+    qualifyingQuestionCount: integer('qualifying_question_count').notNull().default(0),
+    xpEarned: integer('xp_earned').notNull().default(0),
+    streakEarned: boolean('streak_earned').notNull().default(false),
+    streakCrossedAt: timestamp('streak_crossed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('daily_progress_user_date_unique').on(t.userId, t.activityDate),
+    check(
+      'daily_progress_counts_nonnegative_chk',
+      sql`${t.qualifyingQuestionCount} >= 0 and ${t.xpEarned} >= 0`
+    ),
+    check(
+      'daily_progress_streak_state_chk',
+      sql`(${t.streakEarned}
+          and ${t.qualifyingQuestionCount} >= 5
+          and ${t.streakCrossedAt} is not null)
+        or (not ${t.streakEarned} and ${t.streakCrossedAt} is null)`
+    ),
   ]
 );
 

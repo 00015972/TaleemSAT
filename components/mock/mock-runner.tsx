@@ -27,6 +27,8 @@ import { PassageReader } from '@/components/reading/passage-reader';
 import { ChartFigure } from '@/components/reading/chart-figure';
 import { QuestionBody } from '@/components/reading/question-body';
 import { GridInInput } from '@/components/reading/grid-in-input';
+import { MockRewardSummary } from '@/components/progression/reward-feedback';
+import type { MockProgressionSummary } from '@/lib/progression/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -54,6 +56,8 @@ type Result = {
   correctAnswer: string | null;
   isCorrect: boolean;
   explanation: string | null;
+  isFirstEver: boolean;
+  xpAwarded: number;
 };
 
 type Conf = 'sure' | 'unsure' | 'guess';
@@ -118,6 +122,8 @@ export function MockRunner() {
   const [flagged, setFlagged] = useState<Set<string>>(new Set());
   const [confidence, setConfidence] = useState<Record<string, Conf>>({});
   const [results, setResults] = useState<Record<string, Result>>({});
+  const [progression, setProgression] = useState<MockProgressionSummary | null>(null);
+  const [submitError, setSubmitError] = useState('');
   // Highlights live here, not inside the reader, so they survive paging away
   // from a question and back.
   const [marks, setMarks] = useState<Record<string, Set<number>>>({});
@@ -190,6 +196,8 @@ export function MockRunner() {
       setFlagged(new Set());
       setConfidence({});
       setResults({});
+      setProgression(null);
+      setSubmitError('');
       setMarks({});
       setSpent({});
       setIndex(0);
@@ -211,6 +219,7 @@ export function MockRunner() {
   const submitTest = useCallback(async () => {
     setDialog(null);
     setStatus('submitting');
+    setSubmitError('');
     // The question on screen hasn't been banked by the effect cleanup yet.
     const liveId = questions[index]?.id;
     const live = qStartRef.current ? Date.now() - qStartRef.current : 0;
@@ -228,8 +237,12 @@ export function MockRunner() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ answers: payload }),
       });
-      const data = (await res.json()) as { results?: Result[] };
-      if (!res.ok || !data.results) {
+      const data = (await res.json()) as {
+        results?: Result[];
+        progression?: MockProgressionSummary;
+      };
+      if (!res.ok || !data.results || !data.progression) {
+        setSubmitError("Couldn't save this test. Your answers are still here — try again.");
         setStatus('running');
         return;
       }
@@ -238,10 +251,12 @@ export function MockRunner() {
       // `spent` for the question on screen is banked by the stopwatch effect's
       // cleanup the moment status leaves 'running' — don't add it twice here.
       setResults(map);
+      setProgression(data.progression);
       setStatus('done');
       setReview(null);
       window.scrollTo({ top: 0 });
     } catch {
+      setSubmitError("Couldn't save this test. Check your connection and try again.");
       setStatus('running');
     }
   }, [questions, answers, spent, index]);
@@ -560,6 +575,7 @@ export function MockRunner() {
           onRetake={() => setStatus('setup')}
           onReview={() => setReview(0)}
         />
+        <MockRewardSummary summary={progression} />
         <div className="mk-review">
           <div className="mk-review-head">
             <p className="app-label">Review every question</p>
@@ -580,6 +596,7 @@ export function MockRunner() {
                   <span className="mk-rev-n">Q{i + 1}</span>
                   <span className="mk-rev-cat">{q.category}</span>
                   <span className="mk-rev-mark">{r?.isCorrect ? '✓' : '✗'}</span>
+                  {r?.isFirstEver && <span className="mk-rev-xp">+{r.xpAwarded} XP</span>}
                   <span className="mk-rev-time">{secs}s</span>
                 </button>
               );
@@ -717,6 +734,12 @@ export function MockRunner() {
             </>
           }
         />
+      )}
+
+      {submitError && (
+        <p className="progress-save-error mock-submit-error" role="alert">
+          {submitError}
+        </p>
       )}
 
       <ExamFooter
