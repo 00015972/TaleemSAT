@@ -104,3 +104,23 @@ Replace the dynamic Phase 0 placeholder with the approved static Score Atelier l
 3. Leave operator/legal review, hosted auth/production settings, backup restoration, and rollback verification explicitly open.
 
 **Verify:** Audit wording matches the evidence and does not claim full B10 closure.
+
+## Task 7 — Replace placeholder-like section art
+
+**Files:**
+
+- Modify `app/(public)/page.tsx`
+- Create `components/public/landing-skill-art.tsx`
+- Create `components/public/landing-step-art.tsx`
+- Modify `app/globals.css`
+- Modify `docs/audits/2026-09-11/step-10-public-landing-support.md`
+
+**Work:**
+
+1. Replace the eight circle-and-glyph skill decorations with distinct inline SVG study vignettes matching the approved content map.
+2. Replace the three small form-like journey visuals with substantial asymmetric scenes positioned in each card's upper-right field.
+3. Keep every illustration decorative, theme-aware, responsive, and compatible with reduced-motion preferences.
+4. Preserve the existing copy, routes, landing-page order, free-beta claims, logo treatment, footer layout, and theme-toggle fix.
+5. Update the audit evidence to record the approved visual refinement without overstating B10 completion.
+
+**Verify:** Run lint, typecheck, the webpack production build, and browser checks at desktop and mobile widths in light and dark themes.
