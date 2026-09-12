@@ -92,6 +92,8 @@ create policy assessment_sessions_select_own
   using ((select auth.uid()) = user_id);
 
 drop policy if exists assessment_session_questions_select_own
+  on public.assessment_session_questions;
+create policy assessment_session_questions_select_own
   on public.assessment_session_questions
   for select
   to authenticated
