@@ -189,6 +189,7 @@ export const attempts = pgTable(
     selectedAnswer: text('selected_answer').notNull(),
     isCorrect: boolean('is_correct').notNull(),
     timeTakenMs: integer('time_taken_ms'),
+    submissionKey: uuid('submission_key'),
     context: attemptContextEnum('context').notNull().default('practice'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -196,6 +197,7 @@ export const attempts = pgTable(
     index('attempts_user_id_created_at_idx').on(t.userId, t.createdAt),
     index('attempts_question_id_idx').on(t.questionId),
     index('attempts_user_question_idx').on(t.userId, t.questionId),
+    uniqueIndex('attempts_user_submission_key_unique').on(t.userId, t.submissionKey),
   ]
 );
 

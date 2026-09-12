@@ -40,6 +40,14 @@ import { PracticeWorkspace } from '@/components/practice/practice-workspace';
 import { QuestionRewardFeedback } from '@/components/progression/reward-feedback';
 import type { PracticeScope } from '@/components/practice/practice-browse';
 import type { ProgressionOutcome } from '@/lib/progression/types';
+import {
+  createKeyedLoader,
+  getOrCreatePendingSubmission,
+  isActiveQuestion,
+  LatestRequestGate,
+  SynchronousLock,
+  type PendingPracticeSubmission,
+} from '@/lib/practice/race-safety';
 import type {
   PracticeBootstrap,
   PracticeOption,
@@ -131,17 +139,38 @@ function ReadyPracticeRunner({
 
   // The ordered set for this scope — walked sequentially, not re-fetched.
   const [index, setIndex] = useState(0);
+  const activeIndexRef = useRef(0);
   const [current, setCurrent] = useState<PracticeQuestion | null>(bootstrap.question);
   const [currentLoading, setCurrentLoading] = useState(false);
-  const cacheRef = useRef<Map<string, PracticeQuestion>>(
-    new Map([[bootstrap.question.id, bootstrap.question]])
-  );
+  const [currentLoadError, setCurrentLoadError] = useState('');
+  const [questionStore] = useState(() => {
+    const cache = new Map<string, PracticeQuestion>([
+      [bootstrap.question.id, bootstrap.question],
+    ]);
+    return {
+      get: (id: string) => cache.get(id),
+      load: createKeyedLoader(async (id: string): Promise<PracticeQuestion> => {
+        const hit = cache.get(id);
+        if (hit) return hit;
+
+        const res = await fetch(`/api/practice/question?id=${id}`);
+        const data = (await res.json()) as { question?: PracticeQuestion };
+        if (!res.ok || !data.question || data.question.id !== id) {
+          throw new Error('Question load failed');
+        }
+        cache.set(id, data.question);
+        return data.question;
+      }),
+    };
+  });
+  const navigationGateRef = useRef(new LatestRequestGate());
 
   // Per-question outcomes, keyed by question id so they survive paging away
   // and back via the navigator.
   const [tries, setTries] = useState<Record<string, string[]>>({});
   const [solvedAnswer, setSolvedAnswer] = useState<Record<string, string>>({});
   const [firstResult, setFirstResult] = useState<Record<string, boolean>>({});
+  const firstResultRef = useRef<Record<string, boolean>>({});
   const [progressionByQuestion, setProgressionByQuestion] = useState<
     Record<string, ProgressionOutcome | null>
   >({});
@@ -163,60 +192,71 @@ function ReadyPracticeRunner({
 
   // Transient, current-question-only state.
   const [picked, setPicked] = useState<string | null>(null);
-  const [checking, setChecking] = useState(false);
-  const [checkError, setCheckError] = useState('');
+  const [checkingQuestionId, setCheckingQuestionId] = useState<string | null>(null);
+  const [checkErrors, setCheckErrors] = useState<Record<string, string>>({});
   const [qStartedAt, setQStartedAt] = useState<number | null>(() => Date.now());
+  const submissionLockRef = useRef(new SynchronousLock());
+  const pendingSubmissionsRef = useRef<Map<string, PendingPracticeSubmission>>(new Map());
 
-  const loadQuestion = useCallback(async (id: string): Promise<PracticeQuestion | null> => {
-    const hit = cacheRef.current.get(id);
-    if (hit) return hit;
-    try {
-      const res = await fetch(`/api/practice/question?id=${id}`);
-      const data = (await res.json()) as { question?: PracticeQuestion };
-      if (!res.ok || !data.question) return null;
-      cacheRef.current.set(id, data.question);
-      return data.question;
-    } catch {
-      return null;
-    }
-  }, []);
+  const loadQuestion = questionStore.load;
 
   const prefetch = useCallback(
     (id: string | undefined) => {
-      if (!id || cacheRef.current.has(id)) return;
-      void loadQuestion(id);
+      if (!id || questionStore.get(id)) return;
+      void loadQuestion(id).catch(() => undefined);
     },
-    [loadQuestion]
+    [loadQuestion, questionStore]
   );
 
-  const goTo = useCallback(
-    async (i: number) => {
-      const clamped = Math.min(Math.max(i, 0), manifest.length - 1);
-      // Re-landing on the question already on screen (boundary Next/Back, or
-      // re-clicking the current bubble) shouldn't clobber an in-progress pick.
-      if (clamped === index) return;
-      const entry = manifest[clamped];
-      setIndex(clamped);
-      setPicked(null);
-      setCheckError('');
+  const loadForegroundQuestion = useCallback((targetIndex: number) => {
+    const entry = manifest[targetIndex];
+    const requestId = navigationGateRef.current.begin();
+    const hit = questionStore.get(entry.id);
 
-      const hit = cacheRef.current.get(entry.id);
-      if (hit) {
-        setCurrent(hit);
-        setQStartedAt(Date.now());
-      } else {
-        setCurrentLoading(true);
-        setCurrent(null);
-        const q = await loadQuestion(entry.id);
-        setCurrentLoading(false);
-        setCurrent(q);
-        setQStartedAt(Date.now());
-      }
-      prefetch(manifest[clamped + 1]?.id);
-      prefetch(manifest[clamped - 1]?.id);
-    },
-    [manifest, index, loadQuestion, prefetch]
-  );
+    setCurrentLoadError('');
+    if (hit) {
+      setCurrentLoading(false);
+      setCurrent(hit);
+      setQStartedAt(Date.now());
+    } else {
+      setCurrentLoading(true);
+      setCurrent(null);
+      void loadQuestion(entry.id)
+        .then(question => {
+          if (!navigationGateRef.current.isCurrent(requestId)) return;
+          setCurrent(question);
+          setQStartedAt(Date.now());
+        })
+        .catch(() => {
+          if (!navigationGateRef.current.isCurrent(requestId)) return;
+          setCurrent(null);
+          setCurrentLoadError("Couldn't load this question. Check your connection and try again.");
+        })
+        .finally(() => {
+          if (navigationGateRef.current.isCurrent(requestId)) setCurrentLoading(false);
+        });
+    }
+
+    prefetch(manifest[targetIndex + 1]?.id);
+    prefetch(manifest[targetIndex - 1]?.id);
+  }, [manifest, questionStore, loadQuestion, prefetch, setCurrentLoadError, setCurrentLoading, setCurrent, setQStartedAt]);
+
+  const goTo = useCallback((i: number) => {
+    const clamped = Math.min(Math.max(i, 0), manifest.length - 1);
+    // Use the synchronous ref so multiple key presses before a render still
+    // advance from the most recently requested position.
+    if (clamped === activeIndexRef.current) return;
+
+    activeIndexRef.current = clamped;
+    setIndex(clamped);
+    const entry = manifest[clamped];
+    setPicked(pendingSubmissionsRef.current.get(entry.id)?.selectedAnswer ?? null);
+    loadForegroundQuestion(clamped);
+  }, [manifest, loadForegroundQuestion, setIndex, setPicked]);
+
+  const retryCurrentQuestion = useCallback(() => {
+    loadForegroundQuestion(activeIndexRef.current);
+  }, [loadForegroundQuestion]);
 
   useEffect(() => {
     prefetch(manifest[1]?.id);
@@ -229,7 +269,7 @@ function ReadyPracticeRunner({
       else next.add(id);
       return next;
     });
-  }, []);
+  }, [setFlagged]);
 
   const toggleElim = useCallback((id: string, optionId: string) => {
     setEliminated(cur => {
@@ -239,77 +279,134 @@ function ReadyPracticeRunner({
         [id]: list.includes(optionId) ? list.filter(x => x !== optionId) : [...list, optionId],
       };
     });
-  }, []);
+  }, [setEliminated]);
 
   const setHighlightsFor = useCallback((id: string, next: PracticeHighlights) => {
     setHighlights(currentHighlights => ({ ...currentHighlights, [id]: next }));
-  }, []);
+  }, [setHighlights]);
 
   const selectOption = useCallback(
     (id: string, optionId: string) => {
+      const activeId = manifest[activeIndexRef.current]?.id;
+      if (!isActiveQuestion(current?.id, activeId) || id !== activeId) return;
       if (solvedAnswer[id] !== undefined) return;
       if ((tries[id] ?? []).includes(optionId)) return;
-      setCheckError('');
+      const pending = pendingSubmissionsRef.current.get(id);
+      if (pending && pending.selectedAnswer !== optionId) return;
+      setCheckErrors(errors => ({ ...errors, [id]: '' }));
       setPicked(optionId);
     },
-    [solvedAnswer, tries]
+    [manifest, current, solvedAnswer, tries, setCheckErrors, setPicked]
   );
 
   const checkAnswer = useCallback(async () => {
-    if (!current || !picked) return;
-    const id = manifest[index].id;
-    const isFirst = firstResult[id] === undefined;
-    setChecking(true);
-    setCheckError('');
+    const activeId = manifest[activeIndexRef.current]?.id;
+    if (!current || !picked || !isActiveQuestion(current.id, activeId)) return;
+    if (!submissionLockRef.current.acquire()) return;
+
+    const id = current.id;
+    const selectedAnswer = picked;
+    const isFirst = firstResultRef.current[id] === undefined;
+    const pendingSubmission = isFirst
+      ? getOrCreatePendingSubmission(
+          pendingSubmissionsRef.current,
+          {
+            questionId: id,
+            selectedAnswer,
+            timeTakenMs: qStartedAt === null ? null : Math.max(0, Date.now() - qStartedAt),
+          },
+          () => crypto.randomUUID()
+        )
+      : null;
+
+    if (isFirst && !pendingSubmission) {
+      submissionLockRef.current.release();
+      setCheckErrors(errors => ({
+        ...errors,
+        [id]: 'Retry the answer that is already pending for this question.',
+      }));
+      return;
+    }
+
+    setCheckingQuestionId(id);
+    setCheckErrors(errors => ({ ...errors, [id]: '' }));
     try {
       const res = await fetch('/api/practice/answer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           questionId: id,
-          selectedAnswer: picked,
-          timeTakenMs: isFirst && qStartedAt ? Date.now() - qStartedAt : undefined,
+          selectedAnswer,
+          timeTakenMs: isFirst ? (pendingSubmission?.timeTakenMs ?? undefined) : undefined,
           recordAttempt: isFirst,
+          submissionKey: pendingSubmission?.submissionKey,
         }),
       });
-      const data = (await res.json()) as {
+      const data = (await res.json().catch(() => ({}))) as {
         isCorrect?: boolean;
         progression?: ProgressionOutcome | null;
       };
       if (!res.ok || typeof data.isCorrect !== 'boolean') {
+        if (isFirst && res.status >= 400 && res.status < 500) {
+          pendingSubmissionsRef.current.delete(id);
+        }
         throw new Error('Attempt was not saved');
       }
       const isCorrect = data.isCorrect;
-      if (isFirst) setFirstResult(r => ({ ...r, [id]: isCorrect }));
       if (isFirst) {
+        firstResultRef.current[id] = isCorrect;
+        pendingSubmissionsRef.current.delete(id);
+        setFirstResult(results => ({ ...results, [id]: isCorrect }));
         setProgressionByQuestion(currentProgression => ({
           ...currentProgression,
           [id]: data.progression ?? null,
         }));
       }
       if (isCorrect) {
-        setSolvedAnswer(s => ({ ...s, [id]: picked }));
+        setSolvedAnswer(solved => ({ ...solved, [id]: selectedAnswer }));
       } else {
-        setTries(t => ({ ...t, [id]: [...(t[id] ?? []), picked] }));
+        setTries(previousTries => ({
+          ...previousTries,
+          [id]: [...(previousTries[id] ?? []), selectedAnswer],
+        }));
       }
       // Either way the pick has been consumed: correct is now redundant with
       // solvedAnswer, wrong needs a fresh pick before Check re-enables.
-      setPicked(null);
+      if (manifest[activeIndexRef.current]?.id === id) setPicked(null);
     } catch {
       // leave the pick in place so the student can just retry Check
-      setCheckError("Couldn't save this answer. Check your connection and try again.");
+      setCheckErrors(errors => ({
+        ...errors,
+        [id]: "Couldn't save this answer. Check your connection and try again.",
+      }));
     } finally {
-      setChecking(false);
+      setCheckingQuestionId(currentCheckingId => currentCheckingId === id ? null : currentCheckingId);
+      submissionLockRef.current.release();
     }
-  }, [manifest, current, picked, index, firstResult, qStartedAt]);
+  }, [
+    manifest,
+    current,
+    picked,
+    qStartedAt,
+    setCheckErrors,
+    setCheckingQuestionId,
+    setFirstResult,
+    setProgressionByQuestion,
+    setSolvedAnswer,
+    setTries,
+    setPicked,
+  ]);
 
-  const goNext = useCallback(() => goTo(index + 1), [goTo, index]);
-  const goBack = useCallback(() => goTo(index - 1), [goTo, index]);
+  const goNext = useCallback(() => goTo(activeIndexRef.current + 1), [goTo]);
+  const goBack = useCallback(() => goTo(activeIndexRef.current - 1), [goTo]);
 
   const currentId = manifest[index]?.id;
+  const displayedQuestion = isActiveQuestion(current?.id, currentId) ? current : null;
   const resolved = currentId !== undefined && solvedAnswer[currentId] !== undefined;
   const isMath = scope.subjectSlug === 'math';
-  const directionsText = current ? (isMath ? MATH_DIRECTIONS : READING_DIRECTIONS) : undefined;
+  const directionsText = displayedQuestion
+    ? (isMath ? MATH_DIRECTIONS : READING_DIRECTIONS)
+    : undefined;
 
   // A–D/1–4 to pick, Enter to check-or-continue, ←/→ to page, F to mark.
   useEffect(() => {
@@ -317,7 +414,7 @@ function ReadyPracticeRunner({
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-      if (!current || !currentId) return;
+      if (!displayedQuestion || !currentId) return;
 
       const letter = e.key.toUpperCase();
       if (letter === 'F') {
@@ -326,7 +423,7 @@ function ReadyPracticeRunner({
         return;
       }
       if (!resolved) {
-        const opts = current.options;
+        const opts = displayedQuestion.options;
         let id: string | undefined;
         if (letter >= 'A' && letter <= 'D') {
           id = opts.find(o => o.id === letter)?.id ?? opts[letter.charCodeAt(0) - 65]?.id;
@@ -342,7 +439,7 @@ function ReadyPracticeRunner({
       if ((e.target as HTMLElement | null)?.closest('button, [role="button"]')) return;
       if (e.key === 'Enter') {
         e.preventDefault();
-        if (!resolved && picked) checkAnswer();
+        if (!resolved && picked && checkingQuestionId === null) checkAnswer();
         else if (resolved) goNext();
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
@@ -354,7 +451,7 @@ function ReadyPracticeRunner({
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [manifest, current, currentId, resolved, picked, selectOption, checkAnswer, goNext, goBack, toggleFlag]);
+  }, [displayedQuestion, currentId, resolved, picked, checkingQuestionId, selectOption, checkAnswer, goNext, goBack, toggleFlag]);
 
   return (
     <ExamRoot variant="practice">
@@ -365,7 +462,7 @@ function ReadyPracticeRunner({
         onExit={onExit}
         exitLabel="All topics"
         center={
-          currentLoading || !current ? (
+          currentLoading || !displayedQuestion ? (
             <span className="ex-clock big">--:--</span>
           ) : (
             <QuestionTimer key={currentId} startedAt={qStartedAt} frozen={resolved} />
@@ -377,7 +474,7 @@ function ReadyPracticeRunner({
               <AnnotateToggle
                 on={annotateOn}
                 onToggle={() => setAnnotateOn(v => !v)}
-                disabled={!current?.passage}
+                disabled={!displayedQuestion?.passage}
               />
             )}
             <AppearanceMenu
@@ -457,8 +554,10 @@ function ReadyPracticeRunner({
           question={
             <QuestionPane
               seq={index + 1}
-              question={current}
+              question={displayedQuestion}
               loading={currentLoading}
+              loadError={currentLoadError}
+              onRetry={retryCurrentQuestion}
               highlights={currentId ? (highlights[currentId] ?? NO_HIGHLIGHTS) : NO_HIGHLIGHTS}
               onHighlightsChange={next => currentId && setHighlightsFor(currentId, next)}
               annotate={annotateOn}
@@ -466,8 +565,9 @@ function ReadyPracticeRunner({
           }
           answers={
             <ChoicesPane
-              question={current}
+              question={displayedQuestion}
               loading={currentLoading}
+              loadError={currentLoadError}
               picked={picked}
               tries={tries[currentId] ?? []}
               solvedAnswer={solvedAnswer[currentId]}
@@ -475,9 +575,9 @@ function ReadyPracticeRunner({
               flagged={flagged.has(currentId)}
               eliminated={eliminated[currentId] ?? []}
               elimMode={elimMode}
-              checking={checking}
+              checking={checkingQuestionId !== null}
               progression={progressionByQuestion[currentId] ?? null}
-              checkError={checkError}
+              checkError={checkErrors[currentId] ?? ''}
               onSelect={optId => selectOption(currentId, optId)}
               onCheck={checkAnswer}
               onToggleFlag={() => toggleFlag(currentId)}
@@ -559,6 +659,8 @@ function QuestionPane({
   seq,
   question,
   loading,
+  loadError,
+  onRetry,
   highlights,
   onHighlightsChange,
   annotate,
@@ -566,11 +668,15 @@ function QuestionPane({
   seq: number;
   question: PracticeQuestion | null;
   loading: boolean;
+  loadError: string;
+  onRetry: () => void;
   highlights: PracticeHighlights;
   onHighlightsChange: (next: PracticeHighlights) => void;
   annotate: boolean;
 }) {
-  if (loading || !question) return <PaneSkeleton />;
+  if (loading) return <PaneSkeleton />;
+  if (loadError) return <PaneLoadError message={loadError} onRetry={onRetry} />;
+  if (!question) return <PaneSkeleton />;
   return (
     <>
       <div className="ex-q-head">
@@ -599,6 +705,7 @@ function QuestionPane({
 function ChoicesPane({
   question,
   loading,
+  loadError,
   picked,
   tries,
   solvedAnswer,
@@ -617,6 +724,7 @@ function ChoicesPane({
 }: {
   question: PracticeQuestion | null;
   loading: boolean;
+  loadError: string;
   picked: string | null;
   tries: string[];
   solvedAnswer: string | undefined;
@@ -633,7 +741,9 @@ function ChoicesPane({
   onToggleElim: (optionId: string) => void;
   onToggleElimMode: () => void;
 }) {
-  if (loading || !question) return <PaneSkeleton />;
+  if (loading) return <PaneSkeleton />;
+  if (loadError) return <PaneLoadError message="Question unavailable." />;
+  if (!question) return <PaneSkeleton />;
 
   const isGridIn = question.question_type === 'grid_in';
   const resolved = solvedAnswer !== undefined;
@@ -847,6 +957,20 @@ function PaneSkeleton() {
       <div className="h-4 w-full rounded" style={{ background: 'var(--border)' }} />
       <div className="h-4 w-5/6 rounded" style={{ background: 'var(--border)' }} />
       <div className="h-4 w-2/3 rounded" style={{ background: 'var(--border)' }} />
+    </div>
+  );
+}
+
+function PaneLoadError({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return (
+    <div className="prx-empty" role={onRetry ? 'alert' : undefined}>
+      <p className="prx-empty-title">Question unavailable</p>
+      <p className="prx-empty-sub mb-4">{message}</p>
+      {onRetry && (
+        <button type="button" onClick={onRetry} className="prx-btn">
+          Try again
+        </button>
+      )}
     </div>
   );
 }

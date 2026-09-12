@@ -3,23 +3,10 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { validateQuestion } from '@/lib/admin/question-validation';
 import { sanitizeQuestionTextBlocks, sanitizeRichText } from '@/lib/import/richtext-sanitize';
+import { invalidPathParameter, parseJsonRequest } from '@/lib/validation/request';
+import { importItemUpdateSchema, uuidSchema } from '@/lib/validation/schemas';
 
 export const dynamic = 'force-dynamic';
-
-type Body = {
-  questionText?: string;
-  passage?: string | null;
-  options?: { id: string; text: string }[];
-  correctAnswer?: string | null;
-  acceptedAnswers?: string[];
-  explanation?: string;
-  difficulty?: string;
-  questionType?: string;
-  questionImageUrl?: string | null;
-  topicId?: string | null;
-  /** 'rejected' discards the item; 'pending_review' un-rejects it. */
-  status?: 'pending_review' | 'rejected';
-};
 
 /**
  * Edit or reject a staged item.
@@ -36,13 +23,12 @@ export async function PATCH(
   if (!gate.ok) return gate.response;
 
   const { id, itemId } = await params;
+  if (!uuidSchema.safeParse(id).success) return invalidPathParameter('id');
+  if (!uuidSchema.safeParse(itemId).success) return invalidPathParameter('itemId');
 
-  let body: Body;
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: 'INVALID_JSON' }, { status: 400 });
-  }
+  const parsed = await parseJsonRequest(request, importItemUpdateSchema);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
 
   const admin = createAdminClient();
 

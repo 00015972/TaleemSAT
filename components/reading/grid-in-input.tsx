@@ -1,5 +1,7 @@
 'use client';
 
+import { MAX_GRID_IN_ANSWER_LENGTH } from '@/lib/grading/grid-in';
+
 /**
  * The student-produced-response input for a `grid_in` question — replaces
  * the lettered A–D option list. Purely controlled: each shell (practice/mock)
@@ -36,6 +38,7 @@ export function GridInInput({
           autoFocus={autoFocus}
           className={`prx-gridin-input${state ? ` ${state}` : ''}`}
           value={value}
+          maxLength={MAX_GRID_IN_ANSWER_LENGTH}
           disabled={disabled}
           placeholder="Enter your answer"
           aria-label="Your answer"

@@ -65,6 +65,7 @@ export type Database = {
           is_correct: boolean
           question_id: string
           selected_answer: string
+          submission_key: string | null
           time_taken_ms: number | null
           user_id: string
         }
@@ -75,6 +76,7 @@ export type Database = {
           is_correct: boolean
           question_id: string
           selected_answer: string
+          submission_key?: string | null
           time_taken_ms?: number | null
           user_id: string
         }
@@ -85,6 +87,7 @@ export type Database = {
           is_correct?: boolean
           question_id?: string
           selected_answer?: string
+          submission_key?: string | null
           time_taken_ms?: number | null
           user_id?: string
         }

@@ -4,21 +4,19 @@ import { requireAdmin } from '@/lib/admin/require-admin';
 import { logAudit } from '@/lib/admin/audit';
 import {
   validateQuestion,
-  type QuestionInput,
 } from '@/lib/admin/question-validation';
 import { sanitizeQuestionTextBlocks, sanitizeRichText } from '@/lib/import/richtext-sanitize';
+import { parseJsonRequest } from '@/lib/validation/request';
+import { questionInputSchema } from '@/lib/validation/schemas';
 
 export async function POST(request: NextRequest) {
   const gate = await requireAdmin();
   if (!gate.ok) return gate.response;
   const { user } = gate;
 
-  let body: QuestionInput;
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: 'INVALID_JSON' }, { status: 400 });
-  }
+  const parsed = await parseJsonRequest(request, questionInputSchema);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
 
   const result = validateQuestion(body);
   if (!result.ok) {

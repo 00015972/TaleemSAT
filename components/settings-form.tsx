@@ -28,7 +28,6 @@ type Profile = {
 };
 
 type SettingsFormProps = {
-  userId: string;
   email: string;
   tier: string;
   timezone: string;
@@ -77,7 +76,6 @@ function initialsFor(name: string, email: string) {
 }
 
 export function SettingsForm({
-  userId,
   email,
   tier,
   timezone,
@@ -111,24 +109,24 @@ export function SettingsForm({
     setStatus('saving');
     setErrorMsg('');
 
-    const supabase = createClient();
     const scoreRaw = form.targetScore.replace('+', '');
-    const { error } = await supabase
-      .from('users')
-      .update({
-        full_name: form.fullName.trim() || null,
-        target_sat_score: scoreRaw ? parseInt(scoreRaw) : null,
-        exam_date: form.examDate || null,
-        marketing_opt_in: form.marketingOptIn,
-      })
-      .eq('id', userId);
-
-    if (error) {
-      setErrorMsg('Failed to save changes. Please try again.');
-      setStatus('error');
-    } else {
+    try {
+      const response = await fetch('/api/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: form.fullName,
+          targetSatScore: scoreRaw ? Number(scoreRaw) : null,
+          examDate: form.examDate || null,
+          marketingOptIn: form.marketingOptIn,
+        }),
+      });
+      if (!response.ok) throw new Error('Profile update failed');
       setSavedProfile(form);
       setStatus('saved');
+    } catch {
+      setErrorMsg('Failed to save changes. Please try again.');
+      setStatus('error');
     }
   }
 

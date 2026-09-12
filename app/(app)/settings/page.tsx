@@ -21,7 +21,6 @@ export default async function SettingsPage() {
 
   return (
     <SettingsForm
-      userId={user.id}
       email={user.email!}
       tier={tier}
       timezone={storedTimezone ?? 'Asia/Tashkent'}

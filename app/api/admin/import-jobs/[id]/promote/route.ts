@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { logAudit } from '@/lib/admin/audit';
 import { validateQuestion } from '@/lib/admin/question-validation';
+import { invalidPathParameter, parseJsonRequest } from '@/lib/validation/request';
+import { importPromotionSchema, uuidSchema } from '@/lib/validation/schemas';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,18 +39,11 @@ export async function POST(
   const { user } = gate;
 
   const { id } = await params;
+  if (!uuidSchema.safeParse(id).success) return invalidPathParameter('id');
 
-  let body: { itemIds?: string[] };
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: 'INVALID_JSON' }, { status: 400 });
-  }
-
-  const itemIds = (body.itemIds ?? []).filter(Boolean);
-  if (itemIds.length === 0) {
-    return Response.json({ error: 'NO_ITEMS' }, { status: 400 });
-  }
+  const parsed = await parseJsonRequest(request, importPromotionSchema);
+  if (!parsed.ok) return parsed.response;
+  const { itemIds } = parsed.data;
 
   const admin = createAdminClient();
 

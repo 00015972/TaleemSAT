@@ -199,7 +199,14 @@ export function QuestionForm({
   );
 
   const validation = useMemo(
-    () => validateQuestion({ ...form, tags, acceptedAnswers }),
+    () =>
+      validateQuestion({
+        ...form,
+        tags,
+        acceptedAnswers,
+        correctAnswer:
+          form.questionType === 'grid_in' ? (acceptedAnswers[0] ?? '') : form.correctAnswer,
+      }),
     [form, tags, acceptedAnswers]
   );
 
@@ -277,8 +284,15 @@ export function QuestionForm({
     setServerError('');
 
     const payload = {
-      ...form,
+      subjectId: form.subjectId,
+      categoryId: form.categoryId,
+      questionText: form.questionText,
+      passage: form.passage,
+      questionType: form.questionType,
+      options: form.options,
       status,
+      difficulty: form.difficulty,
+      explanation: form.explanation,
       tags,
       acceptedAnswers,
       correctAnswer:

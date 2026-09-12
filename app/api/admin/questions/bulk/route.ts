@@ -2,34 +2,18 @@ import { NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { logAudit } from '@/lib/admin/audit';
-
-const MAX_IDS = 200;
-
-const ACTION_TO_STATUS: Record<string, 'published' | 'archived'> = {
-  publish: 'published',
-  archive: 'archived',
-};
+import { parseJsonRequest } from '@/lib/validation/request';
+import { bulkQuestionActionSchema } from '@/lib/validation/schemas';
 
 export async function POST(request: NextRequest) {
   const gate = await requireAdmin();
   if (!gate.ok) return gate.response;
   const { user } = gate;
 
-  let body: { ids?: string[]; action?: string };
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: 'INVALID_JSON' }, { status: 400 });
-  }
-
+  const parsed = await parseJsonRequest(request, bulkQuestionActionSchema);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
   const { ids, action } = body;
-
-  if (!Array.isArray(ids) || ids.length === 0) {
-    return Response.json({ error: 'NO_IDS' }, { status: 400 });
-  }
-  if (ids.length > MAX_IDS) {
-    return Response.json({ error: 'TOO_MANY_IDS', max: MAX_IDS }, { status: 400 });
-  }
 
   const admin = createAdminClient();
 
@@ -66,10 +50,7 @@ export async function POST(request: NextRequest) {
     return Response.json({ deleted: deleted.length, skipped });
   }
 
-  const status = action ? ACTION_TO_STATUS[action] : undefined;
-  if (!status) {
-    return Response.json({ error: 'INVALID_ACTION' }, { status: 400 });
-  }
+  const status = action === 'publish' ? 'published' : 'archived';
 
   const { error } = await admin
     .from('questions')

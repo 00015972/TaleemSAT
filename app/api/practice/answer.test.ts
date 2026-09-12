@@ -12,17 +12,35 @@ type QuestionRow = {
   question_type: 'mcq' | 'grid_in';
 };
 
-type QueryResult<T> = { data: T; error: { message: string } | null };
+type AttemptRow = {
+  id: string;
+  question_id: string;
+  selected_answer: string;
+  is_correct: boolean;
+  time_taken_ms: number | null;
+  context: 'practice';
+  submission_key: string;
+};
+
+type QueryResult<T> = {
+  data: T;
+  error: { message: string; code?: string; details?: string } | null;
+};
 
 let user: ClaimsUser | null = null;
 let adminClientCalls = 0;
 let questionResult: QueryResult<QuestionRow | null>;
-let attemptResult: QueryResult<{ id: string } | null>;
+let attemptResult: QueryResult<AttemptRow | null>;
+let replayResult: QueryResult<AttemptRow | null>;
 let attemptInsert: Record<string, unknown> | null = null;
+let attemptSelect: string | null = null;
+let replayFilters: Array<[string, unknown]> = [];
 let questionSelect: string | null = null;
 let questionFilters: Array<[string, unknown]> = [];
 let progressionError: Error | null = null;
 let progressionArgs: { userId: string; attemptIds: string[] } | null = null;
+const QUESTION_ID = '11111111-1111-4111-8111-111111111111';
+const SUBMISSION_ID = '33333333-3333-4333-8333-333333333333';
 
 const snapshot: ProgressionSnapshot = {
   timezone: 'Asia/Tashkent',
@@ -62,8 +80,22 @@ function resetScenario() {
     },
     error: null,
   };
-  attemptResult = { data: { id: 'attempt-1' }, error: null };
+  attemptResult = {
+    data: {
+      id: 'attempt-1',
+      question_id: QUESTION_ID,
+      selected_answer: 'B',
+      is_correct: true,
+      time_taken_ms: 1250,
+      context: 'practice',
+      submission_key: SUBMISSION_ID,
+    },
+    error: null,
+  };
+  replayResult = attemptResult;
   attemptInsert = null;
+  attemptSelect = null;
+  replayFilters = [];
   questionSelect = null;
   questionFilters = [];
   progressionError = null;
@@ -96,16 +128,26 @@ function createFakeAdminClient() {
       }
 
       if (table === 'attempts') {
+        let operation: 'insert' | 'replay' = 'replay';
         const query = {
           insert(values: Record<string, unknown>) {
+            operation = 'insert';
             attemptInsert = values;
             return query;
           },
-          select() {
+          select(columns: string) {
+            attemptSelect = columns;
+            return query;
+          },
+          eq(column: string, value: unknown) {
+            replayFilters.push([column, value]);
             return query;
           },
           async single() {
-            return attemptResult;
+            return operation === 'insert' ? attemptResult : replayResult;
+          },
+          async maybeSingle() {
+            return replayResult;
           },
         };
         return query;
@@ -156,7 +198,7 @@ test('practice grading keeps answer keys behind the server-only client', async t
   await t.test('rejects signed-out callers before parsing or privileged access', async () => {
     resetScenario();
     user = null;
-    const incoming = request('{"questionId":"question-1","selectedAnswer":"B"}');
+    const incoming = request(`{"questionId":"${QUESTION_ID}","selectedAnswer":"B"}`);
 
     const response = await POST(incoming);
 
@@ -167,7 +209,18 @@ test('practice grading keeps answer keys behind the server-only client', async t
   });
 
   await t.test('rejects malformed and incomplete bodies before privileged access', async () => {
-    for (const body of ['{invalid', 'null', '{}', '{"questionId":"question-1"}']) {
+    for (const body of [
+      '{invalid',
+      'null',
+      '{}',
+      `{"questionId":"${QUESTION_ID}"}`,
+      JSON.stringify({ questionId: 'not-a-uuid', selectedAnswer: 'A' }),
+      JSON.stringify({ questionId: QUESTION_ID, selectedAnswer: '3abc' }),
+      JSON.stringify({ questionId: QUESTION_ID, selectedAnswer: 'A', timeTakenMs: -1 }),
+      JSON.stringify({ questionId: QUESTION_ID, selectedAnswer: 'A', timeTakenMs: Infinity }),
+      JSON.stringify({ questionId: QUESTION_ID, selectedAnswer: 'A', recordAttempt: true }),
+      JSON.stringify({ questionId: QUESTION_ID, selectedAnswer: 'A', unexpected: true }),
+    ]) {
       resetScenario();
       const response = await POST(request(body));
       assert.equal(response.status, 400);
@@ -179,7 +232,7 @@ test('practice grading keeps answer keys behind the server-only client', async t
     resetScenario();
 
     const response = await POST(request(JSON.stringify({
-      questionId: 'question-1',
+      questionId: QUESTION_ID,
       selectedAnswer: 'A',
       recordAttempt: false,
     })));
@@ -194,10 +247,11 @@ test('practice grading keeps answer keys behind the server-only client', async t
     resetScenario();
 
     const response = await POST(request(JSON.stringify({
-      questionId: 'question-1',
+      questionId: QUESTION_ID,
       selectedAnswer: 'B',
       timeTakenMs: 1250,
       recordAttempt: true,
+      submissionKey: SUBMISSION_ID,
     })));
 
     assert.equal(response.status, 200);
@@ -212,15 +266,20 @@ test('practice grading keeps answer keys behind the server-only client', async t
       questionSelect,
       'correct_answer, accepted_answers, explanation, status, question_type'
     );
-    assert.deepEqual(questionFilters, [['id', 'question-1']]);
+    assert.deepEqual(questionFilters, [['id', QUESTION_ID]]);
     assert.deepEqual(attemptInsert, {
       user_id: 'student-a',
-      question_id: 'question-1',
+      question_id: QUESTION_ID,
       selected_answer: 'B',
       is_correct: true,
       time_taken_ms: 1250,
       context: 'practice',
+      submission_key: SUBMISSION_ID,
     });
+    assert.equal(
+      attemptSelect,
+      'id, question_id, selected_answer, is_correct, time_taken_ms, context, submission_key'
+    );
     assert.deepEqual(progressionArgs, {
       userId: 'student-a',
       attemptIds: ['attempt-1'],
@@ -238,7 +297,7 @@ test('practice grading keeps answer keys behind the server-only client', async t
     };
 
     const response = await POST(request(JSON.stringify({
-      questionId: 'question-2',
+      questionId: QUESTION_ID,
       selectedAnswer: '6/4',
       recordAttempt: false,
     })));
@@ -260,9 +319,10 @@ test('practice grading keeps answer keys behind the server-only client', async t
       resetScenario();
       questionResult.data = data;
       const response = await POST(request(JSON.stringify({
-        questionId: 'question-1',
+        questionId: QUESTION_ID,
         selectedAnswer: 'B',
         recordAttempt: true,
+        submissionKey: SUBMISSION_ID,
       })));
 
       assert.equal(response.status, 404);
@@ -271,14 +331,101 @@ test('practice grading keeps answer keys behind the server-only client', async t
     }
   });
 
+  await t.test('replays an identical submission after the unique key wins a race', async () => {
+    resetScenario();
+    attemptResult = {
+      data: null,
+      error: {
+        code: '23505',
+        message: 'duplicate key value violates unique constraint "attempts_user_submission_key_unique"',
+      },
+    };
+
+    const response = await POST(request(JSON.stringify({
+      questionId: QUESTION_ID,
+      selectedAnswer: 'B',
+      timeTakenMs: 1250,
+      recordAttempt: true,
+      submissionKey: SUBMISSION_ID,
+    })));
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      isCorrect: true,
+      correctAnswer: 'B',
+      explanation: 'Choice B is correct.',
+      progression,
+    });
+    assert.deepEqual(replayFilters, [
+      ['user_id', 'student-a'],
+      ['submission_key', SUBMISSION_ID],
+    ]);
+    assert.deepEqual(progressionArgs, {
+      userId: 'student-a',
+      attemptIds: ['attempt-1'],
+    });
+  });
+
+  await t.test('rejects reuse of a submission key for a different payload', async () => {
+    resetScenario();
+    attemptResult = {
+      data: null,
+      error: {
+        code: '23505',
+        details: 'Key already exists for attempts_user_submission_key_unique',
+        message: 'duplicate key value',
+      },
+    };
+    replayResult = {
+      data: { ...replayResult.data!, selected_answer: 'A' },
+      error: null,
+    };
+
+    const response = await POST(request(JSON.stringify({
+      questionId: QUESTION_ID,
+      selectedAnswer: 'B',
+      timeTakenMs: 1250,
+      recordAttempt: true,
+      submissionKey: SUBMISSION_ID,
+    })));
+
+    assert.equal(response.status, 409);
+    assert.deepEqual(await response.json(), { error: 'SUBMISSION_KEY_REUSED' });
+    assert.equal(progressionArgs, null);
+  });
+
+  await t.test('does not mistake an unrelated unique violation for a replay', async () => {
+    resetScenario();
+    attemptResult = {
+      data: null,
+      error: {
+        code: '23505',
+        message: 'duplicate key value violates unique constraint "attempts_pkey"',
+      },
+    };
+
+    const response = await POST(request(JSON.stringify({
+      questionId: QUESTION_ID,
+      selectedAnswer: 'B',
+      timeTakenMs: 1250,
+      recordAttempt: true,
+      submissionKey: SUBMISSION_ID,
+    })));
+
+    assert.equal(response.status, 500);
+    assert.deepEqual(await response.json(), { error: 'ATTEMPT_SAVE_FAILED' });
+    assert.deepEqual(replayFilters, []);
+  });
+
   await t.test('returns a stable error when the trusted attempt write fails', async () => {
     resetScenario();
     attemptResult = { data: null, error: { message: 'insert failed' } };
 
     const response = await POST(request(JSON.stringify({
-      questionId: 'question-1',
+      questionId: QUESTION_ID,
       selectedAnswer: 'B',
       recordAttempt: true,
+      submissionKey: SUBMISSION_ID,
     })));
 
     assert.equal(response.status, 500);
@@ -290,9 +437,10 @@ test('practice grading keeps answer keys behind the server-only client', async t
     progressionError = new Error('progression unavailable');
 
     const response = await POST(request(JSON.stringify({
-      questionId: 'question-1',
+      questionId: QUESTION_ID,
       selectedAnswer: 'B',
       recordAttempt: true,
+      submissionKey: SUBMISSION_ID,
     })));
 
     assert.equal(response.status, 500);

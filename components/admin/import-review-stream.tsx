@@ -928,14 +928,18 @@ function QuestionEditor({
   });
 
   async function submit() {
+    const acceptedAnswers = draft.acceptedAnswers
+      .split(',')
+      .map(answer => answer.trim())
+      .filter(Boolean);
     await onSave({
       questionText: draft.questionText,
       explanation: draft.explanation,
-      correctAnswer: draft.correctAnswer || null,
-      acceptedAnswers: draft.acceptedAnswers
-        .split(',')
-        .map(answer => answer.trim())
-        .filter(Boolean),
+      correctAnswer:
+        item.question_type === 'grid_in'
+          ? (acceptedAnswers[0] ?? null)
+          : (draft.correctAnswer || null),
+      acceptedAnswers,
       options: draft.options,
     });
   }
@@ -1038,4 +1042,3 @@ function QuestionEditor({
     </div>
   );
 }
-

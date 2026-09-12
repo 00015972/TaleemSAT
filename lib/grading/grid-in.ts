@@ -4,43 +4,52 @@
  * ['3/2', '1.5'] accepts either written form, and a submission of "6/4" also
  * matches numerically even though it's neither literal string.
  *
- * Mirrors the Digital SAT's own grid-in rules: an exact (case-insensitive,
- * whitespace-trimmed) string match always counts, and otherwise numeric
- * equivalence is checked — with "a/b" read as a fraction, not a decimal.
+ * Only complete supported numeric forms are accepted. Numeric-prefix parsing
+ * is deliberately forbidden: `3abc`, `3 cats`, and `3+7` are not answers to
+ * `3`. Fractions are compared numerically, so reducible forms still work.
  *
  * Pure — no I/O — used server-side by every scoring route (practice/mock)
  * so a submission can never be graded differently in two places.
  */
 
-function parseAnswerNumber(raw: string): number | null {
-  const s = raw.trim();
-  if (!s) return null;
+export const MAX_GRID_IN_ANSWER_LENGTH = 32;
 
-  const fraction = s.match(/^(-?\d+(?:\.\d+)?)\s*\/\s*(-?\d+(?:\.\d+)?)$/);
+const DECIMAL_PATTERN = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/;
+const FRACTION_PATTERN = /^([+-]?\d+)\/([+-]?\d+)$/;
+
+export function parseGridInAnswer(raw: string): number | null {
+  const s = raw.trim();
+  if (!s || s.length > MAX_GRID_IN_ANSWER_LENGTH) return null;
+
+  const fraction = s.match(FRACTION_PATTERN);
   if (fraction) {
-    const num = parseFloat(fraction[1]);
-    const den = parseFloat(fraction[2]);
-    if (den !== 0 && !isNaN(num) && !isNaN(den)) return num / den;
-    return null;
+    const numerator = Number(fraction[1]);
+    const denominator = Number(fraction[2]);
+    const value = numerator / denominator;
+    return denominator !== 0 && Number.isFinite(value) ? value : null;
   }
 
-  const n = parseFloat(s.replace(/,/g, ''));
-  return isNaN(n) ? null : n;
+  if (!DECIMAL_PATTERN.test(s)) return null;
+  const value = Number(s);
+  return Number.isFinite(value) ? value : null;
+}
+
+export function isValidGridInAnswer(raw: string): boolean {
+  return parseGridInAnswer(raw) !== null;
 }
 
 export function gridInAnswerMatches(submitted: string, acceptedAnswers: string[]): boolean {
   const value = (submitted ?? '').trim();
   if (!value) return false;
 
-  const submittedNumber = parseAnswerNumber(value);
+  const submittedNumber = parseGridInAnswer(value);
+  if (submittedNumber === null) return false;
 
   for (const accepted of acceptedAnswers) {
     const form = (accepted ?? '').trim();
     if (!form) continue;
-    if (value.toLowerCase() === form.toLowerCase()) return true;
-
-    const acceptedNumber = parseAnswerNumber(form);
-    if (submittedNumber !== null && acceptedNumber !== null && Math.abs(submittedNumber - acceptedNumber) < 1e-9) {
+    const acceptedNumber = parseGridInAnswer(form);
+    if (acceptedNumber !== null && Math.abs(submittedNumber - acceptedNumber) < 1e-9) {
       return true;
     }
   }

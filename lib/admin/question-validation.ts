@@ -17,10 +17,17 @@
  *    (e.g. 3/2 and 1.5).
  */
 
+import {
+  gridInAnswerMatches,
+  isValidGridInAnswer,
+  MAX_GRID_IN_ANSWER_LENGTH,
+} from '@/lib/grading/grid-in';
+
 export const DIFFICULTIES = ['easy', 'medium', 'hard'] as const;
 export const STATUSES = ['draft', 'published', 'archived'] as const;
 export const ANSWER_KEYS = ['A', 'B', 'C', 'D'] as const;
 export const QUESTION_TYPES = ['mcq', 'grid_in'] as const;
+export const MAX_ACCEPTED_ANSWERS = 16;
 
 export type Difficulty = (typeof DIFFICULTIES)[number];
 export type QuestionStatus = (typeof STATUSES)[number];
@@ -79,12 +86,50 @@ export function validateQuestion(input: QuestionInput): ValidationResult {
   if (questionType === 'grid_in') {
     // Student-produced response: the student types a value, so there are no
     // options — but every accepted form of the answer must be listed.
-    const accepted = (input.acceptedAnswers ?? []).map(a => (a ?? '').trim()).filter(Boolean);
+    const rawAccepted = input.acceptedAnswers ?? [];
+    const accepted = rawAccepted.map(a => (a ?? '').trim()).filter(Boolean);
     if (accepted.length === 0) {
       add(
         'acceptedAnswers',
         'Grid-in questions need at least one accepted answer (e.g. "3/2", "1.5").'
       );
+    }
+    if (rawAccepted.length > MAX_ACCEPTED_ANSWERS) {
+      add(
+        'acceptedAnswers',
+        `Grid-in questions can have at most ${MAX_ACCEPTED_ANSWERS} accepted answers.`
+      );
+    }
+    if (accepted.length !== rawAccepted.length) {
+      add('acceptedAnswers', 'Accepted answers cannot contain empty values.');
+    }
+    if (new Set(accepted).size !== accepted.length) {
+      add('acceptedAnswers', 'Accepted answers must be unique.');
+    }
+
+    const malformed = accepted.find(
+      answer =>
+        answer.length > MAX_GRID_IN_ANSWER_LENGTH || !isValidGridInAnswer(answer)
+    );
+    if (malformed !== undefined) {
+      add(
+        'acceptedAnswers',
+        'Every accepted answer must be a complete integer, decimal, or fraction.'
+      );
+    }
+
+    const canonical = (input.correctAnswer ?? '').trim();
+    if (!isValidGridInAnswer(canonical)) {
+      add(
+        'correctAnswer',
+        'The canonical answer must be a complete integer, decimal, or fraction.'
+      );
+    } else if (
+      malformed === undefined &&
+      accepted.length > 0 &&
+      !gridInAnswerMatches(canonical, accepted)
+    ) {
+      add('correctAnswer', 'The canonical answer must match an accepted answer.');
     }
   } else {
     for (const key of ANSWER_KEYS) {

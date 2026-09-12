@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { logAudit } from '@/lib/admin/audit';
 import { liveJobCounts } from '@/lib/admin/import-job-counts';
+import { invalidPathParameter } from '@/lib/validation/request';
+import { uuidSchema } from '@/lib/validation/schemas';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +25,7 @@ export async function GET(
   if (!gate.ok) return gate.response;
 
   const { id } = await params;
+  if (!uuidSchema.safeParse(id).success) return invalidPathParameter('id');
   const admin = createAdminClient();
 
   const { data: job, error: jobError } = await admin
@@ -84,6 +87,7 @@ export async function DELETE(
   const { user } = gate;
 
   const { id } = await params;
+  if (!uuidSchema.safeParse(id).success) return invalidPathParameter('id');
   const admin = createAdminClient();
 
   const { data: job } = await admin
