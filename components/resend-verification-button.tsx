@@ -41,14 +41,13 @@ export function ResendVerificationButton({ email }: { email: string }) {
   }
 
   return (
-    <span className="inline-flex flex-col items-start gap-1">
+    <span className="auth-resend-wrap">
       <button
         type="button"
         onClick={resend}
         disabled={sent || loading}
         aria-describedby={error ? 'resend-verification-error' : undefined}
-        className="text-sm font-semibold whitespace-nowrap disabled:opacity-60"
-        style={{ color: 'var(--green)' }}
+        className="auth-resend-button"
       >
         {sent ? 'Email sent!' : loading ? 'Sending…' : 'Resend email'}
       </button>
@@ -59,8 +58,7 @@ export function ResendVerificationButton({ email }: { email: string }) {
         <span
           id="resend-verification-error"
           role="alert"
-          className="max-w-xs text-xs font-normal whitespace-normal"
-          style={{ color: 'var(--err)' }}
+          className="auth-resend-error"
         >
           {error}
         </span>

@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { cookies } from 'next/headers';
+import { ArrowRight, Link2Off } from 'lucide-react';
 import { ResetPasswordForm } from '@/components/auth/reset-password-form';
+import { AuthPanelHeader, AuthStage } from '@/components/auth/auth-ui';
 import { RECOVERY_COOKIE_NAME } from '@/lib/auth/flow';
 import { getUser } from '@/lib/supabase/server';
 
@@ -8,24 +10,18 @@ export const metadata = { title: 'Choose a new password — Taleem SAT' };
 
 function InvalidRecoveryLink() {
   return (
-    <div
-      className="rounded-l p-8 text-center"
-      style={{ background: 'var(--surf)', border: '1px solid var(--border)' }}
-    >
-      <h1 className="font-serif text-2xl font-bold mb-2" style={{ color: 'var(--txt)' }}>
-        Reset link unavailable
-      </h1>
-      <p className="text-sm mb-5 leading-relaxed" style={{ color: 'var(--txt-soft)' }}>
-        This password reset link is invalid, expired, or has already been used.
-      </p>
-      <Link
-        href="/forgot-password"
-        className="text-sm font-medium hover:underline"
-        style={{ color: 'var(--green)' }}
-      >
-        Request a new link
+    <AuthStage art="invalid">
+      <div className="auth-success-icon auth-invalid-icon"><Link2Off size={22} aria-hidden="true" /></div>
+      <AuthPanelHeader
+        eyebrow="Recovery link unavailable"
+        title="This link has reached its limit."
+        description="It may be invalid, expired, or already used. Request a fresh link to keep going."
+      />
+      <Link href="/forgot-password" className="auth-primary-link">
+        <span>Request a new link</span><ArrowRight size={17} aria-hidden="true" />
       </Link>
-    </div>
+      <p className="auth-panel-footer">Your account and progress remain safe.</p>
+    </AuthStage>
   );
 }
 

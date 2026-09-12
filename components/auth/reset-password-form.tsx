@@ -2,6 +2,14 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { LockKeyhole, ShieldCheck } from 'lucide-react';
+import {
+  AuthAlert,
+  AuthPanelHeader,
+  AuthPasswordInput,
+  AuthStage,
+  AuthSubmitButton,
+} from '@/components/auth/auth-ui';
 
 export function ResetPasswordForm() {
   const router = useRouter();
@@ -16,7 +24,6 @@ export function ResetPasswordForm() {
     if (submittingRef.current) return;
 
     setError('');
-
     if (password !== confirm) {
       setError("Passwords don't match.");
       return;
@@ -52,98 +59,51 @@ export function ResetPasswordForm() {
   }
 
   return (
-    <div
-      className="rounded-l p-8"
-      style={{ background: 'var(--surf)', border: '1px solid var(--border)' }}
-    >
-      <h1 className="font-serif text-2xl font-bold mb-1" style={{ color: 'var(--txt)' }}>
-        Choose a new password
-      </h1>
-      <p className="text-sm mb-6" style={{ color: 'var(--txt-soft)' }}>
-        Pick something strong that you haven&apos;t used before.
-      </p>
+    <AuthStage art="reset">
+      <AuthPanelHeader
+        eyebrow="Secure restart"
+        title="Choose a new password."
+        description="Make it memorable to you and difficult for anyone else to guess."
+      />
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        {error && (
-          <p
-            id="reset-password-error"
-            role="alert"
-            className="rounded p-3 text-sm"
-            style={{
-              background: 'color-mix(in srgb, var(--err) 10%, transparent)',
-              color: 'var(--err)',
-              border: '1px solid color-mix(in srgb, var(--err) 25%, transparent)',
-            }}
-          >
-            {error}
-          </p>
-        )}
+      <form onSubmit={handleSubmit} className="auth-form">
+        {error && <AuthAlert id="reset-password-error">{error}</AuthAlert>}
 
-        <div className="flex flex-col gap-1.5">
-          <label
-            htmlFor="new-password"
-            className="text-sm font-medium"
-            style={{ color: 'var(--txt)' }}
-          >
-            New password
-          </label>
-          <input
-            id="new-password"
-            type="password"
-            value={password}
-            onChange={event => setPassword(event.target.value)}
-            placeholder="At least 8 characters"
-            required
-            minLength={8}
-            maxLength={128}
-            autoComplete="new-password"
-            aria-describedby={error ? 'reset-password-error' : undefined}
-            className="rounded px-3 py-2 text-sm w-full outline-none"
-            style={{
-              background: 'var(--bg)',
-              border: '1px solid var(--border)',
-              color: 'var(--txt)',
-            }}
-          />
+        <div className="auth-field">
+          <label htmlFor="new-password">New password</label>
+          <div className="auth-field-control">
+            <LockKeyhole size={17} aria-hidden="true" />
+            <AuthPasswordInput
+              id="new-password"
+              value={password}
+              onChange={setPassword}
+              placeholder="At least 8 characters"
+              autoComplete="new-password"
+              describedBy={error ? 'reset-password-error' : 'password-hint'}
+            />
+          </div>
+          <small id="password-hint" className="auth-field-hint">Use 8–128 characters.</small>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label
-            htmlFor="confirm-password"
-            className="text-sm font-medium"
-            style={{ color: 'var(--txt)' }}
-          >
-            Confirm password
-          </label>
-          <input
-            id="confirm-password"
-            type="password"
-            value={confirm}
-            onChange={event => setConfirm(event.target.value)}
-            placeholder="••••••••"
-            required
-            minLength={8}
-            maxLength={128}
-            autoComplete="new-password"
-            aria-describedby={error ? 'reset-password-error' : undefined}
-            className="rounded px-3 py-2 text-sm w-full outline-none"
-            style={{
-              background: 'var(--bg)',
-              border: '1px solid var(--border)',
-              color: 'var(--txt)',
-            }}
-          />
+        <div className="auth-field">
+          <label htmlFor="confirm-password">Confirm password</label>
+          <div className="auth-field-control">
+            <ShieldCheck size={17} aria-hidden="true" />
+            <AuthPasswordInput
+              id="confirm-password"
+              value={confirm}
+              onChange={setConfirm}
+              placeholder="Repeat your new password"
+              autoComplete="new-password"
+              describedBy={error ? 'reset-password-error' : undefined}
+            />
+          </div>
         </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded py-2.5 text-sm font-semibold disabled:opacity-60"
-          style={{ background: 'var(--green)', color: '#fff' }}
-        >
-          {loading ? 'Updating…' : 'Update password'}
-        </button>
+        <AuthSubmitButton loading={loading} label="Save new password" loadingLabel="Updating…" />
       </form>
-    </div>
+
+      <div className="auth-security-line"><ShieldCheck size={14} aria-hidden="true" /> Your recovery session is protected.</div>
+    </AuthStage>
   );
 }
