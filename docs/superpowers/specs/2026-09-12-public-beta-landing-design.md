@@ -142,6 +142,38 @@ Motion should make progress feel tangible:
 
 All nonessential motion is disabled or reduced under `prefers-reduced-motion: reduce`. No animation may block reading, navigation, or a primary action.
 
+## Approved Skill and Journey Illustration Revision
+
+**Revision approved:** 13 September 2026
+
+The original implementation's simple overlapping circles, glyphs, and answer bubbles in the eight skill cards are replaced. Each card receives one distinct, content-specific SVG vignette:
+
+- **Information & Ideas:** an annotated passage with one highlighted evidence line and a linked claim marker.
+- **Craft & Structure:** layered text blocks and a directional structure path.
+- **Expression of Ideas:** note fragments rearranged into a clear sequence.
+- **Standard English Conventions:** a manuscript detail with visible punctuation and edit marks.
+- **Algebra:** a coordinate plane with a linear relationship and plotted solution point.
+- **Advanced Math:** a quadratic curve paired with a compact equation treatment.
+- **Problem-Solving & Data Analysis:** a compact chart with percentage and data-point annotations.
+- **Geometry & Trigonometry:** a measured triangle with angle and compass-arc construction marks.
+
+These vignettes are treated as real illustrations rather than symbol decorations. They occupy the visual field between each card's index and title, use layered surfaces and purposeful linework, and remain subordinate to the card label. Reading and Writing vignettes use emerald-led color; Math vignettes use gold-led color. Hover motion may reveal a highlight, trace a line, or shift one layer by a few pixels. The illustrations remain decorative and are hidden from assistive technology.
+
+The three-step section is also replaced. Each step becomes an asymmetric story card with:
+
+- the step number in the upper-left;
+- a substantial illustration occupying the upper-right portion of the card;
+- the heading and explanation anchored in the lower-left;
+- no small form-like panel along the bottom.
+
+The three story illustrations are:
+
+1. **Set your direction:** a target dial, score card, and exam-date marker.
+2. **Choose one skill:** an open practice sheet with a selected category tab and answer bubbles.
+3. **Make growth visible:** a compact dashboard scene with a rising chart, mission marks, and XP badge.
+
+On desktop the illustration intentionally crosses the upper-right grid of each card so that the corner carries visual weight. On narrow screens it scales and shifts inward without covering the number, heading, or body copy. The existing section order, copy, links, static-rendering boundary, and accessibility requirements do not change.
+
 ## Responsive and Accessibility Requirements
 
 - Mobile-first layout with deliberate states at approximately 640, 768, and 1024 pixels.
