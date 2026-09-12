@@ -32,8 +32,9 @@ The production route manifest reports `/`, `/help`, `/privacy`, `/terms`, `/sign
 - Light and dark themes inspected.
 - Header and footer logo frames use consistent inset padding.
 - Theme toggle uses an explicit square size and equal corner radius.
-- Skill cards contain domain-specific study marks rather than large empty regions.
-- The three-step cards contain compact target, category-selection, and progress illustrations.
+- Skill cards contain eight distinct SVG study vignettes: passage annotation, text structure, idea sequencing, grammar editing, algebra, advanced math, data analysis, and geometric construction.
+- The three-step cards use asymmetric target-setting, focused-practice, and progress-dashboard scenes that carry visual weight into each card's upper-right area.
+- The former circle-and-glyph skill decorations and small form-like step panels have been removed.
 - Explore, Support, and Legal footer groups remain in one three-column row at tablet and mobile breakpoints.
 - Decorative artwork is hidden from assistive technology.
 - The tutor portrait has descriptive alternative text.
@@ -51,6 +52,7 @@ The production route manifest reports `/`, `/help`, `/privacy`, `/terms`, `/sign
 | `pnpm build` | Environment-limited: Turbopack's CSS worker could not bind an internal local port (`EPERM`); no application diagnostic was emitted |
 | Source check for Supabase/dynamic count use in `app/(public)/page.tsx` | No matches |
 | Browser inspection — landing | Hero, category grid, feature illustrations, tutor portrait, three-step sequence, beta notice, CTAs, and footer rendered |
+| Browser inspection — illustration revision | Skill vignettes and journey scenes rendered crisply at the inspected 708px viewport; no horizontal overflow (`scrollWidth` equals viewport width) |
 | Browser inspection — Help | Email, Telegram, password recovery, account, reporting, Privacy, and Terms links rendered with intended destinations |
 | Theme inspection | Light and dark public surfaces rendered coherently |
 | Responsive inspection | Wide desktop and narrower tablet/mobile layout checked; no visible horizontal overflow in inspected views |
@@ -67,6 +69,8 @@ The webpack production builder was used as the verification fallback because Tur
 - `app/layout.tsx`
 - `app/globals.css`
 - `components/public/landing-art.tsx`
+- `components/public/landing-skill-art.tsx`
+- `components/public/landing-step-art.tsx`
 - `components/public/public-article.tsx`
 - `components/public/public-reveal.tsx`
 - `components/public/public-shell.tsx`

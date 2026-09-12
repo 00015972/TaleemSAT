@@ -8,8 +8,6 @@ import {
   ChevronRight,
   Flame,
   Sparkles,
-  Target,
-  Trophy,
 } from 'lucide-react';
 import bahromjonPortrait from '../../design/bahromjon.jpg';
 import {
@@ -19,6 +17,15 @@ import {
   MomentumArt,
 } from '@/components/public/landing-art';
 import { PublicReveal } from '@/components/public/public-reveal';
+import {
+  SkillIllustration,
+  type SkillArtKind,
+} from '@/components/public/landing-skill-art';
+import {
+  DirectionStepArt,
+  PracticeStepArt,
+  ProgressStepArt,
+} from '@/components/public/landing-step-art';
 
 export const metadata = {
   title: 'Taleem SAT — Free Digital SAT Practice',
@@ -26,15 +33,15 @@ export const metadata = {
     'Practice every Digital SAT skill, track your accuracy, and build consistent study momentum with Taleem SAT. Free during beta.',
 };
 
-const focusAreas = [
-  { title: 'Information & Ideas', mark: '∵', note: 'claim · evidence' },
-  { title: 'Craft & Structure', mark: '“Aa”', note: 'purpose · context' },
-  { title: 'Expression of Ideas', mark: '↗', note: 'logic · transitions' },
-  { title: 'English Conventions', mark: ';', note: 'grammar · boundaries' },
-  { title: 'Algebra', mark: 'x+y', note: 'linear · systems' },
-  { title: 'Advanced Math', mark: 'x²', note: 'quadratic · nonlinear' },
-  { title: 'Problem-Solving & Data', mark: '%', note: 'ratio · inference' },
-  { title: 'Geometry & Trigonometry', mark: '△', note: 'angle · measure' },
+const focusAreas: { title: string; kind: SkillArtKind }[] = [
+  { title: 'Information & Ideas', kind: 'information' },
+  { title: 'Craft & Structure', kind: 'craft' },
+  { title: 'Expression of Ideas', kind: 'expression' },
+  { title: 'English Conventions', kind: 'conventions' },
+  { title: 'Algebra', kind: 'algebra' },
+  { title: 'Advanced Math', kind: 'advanced' },
+  { title: 'Problem-Solving & Data', kind: 'data' },
+  { title: 'Geometry & Trigonometry', kind: 'geometry' },
 ];
 
 const credentials = [
@@ -110,13 +117,9 @@ export default function HomePage() {
                   className={`landing-focus-card ${index >= 4 ? 'is-math' : ''}`}
                 >
                   <span className="landing-focus-index">{String(index + 1).padStart(2, '0')}</span>
-                  <span className="landing-focus-art" aria-hidden="true">
-                    <span className="landing-focus-glyph">{area.mark}</span>
-                    <span className="landing-focus-bubbles"><i /><i className="is-filled" /><i /><i /></span>
-                    <small>{area.note}</small>
-                  </span>
+                  <span className="landing-focus-art"><SkillIllustration kind={area.kind} /></span>
                   <strong>{area.title}</strong>
-                  <ChevronRight size={16} aria-hidden="true" />
+                  <ChevronRight className="landing-focus-arrow" size={16} aria-hidden="true" />
                 </Link>
               </PublicReveal>
             ))}
@@ -218,31 +221,31 @@ export default function HomePage() {
           <ol className="landing-step-grid">
             <PublicReveal className="landing-step" delay={0}>
               <li>
-                <span>01</span><div className="landing-step-icon"><Target size={24} aria-hidden="true" /></div>
-                <h3>Set your direction</h3><p>Create a free account and add your target score and exam date.</p>
-                <div className="landing-step-visual landing-step-target" aria-hidden="true">
-                  <span><i /><i /><i className="is-on" /><i /></span>
-                  <b>Target · 1500</b>
+                <span className="landing-step-number">01</span>
+                <DirectionStepArt />
+                <div className="landing-step-copy">
+                  <h3>Set your direction</h3>
+                  <p>Create a free account and add your target score and exam date.</p>
                 </div>
               </li>
             </PublicReveal>
             <PublicReveal className="landing-step" delay={90}>
               <li>
-                <span>02</span><div className="landing-step-icon"><BookOpenCheck size={24} aria-hidden="true" /></div>
-                <h3>Choose one skill</h3><p>Open the question bank and begin with the domain that matters today.</p>
-                <div className="landing-step-visual landing-step-choice" aria-hidden="true">
-                  <span>R&amp;W</span><span className="is-on">Information &amp; Ideas</span><i>✓</i>
+                <span className="landing-step-number">02</span>
+                <PracticeStepArt />
+                <div className="landing-step-copy">
+                  <h3>Choose one skill</h3>
+                  <p>Open the question bank and begin with the domain that matters today.</p>
                 </div>
               </li>
             </PublicReveal>
             <PublicReveal className="landing-step" delay={180}>
               <li>
-                <span>03</span><div className="landing-step-icon"><Trophy size={24} aria-hidden="true" /></div>
-                <h3>Make growth visible</h3><p>Return to your dashboard to see accuracy, missions, streaks, and XP.</p>
-                <div className="landing-step-visual landing-step-progress" aria-hidden="true">
-                  <span><i className="is-on" /><i className="is-on" /><i /></span>
-                  <b>+10 XP</b>
-                  <em><i /></em>
+                <span className="landing-step-number">03</span>
+                <ProgressStepArt />
+                <div className="landing-step-copy">
+                  <h3>Make growth visible</h3>
+                  <p>Return to your dashboard to see accuracy, missions, streaks, and XP.</p>
                 </div>
               </li>
             </PublicReveal>
