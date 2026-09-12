@@ -5,7 +5,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'Taleem SAT — The Smarter Way to Conquer the Digital SAT',
   description:
-    'A modern SAT preparation platform built by a 1500-scorer for ambitious students. AI-powered analysis and certificates that mean something.',
+    'Focused Digital SAT practice with category-based questions, accuracy tracking, daily missions, streaks, and XP. Free during beta.',
 };
 
 const themeScript = `
