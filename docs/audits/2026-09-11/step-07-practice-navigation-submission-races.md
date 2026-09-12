@@ -17,7 +17,7 @@ Completed on 12 September 2026. This closes B07 in the [launch audit](../../laun
 - Added an immutable pending first-submission payload containing question ID, selected answer, original timing, and a browser-generated UUID. An indeterminate retry reuses the exact payload.
 - Extended the bounded practice-answer schema so recorded attempts require a UUID submission key and unrecorded learning retries cannot supply one.
 - Added `attempts.submission_key` plus a unique `(user_id, submission_key)` index in `drizzle/sql/014_practice_submission_idempotency.sql`, Drizzle schema, and Supabase types.
-- Made the answer route recover the existing attempt after a conflict on the named submission-key index. Exact payload replays return the stored correctness and progression; mismatched reuse returns `409 SUBMISSION_KEY_REUSED`. Unrelated unique violations remain save failures.
+- Made the answer route reconcile any failed insert through the durable submission key, including ambiguous response-loss failures where PostgreSQL may already have committed the row. Exact payload replays return the stored correctness and progression; mismatched reuse returns `409 SUBMISSION_KEY_REUSED`; failures without a matching row remain save failures with sanitized server diagnostics.
 
 ## Database verification
 
@@ -34,19 +34,19 @@ The additive migration is safe to rerun. It does not backfill or alter existing 
 | Check | Result |
 |---|---|
 | Race-safety and validation-schema tests | 11 passed, 0 failed |
-| Practice-answer route tests | 12 passed, 0 failed |
-| Complete current TypeScript test set | 86 passed, 0 failed |
+| Practice-answer route tests | 13 passed, 0 failed |
+| Complete current TypeScript test set | 90 passed, 0 failed |
 | `pnpm typecheck` | Passed |
 | `pnpm lint` | Passed |
 | Production build | Passed with Next.js 16.3.4 using webpack; 18 static pages generated and route inventory preserved |
-| Local production browser check | Passed with an authenticated student; an immediate question 80 jump, Next, and Back settled on question 80 with matching content and no browser warnings/errors |
+| Local authenticated browser checks | Rapid question 80 jump/Next/Back settled on the matching question; a later real answer check completed with `✓ Correct`, `+10 XP`, and no save error |
 | `git diff --check` | Passed; only existing CRLF normalization warnings were reported for generated/schema files |
 
 The default Turbopack build could not run in the execution sandbox because its CSS worker was denied permission to bind a local port. The webpack production build compiled, typechecked, generated all routes, and completed successfully.
 
-Focused tests prove stale navigation identities are rejected, foreground and prefetch loads share a promise, rejected loads can retry, the lock rejects a second synchronous acquisition, a pending retry preserves its original key and timing, and displayed/active question identifiers must match. Route tests prove validation happens before privileged access, the key is persisted, exact conflict replay returns the stored attempt, mismatched key reuse returns 409, unrelated constraint failures are not mistaken for replay, and the answer-key boundary remains intact.
+Focused tests prove stale navigation identities are rejected, foreground and prefetch loads share a promise, rejected loads can retry, the lock rejects a second synchronous acquisition, a pending retry preserves its original key and timing, and displayed/active question identifiers must match. Route tests prove validation happens before privileged access, the key is persisted, exact conflict replay and ambiguous committed-insert recovery return the stored attempt, mismatched key reuse returns 409, failures without a matching keyed row remain save failures, and the answer-key boundary remains intact.
 
-No real student answer was submitted during browser verification, so the check did not alter student analytics. Repeated Enter is covered at the synchronous lock boundary rather than by writing a real attempt. A deployment smoke test should repeat throttled navigation and one disposable-account response-loss replay after the local application code is deployed.
+The initial race-navigation verification did not submit an answer. During follow-up diagnosis of a reported `ATTEMPT_SAVE_FAILED`, one normal authenticated answer was submitted to verify the live route and progression result end to end. Repeated Enter remains covered at the synchronous lock boundary. A deployment smoke test should repeat throttled navigation and one disposable-account response-loss replay after the local application code is deployed.
 
 ## Result
 
