@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server';
 import { createClient, getClaimsUser } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import type {
   PracticeBootstrap,
-  PracticeManifestEntry,
   PracticeQuestion,
 } from '@/components/practice/types';
 
@@ -61,10 +61,72 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  return Response.json(bootstrap);
+  const admin = createAdminClient();
+  const { data: sessionData, error: sessionError } = await admin.rpc(
+    'create_assessment_session',
+    {
+      p_user_id: user.id,
+      p_context: 'practice',
+      p_question_ids: bootstrap.ids.map(entry => entry.id),
+      p_config: {
+        scopeKind: scope.kind,
+        scopeSlug: scope.slug,
+        difficulty: difficulty ?? null,
+      },
+    }
+  );
+
+  const session = parseIssuedSession(sessionData);
+  if (sessionError || !session) {
+    return Response.json({ error: 'SESSION_CREATE_FAILED' }, { status: 500 });
+  }
+
+  const submissions = new Map(
+    session.questions.map(question => [question.questionId, question.submissionId])
+  );
+  if (submissions.size !== bootstrap.ids.length) {
+    return Response.json({ error: 'SESSION_CREATE_FAILED' }, { status: 500 });
+  }
+
+  return Response.json({
+    sessionId: session.sessionId,
+    ids: bootstrap.ids.map(entry => ({
+      ...entry,
+      submissionId: submissions.get(entry.id)!,
+    })),
+    question: bootstrap.question,
+  } satisfies PracticeBootstrap);
 }
 
-function parseBootstrap(value: unknown): PracticeBootstrap | null {
+type IssuedSession = {
+  sessionId: string;
+  questions: Array<{ questionId: string; submissionId: string }>;
+};
+
+function parseIssuedSession(value: unknown): IssuedSession | null {
+  if (!value || Array.isArray(value) || typeof value !== 'object') return null;
+  const raw = value as { sessionId?: unknown; questions?: unknown };
+  if (typeof raw.sessionId !== 'string' || !Array.isArray(raw.questions)) return null;
+
+  const questions = raw.questions.flatMap(question => {
+    if (!question || Array.isArray(question) || typeof question !== 'object') return [];
+    const row = question as { questionId?: unknown; submissionId?: unknown };
+    return typeof row.questionId === 'string' && typeof row.submissionId === 'string'
+      ? [{ questionId: row.questionId, submissionId: row.submissionId }]
+      : [];
+  });
+
+  return questions.length === raw.questions.length
+    ? { sessionId: raw.sessionId, questions }
+    : null;
+}
+
+type PracticeRunBase = {
+  ids: Array<{ id: string; difficulty: 'easy' | 'medium' | 'hard' }>;
+  question: PracticeQuestion;
+};
+
+function parseBootstrap(value: unknown): PracticeRunBase | null {
   if (!value || Array.isArray(value) || typeof value !== 'object') return null;
 
   const raw = value as { ids?: unknown; question?: unknown };
@@ -77,7 +139,9 @@ function parseBootstrap(value: unknown): PracticeBootstrap | null {
   return { ids, question: raw.question };
 }
 
-function isManifestEntry(value: unknown): value is PracticeManifestEntry {
+function isManifestEntry(
+  value: unknown
+): value is { id: string; difficulty: 'easy' | 'medium' | 'hard' } {
   if (!value || Array.isArray(value) || typeof value !== 'object') return false;
   const entry = value as { id?: unknown; difficulty?: unknown };
   return (

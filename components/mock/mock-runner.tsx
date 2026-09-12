@@ -36,6 +36,7 @@ type Option = { id: string; text: string };
 
 type MockQuestion = {
   id: string;
+  submissionId: string;
   passage: string | null;
   question_text: string;
   chart_svg: string | null;
@@ -53,6 +54,7 @@ type RawQuestion = Omit<MockQuestion, 'options'> & { options: unknown };
 
 type Result = {
   questionId: string;
+  selectedAnswer: string | null;
   correctAnswer: string | null;
   isCorrect: boolean;
   explanation: string | null;
@@ -117,6 +119,7 @@ export function MockRunner() {
   const [examMode, setExamMode] = useState(false);
 
   const [questions, setQuestions] = useState<MockQuestion[]>([]);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [eliminated, setEliminated] = useState<Record<string, string[]>>({});
   const [flagged, setFlagged] = useState<Set<string>>(new Set());
@@ -181,8 +184,8 @@ export function MockRunner() {
     setStatus('loading');
     try {
       const res = await fetch(`/api/mock/start?subject=${subject}&count=${count}`);
-      const data = (await res.json()) as { questions?: RawQuestion[] };
-      if (!res.ok || !data.questions || data.questions.length === 0) {
+      const data = (await res.json()) as { sessionId?: string; questions?: RawQuestion[] };
+      if (!res.ok || !data.sessionId || !data.questions || data.questions.length === 0) {
         setStatus('error');
         return;
       }
@@ -191,6 +194,7 @@ export function MockRunner() {
         options: normalizeOptions(q.options),
       }));
       setQuestions(qs);
+      setSessionId(data.sessionId);
       setAnswers({});
       setEliminated({});
       setFlagged(new Set());
@@ -217,6 +221,10 @@ export function MockRunner() {
 
   // ── submit + score ──
   const submitTest = useCallback(async () => {
+    if (!sessionId) {
+      setSubmitError("Couldn't save this test. Start a new test and try again.");
+      return;
+    }
     setDialog(null);
     setStatus('submitting');
     setSubmitError('');
@@ -226,7 +234,7 @@ export function MockRunner() {
     const payload = questions.map(q => {
       const ms = (spent[q.id] ?? 0) + (q.id === liveId ? live : 0);
       return {
-        questionId: q.id,
+        submissionId: q.submissionId,
         selectedAnswer: answers[q.id] ?? null,
         timeTakenMs: ms > 0 ? ms : null,
       };
@@ -235,23 +243,32 @@ export function MockRunner() {
       const res = await fetch('/api/mock/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answers: payload }),
+        body: JSON.stringify({ sessionId, answers: payload }),
       });
       const data = (await res.json()) as {
         results?: Result[];
-        progression?: MockProgressionSummary;
+        progression?: MockProgressionSummary | null;
+        warning?: string;
       };
-      if (!res.ok || !data.results || !data.progression) {
+      if (!res.ok || !data.results) {
         setSubmitError("Couldn't save this test. Your answers are still here — try again.");
         setStatus('running');
         return;
       }
       const map: Record<string, Result> = {};
-      for (const r of data.results) map[r.questionId] = r;
+      const savedAnswers: Record<string, string> = {};
+      for (const r of data.results) {
+        map[r.questionId] = r;
+        if (r.selectedAnswer !== null) savedAnswers[r.questionId] = r.selectedAnswer;
+      }
       // `spent` for the question on screen is banked by the stopwatch effect's
       // cleanup the moment status leaves 'running' — don't add it twice here.
       setResults(map);
-      setProgression(data.progression);
+      setAnswers(savedAnswers);
+      setProgression(data.progression ?? null);
+      if (data.warning === 'PROGRESSION_UNAVAILABLE') {
+        setSubmitError('Test saved. Reward progress is temporarily unavailable.');
+      }
       setStatus('done');
       setReview(null);
       window.scrollTo({ top: 0 });
@@ -259,7 +276,7 @@ export function MockRunner() {
       setSubmitError("Couldn't save this test. Check your connection and try again.");
       setStatus('running');
     }
-  }, [questions, answers, spent, index]);
+  }, [questions, answers, spent, index, sessionId]);
 
   // ── ticking clock (+ exam auto-submit) ──
   useEffect(() => {
@@ -576,6 +593,9 @@ export function MockRunner() {
           onReview={() => setReview(0)}
         />
         <MockRewardSummary summary={progression} />
+        {submitError && (
+          <p className="mt-3 text-sm text-muted" role="status">{submitError}</p>
+        )}
         <div className="mk-review">
           <div className="mk-review-head">
             <p className="app-label">Review every question</p>

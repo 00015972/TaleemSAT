@@ -1,8 +1,9 @@
 export type PendingPracticeSubmission = {
+  sessionId: string;
+  submissionId: string;
   questionId: string;
   selectedAnswer: string;
   timeTakenMs: number | null;
-  submissionKey: string;
 };
 
 export function createKeyedLoader<T>(load: (id: string) => Promise<T>) {
@@ -61,15 +62,18 @@ export function isActiveQuestion(
 
 export function getOrCreatePendingSubmission(
   submissions: Map<string, PendingPracticeSubmission>,
-  input: Omit<PendingPracticeSubmission, 'submissionKey'>,
-  createKey: () => string
+  input: PendingPracticeSubmission
 ): PendingPracticeSubmission | null {
   const existing = submissions.get(input.questionId);
   if (existing) {
-    return existing.selectedAnswer === input.selectedAnswer ? existing : null;
+    return existing.sessionId === input.sessionId
+      && existing.submissionId === input.submissionId
+      && existing.selectedAnswer === input.selectedAnswer
+      ? existing
+      : null;
   }
 
-  const submission = { ...input, submissionKey: createKey() };
+  const submission = { ...input };
   submissions.set(input.questionId, submission);
   return submission;
 }

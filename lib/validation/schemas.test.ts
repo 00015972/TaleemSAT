@@ -17,49 +17,52 @@ import {
 const ID_A = '11111111-1111-4111-8111-111111111111';
 const ID_B = '22222222-2222-4222-8222-222222222222';
 const SUBMISSION_ID = '33333333-3333-4333-8333-333333333333';
+const SESSION_ID = '44444444-4444-4444-8444-444444444444';
 
 test('practice answers require bounded UUID, answer, timing, and exact keys', () => {
   assert.equal(practiceAnswerSchema.safeParse({
-    questionId: ID_A,
+    sessionId: SESSION_ID,
+    submissionId: SUBMISSION_ID,
     selectedAnswer: '6/4',
     timeTakenMs: 1250,
-    recordAttempt: true,
-    submissionKey: SUBMISSION_ID,
   }).success, true);
 
   const invalid = [
-    { questionId: 'question-1', selectedAnswer: 'A' },
-    { questionId: ID_A, selectedAnswer: 'E' },
-    { questionId: ID_A, selectedAnswer: '3abc' },
-    { questionId: ID_A, selectedAnswer: null },
-    { questionId: ID_A, selectedAnswer: 'A', timeTakenMs: -1 },
-    { questionId: ID_A, selectedAnswer: 'A', timeTakenMs: Infinity },
-    { questionId: ID_A, selectedAnswer: 'A', recordAttempt: 'yes' },
-    { questionId: ID_A, selectedAnswer: 'A', recordAttempt: true },
-    { questionId: ID_A, selectedAnswer: 'A', recordAttempt: false, submissionKey: SUBMISSION_ID },
-    { questionId: ID_A, selectedAnswer: 'A', extra: true },
+    { sessionId: 'session-1', submissionId: SUBMISSION_ID, selectedAnswer: 'A' },
+    { sessionId: SESSION_ID, submissionId: SUBMISSION_ID, selectedAnswer: 'E' },
+    { sessionId: SESSION_ID, submissionId: SUBMISSION_ID, selectedAnswer: '3abc' },
+    { sessionId: SESSION_ID, submissionId: SUBMISSION_ID, selectedAnswer: null },
+    { sessionId: SESSION_ID, submissionId: SUBMISSION_ID, selectedAnswer: 'A', timeTakenMs: -1 },
+    { sessionId: SESSION_ID, submissionId: SUBMISSION_ID, selectedAnswer: 'A', timeTakenMs: Infinity },
+    { sessionId: SESSION_ID, submissionId: SUBMISSION_ID, selectedAnswer: 'A', recordAttempt: true },
+    { sessionId: SESSION_ID, submissionId: SUBMISSION_ID, selectedAnswer: 'A', questionId: ID_A },
+    { sessionId: SESSION_ID, selectedAnswer: 'A' },
+    { submissionId: SUBMISSION_ID, selectedAnswer: 'A' },
   ];
   for (const value of invalid) assert.equal(practiceAnswerSchema.safeParse(value).success, false);
 });
 
 test('mock submissions are bounded, unique, and permit unanswered entries', () => {
   assert.equal(mockSubmissionSchema.safeParse({
+    sessionId: SESSION_ID,
     answers: [
-      { questionId: ID_A, selectedAnswer: null, timeTakenMs: null },
-      { questionId: ID_B, selectedAnswer: '.5', timeTakenMs: 0 },
+      { submissionId: SUBMISSION_ID, selectedAnswer: null, timeTakenMs: null },
+      { submissionId: ID_B, selectedAnswer: '.5', timeTakenMs: 0 },
     ],
   }).success, true);
 
   assert.equal(mockSubmissionSchema.safeParse({
+    sessionId: SESSION_ID,
     answers: [
-      { questionId: ID_A, selectedAnswer: 'A' },
-      { questionId: ID_A, selectedAnswer: 'B' },
+      { submissionId: SUBMISSION_ID, selectedAnswer: 'A' },
+      { submissionId: SUBMISSION_ID, selectedAnswer: 'B' },
     ],
   }).success, false);
 
   assert.equal(mockSubmissionSchema.safeParse({
+    sessionId: SESSION_ID,
     answers: Array.from({ length: MAX_MOCK_ANSWERS + 1 }, (_, index) => ({
-      questionId: `${String(index).padStart(8, '0')}-0000-4000-8000-000000000000`,
+      submissionId: `${String(index).padStart(8, '0')}-0000-4000-8000-000000000000`,
       selectedAnswer: 'A',
     })),
   }).success, false);

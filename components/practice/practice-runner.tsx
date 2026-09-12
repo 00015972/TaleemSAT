@@ -174,6 +174,7 @@ function ReadyPracticeRunner({
   const [progressionByQuestion, setProgressionByQuestion] = useState<
     Record<string, ProgressionOutcome | null>
   >({});
+  const [progressionWarnings, setProgressionWarnings] = useState<Record<string, string>>({});
   const [flagged, setFlagged] = useState<Set<string>>(new Set());
   const [eliminated, setEliminated] = useState<Record<string, string[]>>({});
   const [elimMode, setElimMode] = useState(false);
@@ -300,26 +301,25 @@ function ReadyPracticeRunner({
   );
 
   const checkAnswer = useCallback(async () => {
-    const activeId = manifest[activeIndexRef.current]?.id;
-    if (!current || !picked || !isActiveQuestion(current.id, activeId)) return;
+    const activeEntry = manifest[activeIndexRef.current];
+    const activeId = activeEntry?.id;
+    if (!activeEntry || !current || !picked || !isActiveQuestion(current.id, activeId)) return;
     if (!submissionLockRef.current.acquire()) return;
 
     const id = current.id;
     const selectedAnswer = picked;
-    const isFirst = firstResultRef.current[id] === undefined;
-    const pendingSubmission = isFirst
-      ? getOrCreatePendingSubmission(
-          pendingSubmissionsRef.current,
-          {
-            questionId: id,
-            selectedAnswer,
-            timeTakenMs: qStartedAt === null ? null : Math.max(0, Date.now() - qStartedAt),
-          },
-          () => crypto.randomUUID()
-        )
-      : null;
+    const pendingSubmission = getOrCreatePendingSubmission(
+      pendingSubmissionsRef.current,
+      {
+        sessionId: bootstrap.sessionId,
+        submissionId: activeEntry.submissionId,
+        questionId: id,
+        selectedAnswer,
+        timeTakenMs: qStartedAt === null ? null : Math.max(0, Date.now() - qStartedAt),
+      }
+    );
 
-    if (isFirst && !pendingSubmission) {
+    if (!pendingSubmission) {
       submissionLockRef.current.release();
       setCheckErrors(errors => ({
         ...errors,
@@ -335,33 +335,45 @@ function ReadyPracticeRunner({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          questionId: id,
-          selectedAnswer,
-          timeTakenMs: isFirst ? (pendingSubmission?.timeTakenMs ?? undefined) : undefined,
-          recordAttempt: isFirst,
-          submissionKey: pendingSubmission?.submissionKey,
+          sessionId: pendingSubmission.sessionId,
+          submissionId: pendingSubmission.submissionId,
+          selectedAnswer: pendingSubmission.selectedAnswer,
+          timeTakenMs: pendingSubmission.timeTakenMs,
         }),
       });
       const data = (await res.json().catch(() => ({}))) as {
         isCorrect?: boolean;
+        firstResult?: boolean;
+        learningRetry?: boolean;
         progression?: ProgressionOutcome | null;
+        warning?: string;
       };
-      if (!res.ok || typeof data.isCorrect !== 'boolean') {
-        if (isFirst && res.status >= 400 && res.status < 500) {
+      if (
+        !res.ok
+        || typeof data.isCorrect !== 'boolean'
+        || typeof data.firstResult !== 'boolean'
+      ) {
+        if (res.status >= 400 && res.status < 500) {
           pendingSubmissionsRef.current.delete(id);
         }
         throw new Error('Attempt was not saved');
       }
       const isCorrect = data.isCorrect;
-      if (isFirst) {
-        firstResultRef.current[id] = isCorrect;
-        pendingSubmissionsRef.current.delete(id);
-        setFirstResult(results => ({ ...results, [id]: isCorrect }));
+      firstResultRef.current[id] = data.firstResult;
+      pendingSubmissionsRef.current.delete(id);
+      setFirstResult(results => ({ ...results, [id]: data.firstResult! }));
+      if (!data.learningRetry) {
         setProgressionByQuestion(currentProgression => ({
           ...currentProgression,
           [id]: data.progression ?? null,
         }));
       }
+      setProgressionWarnings(warnings => ({
+        ...warnings,
+        [id]: data.warning === 'PROGRESSION_UNAVAILABLE'
+          ? 'Answer saved. Reward progress is temporarily unavailable.'
+          : '',
+      }));
       if (isCorrect) {
         setSolvedAnswer(solved => ({ ...solved, [id]: selectedAnswer }));
       } else {
@@ -385,6 +397,7 @@ function ReadyPracticeRunner({
     }
   }, [
     manifest,
+    bootstrap.sessionId,
     current,
     picked,
     qStartedAt,
@@ -392,6 +405,7 @@ function ReadyPracticeRunner({
     setCheckingQuestionId,
     setFirstResult,
     setProgressionByQuestion,
+    setProgressionWarnings,
     setSolvedAnswer,
     setTries,
     setPicked,
@@ -577,6 +591,7 @@ function ReadyPracticeRunner({
               elimMode={elimMode}
               checking={checkingQuestionId !== null}
               progression={progressionByQuestion[currentId] ?? null}
+              progressionWarning={progressionWarnings[currentId] ?? ''}
               checkError={checkErrors[currentId] ?? ''}
               onSelect={optId => selectOption(currentId, optId)}
               onCheck={checkAnswer}
@@ -715,6 +730,7 @@ function ChoicesPane({
   elimMode,
   checking,
   progression,
+  progressionWarning,
   checkError,
   onSelect,
   onCheck,
@@ -734,6 +750,7 @@ function ChoicesPane({
   elimMode: boolean;
   checking: boolean;
   progression: ProgressionOutcome | null;
+  progressionWarning: string;
   checkError: string;
   onSelect: (optionId: string) => void;
   onCheck: () => void;
@@ -784,6 +801,7 @@ function ChoicesPane({
       </div>
 
       <QuestionRewardFeedback outcome={progression} />
+      {progressionWarning && <p className="text-sm text-muted" role="status">{progressionWarning}</p>}
       {checkError && <p className="progress-save-error" role="alert">{checkError}</p>}
 
       {isGridIn ? (

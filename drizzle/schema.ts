@@ -54,6 +54,10 @@ export const attemptContextEnum = pgEnum('attempt_context', [
   'practice',
   'mock',
 ]);
+export const assessmentSessionStatusEnum = pgEnum('assessment_session_status', [
+  'active',
+  'completed',
+]);
 export const aiKindEnum = pgEnum('ai_kind', ['weakness', 'plan', 'prediction']);
 export const emailCategoryEnum = pgEnum('email_category', [
   'engagement',
@@ -175,6 +179,31 @@ export const questions = pgTable(
   ]
 );
 
+// ─── Assessment sessions ───────────────────────────────────────────
+export const assessmentSessions = pgTable(
+  'assessment_sessions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    context: attemptContextEnum('context').notNull(),
+    status: assessmentSessionStatusEnum('status').notNull().default('active'),
+    config: jsonb('config').notNull().default(sql`'{}'::jsonb`),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+  },
+  (t) => [
+    index('assessment_sessions_user_created_idx').on(t.userId, t.createdAt),
+    check('assessment_sessions_config_object_chk', sql`jsonb_typeof(${t.config}) = 'object'`),
+    check(
+      'assessment_sessions_completion_chk',
+      sql`(${t.status} = 'active' and ${t.completedAt} is null)
+        or (${t.status} = 'completed' and ${t.completedAt} is not null)`
+    ),
+  ]
+);
+
 // ─── Attempts ───────────────────────────────────────────────────────
 export const attempts = pgTable(
   'attempts',
@@ -186,10 +215,13 @@ export const attempts = pgTable(
     questionId: uuid('question_id')
       .notNull()
       .references(() => questions.id),
-    selectedAnswer: text('selected_answer').notNull(),
+    selectedAnswer: text('selected_answer'),
     isCorrect: boolean('is_correct').notNull(),
     timeTakenMs: integer('time_taken_ms'),
     submissionKey: uuid('submission_key'),
+    sessionId: uuid('session_id').references(() => assessmentSessions.id, {
+      onDelete: 'cascade',
+    }),
     context: attemptContextEnum('context').notNull().default('practice'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -198,6 +230,40 @@ export const attempts = pgTable(
     index('attempts_question_id_idx').on(t.questionId),
     index('attempts_user_question_idx').on(t.userId, t.questionId),
     uniqueIndex('attempts_user_submission_key_unique').on(t.userId, t.submissionKey),
+    uniqueIndex('attempts_session_question_unique')
+      .on(t.sessionId, t.questionId)
+      .where(sql`${t.sessionId} is not null`),
+  ]
+);
+
+export const assessmentSessionQuestions = pgTable(
+  'assessment_session_questions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    sessionId: uuid('session_id')
+      .notNull()
+      .references(() => assessmentSessions.id, { onDelete: 'cascade' }),
+    questionId: uuid('question_id')
+      .notNull()
+      .references(() => questions.id, { onDelete: 'restrict' }),
+    position: integer('position').notNull(),
+    submissionId: uuid('submission_id').notNull().defaultRandom(),
+    attemptId: uuid('attempt_id').references(() => attempts.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('assessment_session_questions_session_question_unique').on(
+      t.sessionId,
+      t.questionId
+    ),
+    uniqueIndex('assessment_session_questions_session_position_unique').on(
+      t.sessionId,
+      t.position
+    ),
+    uniqueIndex('assessment_session_questions_submission_unique').on(t.submissionId),
+    uniqueIndex('assessment_session_questions_attempt_unique').on(t.attemptId),
+    index('assessment_session_questions_question_idx').on(t.questionId),
+    check('assessment_session_questions_position_chk', sql`${t.position} >= 0`),
   ]
 );
 

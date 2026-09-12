@@ -74,34 +74,47 @@ test('synchronous lock excludes a second call before any render update', () => {
 
 test('pending submission preserves its original replay payload', () => {
   const submissions = new Map<string, PendingPracticeSubmission>();
-  let keys = 0;
-  const createKey = () => `submission-${++keys}`;
 
   const first = getOrCreatePendingSubmission(
     submissions,
-    { questionId: 'question-a', selectedAnswer: 'B', timeTakenMs: 1_250 },
-    createKey
+    {
+      sessionId: 'session-a',
+      submissionId: 'submission-a',
+      questionId: 'question-a',
+      selectedAnswer: 'B',
+      timeTakenMs: 1_250,
+    }
   );
   const retry = getOrCreatePendingSubmission(
     submissions,
-    { questionId: 'question-a', selectedAnswer: 'B', timeTakenMs: 9_999 },
-    createKey
+    {
+      sessionId: 'session-a',
+      submissionId: 'submission-a',
+      questionId: 'question-a',
+      selectedAnswer: 'B',
+      timeTakenMs: 9_999,
+    }
   );
   const conflicting = getOrCreatePendingSubmission(
     submissions,
-    { questionId: 'question-a', selectedAnswer: 'C', timeTakenMs: 1_250 },
-    createKey
+    {
+      sessionId: 'session-a',
+      submissionId: 'submission-a',
+      questionId: 'question-a',
+      selectedAnswer: 'C',
+      timeTakenMs: 1_250,
+    }
   );
 
   assert.deepEqual(first, {
+    sessionId: 'session-a',
+    submissionId: 'submission-a',
     questionId: 'question-a',
     selectedAnswer: 'B',
     timeTakenMs: 1_250,
-    submissionKey: 'submission-1',
   });
   assert.equal(retry, first);
   assert.equal(conflicting, null);
-  assert.equal(keys, 1);
 });
 
 test('active question requires the displayed and manifest identifiers to match', () => {

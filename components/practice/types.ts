@@ -20,10 +20,12 @@ export type PracticeQuestion = {
 
 export type PracticeManifestEntry = {
   id: string;
+  submissionId: string;
   difficulty: Difficulty;
 };
 
 export type PracticeBootstrap = {
+  sessionId: string;
   ids: PracticeManifestEntry[];
   question: PracticeQuestion;
 };

@@ -148,19 +148,23 @@ Fetch a single question. Used after attempt submission to show the explanation.
 
 ## Attempts and progression
 
+### `GET /api/practice/manifest`
+
+Creates a server-owned practice run for the requested scope. The response contains a `sessionId`, an ordered student-safe question manifest, and a server-issued `submissionId` for every entry. The first safe question is included. Correct answers and explanations are excluded.
+
 ### `POST /api/practice/answer`
 
-Grade a practice answer. The runner sends `recordAttempt: true` only for its first check of the loaded question; later self-correction guesses are graded but not stored. Exactly-once XP eligibility is still enforced in the database across every session and context.
+Grade an answer in a server-issued practice run. The server derives the question from the owned session/submission pair. The first checked response for that assigned question is stored atomically; later responses are unrecorded learning retries. A later practice run may record another first answer to the same question, while XP remains unique across the user's lifetime.
 
 **Auth:** required.
 
 **Body:**
 ```json
 {
-  "questionId": "uuid",
+  "sessionId": "uuid",
+  "submissionId": "uuid",
   "selectedAnswer": "B",
-  "timeTakenMs": 24500,
-  "recordAttempt": true
+  "timeTakenMs": 24500
 }
 ```
 
@@ -168,6 +172,10 @@ Grade a practice answer. The runner sends `recordAttempt: true` only for its fir
 ```json
 {
   "isCorrect": true,
+  "firstResult": true,
+  "recorded": true,
+  "replayed": false,
+  "learningRetry": false,
   "correctAnswer": "B",
   "explanation": "...",
   "progression": {
@@ -191,32 +199,46 @@ Grade a practice answer. The runner sends `recordAttempt: true` only for its fir
 
 **Notes:**
 - The correct answer and explanation are returned only for a correct check; a wrong unlimited-retry guess does not reveal the key.
+- Clients cannot supply `recordAttempt` or a question ID. Replaying the exact server-issued submission returns the stored result; a changed later answer is graded without replacing it.
 - A correct first-ever answer awards 10 XP; an incorrect one awards 5 XP. A familiar question reports `isFirstEver: false` and zero award.
-- If attempt persistence or database progression fails, the route returns 500 and the client keeps the answer retryable without showing XP.
+- If the attempt is saved but progression display loading fails, the route still returns 200 with `progression: null` and `warning: "PROGRESSION_UNAVAILABLE"`.
 
-**Errors:** `AUTH_REQUIRED`, `INVALID_JSON`, `MISSING_FIELDS`, `INVALID_RECORD_ATTEMPT`, `QUESTION_NOT_FOUND`, `ATTEMPT_SAVE_FAILED`, `PROGRESSION_READ_FAILED`.
+**Errors:** `AUTH_REQUIRED`, `INVALID_JSON`, `INVALID_REQUEST`, `SESSION_SUBMISSION_NOT_FOUND`, `QUESTION_NOT_FOUND`, `ATTEMPT_SAVE_FAILED`.
 
 ---
 
 ### `POST /api/mock/submit`
 
-Server-grade and save the answered questions in one mock-test submission. Each published, answered question creates a `mock` attempt; unanswered questions award nothing.
+Server-grade and atomically finalize a server-issued mock session. The server owns the roster and total; every assigned question creates one `mock` attempt, including unanswered questions with a null response and an incorrect result. Repeated finalization returns the original stored results.
 
-The response contains per-question grading plus `isFirstEver` and `xpAwarded`, and one aggregate progression object:
+The endpoint remains launch-restricted with `403 MOCK_IN_DEVELOPMENT`. This contract describes the hardened implementation behind that gate.
+
+**Body:**
+
+```json
+{
+  "sessionId": "uuid",
+  "answers": [
+    { "submissionId": "uuid", "selectedAnswer": "A", "timeTakenMs": 65000 }
+  ]
+}
+```
+
+**Response 200:**
 
 ```json
 {
   "results": [
-    { "questionId": "uuid", "correctAnswer": "A", "isCorrect": true, "explanation": "...", "isFirstEver": true, "xpAwarded": 10 }
+    { "questionId": "uuid", "selectedAnswer": "A", "correctAnswer": "A", "isCorrect": true, "explanation": "...", "isFirstEver": true, "xpAwarded": 10 }
   ],
   "summary": { "total": 10, "correct": 7 },
   "progression": { "newQuestions": 6, "xpAwarded": 50, "streakExtended": true, "snapshot": { "today": { "newQuestions": 7, "goal": 5 } } }
 }
 ```
 
-Previously attempted questions are still scored and retained in ordinary attempt analytics, but cannot grant another event or award. Duplicate question IDs cannot display or add the same award twice.
+Previously attempted questions are still scored and retained in ordinary attempt analytics, but cannot grant another event or award. If progression display loading fails after finalization, the saved score returns with `progression: null` and a warning.
 
-**Errors:** `AUTH_REQUIRED`, `INVALID_JSON`, `MISSING_FIELDS`, `QUESTION_LOAD_FAILED`, `ATTEMPT_SAVE_FAILED`, `PROGRESSION_READ_FAILED`.
+**Errors:** `AUTH_REQUIRED`, `MOCK_IN_DEVELOPMENT`, `INVALID_JSON`, `INVALID_REQUEST`, `MOCK_SESSION_NOT_FOUND`, `SUBMISSION_NOT_IN_SESSION`, `QUESTION_LOAD_FAILED`, `ATTEMPT_SAVE_FAILED`.
 
 ---
 

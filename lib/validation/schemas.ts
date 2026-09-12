@@ -31,45 +31,27 @@ export const timeTakenMsSchema = z
   .min(0)
   .max(MAX_TIME_TAKEN_MS);
 
-export const practiceAnswerSchema = z
-  .strictObject({
-    questionId: uuidSchema,
-    selectedAnswer: studentAnswerSchema,
-    timeTakenMs: timeTakenMsSchema.optional(),
-    recordAttempt: z.boolean().optional(),
-    submissionKey: uuidSchema.optional(),
-  })
-  .superRefine((body, context) => {
-    if (body.recordAttempt === true && body.submissionKey === undefined) {
-      context.addIssue({
-        code: 'custom',
-        path: ['submissionKey'],
-        message: 'A submission key is required when recording an attempt.',
-      });
-    }
-    if (body.recordAttempt !== true && body.submissionKey !== undefined) {
-      context.addIssue({
-        code: 'custom',
-        path: ['submissionKey'],
-        message: 'A submission key is only valid for a recorded attempt.',
-      });
-    }
-  });
+export const practiceAnswerSchema = z.strictObject({
+  sessionId: uuidSchema,
+  submissionId: uuidSchema,
+  selectedAnswer: studentAnswerSchema,
+  timeTakenMs: timeTakenMsSchema.nullable().optional(),
+});
 
 const mockAnswerSchema = z.strictObject({
-  questionId: uuidSchema,
+  submissionId: uuidSchema,
   selectedAnswer: studentAnswerSchema.nullable(),
   timeTakenMs: timeTakenMsSchema.nullable().optional(),
 });
 
 export const mockSubmissionSchema = z.strictObject({
+  sessionId: uuidSchema,
   answers: z
     .array(mockAnswerSchema)
-    .min(1)
     .max(MAX_MOCK_ANSWERS)
     .refine(
-      answers => uniqueStrings(answers.map(answer => answer.questionId)),
-      'Question IDs must be unique.'
+      answers => uniqueStrings(answers.map(answer => answer.submissionId)),
+      'Submission IDs must be unique.'
     ),
 });
 

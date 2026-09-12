@@ -57,6 +57,96 @@ export type Database = {
           },
         ]
       }
+      assessment_session_questions: {
+        Row: {
+          attempt_id: string | null
+          created_at: string
+          id: string
+          position: number
+          question_id: string
+          session_id: string
+          submission_id: string
+        }
+        Insert: {
+          attempt_id?: string | null
+          created_at?: string
+          id?: string
+          position: number
+          question_id: string
+          session_id: string
+          submission_id?: string
+        }
+        Update: {
+          attempt_id?: string | null
+          created_at?: string
+          id?: string
+          position?: number
+          question_id?: string
+          session_id?: string
+          submission_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_session_questions_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: true
+            referencedRelation: "attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessment_session_questions_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessment_session_questions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessment_sessions: {
+        Row: {
+          completed_at: string | null
+          config: Json
+          context: Database["public"]["Enums"]["attempt_context"]
+          created_at: string
+          id: string
+          status: Database["public"]["Enums"]["assessment_session_status"]
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          config?: Json
+          context: Database["public"]["Enums"]["attempt_context"]
+          created_at?: string
+          id?: string
+          status?: Database["public"]["Enums"]["assessment_session_status"]
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          config?: Json
+          context?: Database["public"]["Enums"]["attempt_context"]
+          created_at?: string
+          id?: string
+          status?: Database["public"]["Enums"]["assessment_session_status"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attempts: {
         Row: {
           context: Database["public"]["Enums"]["attempt_context"]
@@ -64,7 +154,8 @@ export type Database = {
           id: string
           is_correct: boolean
           question_id: string
-          selected_answer: string
+          selected_answer: string | null
+          session_id: string | null
           submission_key: string | null
           time_taken_ms: number | null
           user_id: string
@@ -75,7 +166,8 @@ export type Database = {
           id?: string
           is_correct: boolean
           question_id: string
-          selected_answer: string
+          selected_answer?: string | null
+          session_id?: string | null
           submission_key?: string | null
           time_taken_ms?: number | null
           user_id: string
@@ -86,7 +178,8 @@ export type Database = {
           id?: string
           is_correct?: boolean
           question_id?: string
-          selected_answer?: string
+          selected_answer?: string | null
+          session_id?: string | null
           submission_key?: string | null
           time_taken_ms?: number | null
           user_id?: string
@@ -225,6 +318,13 @@ export type Database = {
           xp_earned?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "attempts_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_sessions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "daily_progress_user_id_fkey"
             columns: ["user_id"]
@@ -1052,6 +1152,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_assessment_session: {
+        Args: {
+          p_config?: Json
+          p_context: Database["public"]["Enums"]["attempt_context"]
+          p_question_ids: string[]
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      finalize_mock_session: {
+        Args: { p_results: Json; p_session_id: string; p_user_id: string }
+        Returns: Json
+      }
       get_practice_overview: {
         Args: never
         Returns: {
@@ -1084,6 +1197,17 @@ export type Database = {
         Returns: Json
       }
       is_admin: { Args: never; Returns: boolean }
+      record_practice_session_answer: {
+        Args: {
+          p_is_correct: boolean
+          p_selected_answer: string
+          p_session_id: string
+          p_submission_id: string
+          p_time_taken_ms?: number | null
+          p_user_id: string
+        }
+        Returns: Json
+      }
       progression_timezone: {
         Args: { p_timezone: string }
         Returns: string
@@ -1092,6 +1216,7 @@ export type Database = {
     }
     Enums: {
       ai_kind: "weakness" | "plan" | "prediction"
+      assessment_session_status: "active" | "completed"
       attempt_context: "practice" | "mock"
       difficulty: "easy" | "medium" | "hard"
       email_category: "engagement" | "marketing"
@@ -1243,6 +1368,7 @@ export const Constants = {
   public: {
     Enums: {
       ai_kind: ["weakness", "plan", "prediction"],
+      assessment_session_status: ["active", "completed"],
       attempt_context: ["practice", "mock"],
       difficulty: ["easy", "medium", "hard"],
       email_category: ["engagement", "marketing"],

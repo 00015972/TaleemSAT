@@ -140,29 +140,64 @@ The question bank.
 
 ---
 
+### `assessment_sessions`
+
+Server-issued practice and mock runs. Browser callers cannot insert or update these rows directly.
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | uuid | PK | server-issued run ID |
+| `user_id` | uuid | FK → users(id) on delete cascade | owner |
+| `context` | `attempt_context` | not null | `practice` or `mock` |
+| `status` | `assessment_session_status` | not null default `active` | `active` or `completed` |
+| `config` | jsonb | not null, object | bounded scope/configuration metadata |
+| `created_at` | timestamptz | not null default now() | |
+| `completed_at` | timestamptz | required only when completed | mock finalization time |
+
+### `assessment_session_questions`
+
+Immutable ordered roster for one assessment session.
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | uuid | PK | |
+| `session_id` | uuid | FK → assessment_sessions(id) on delete cascade | |
+| `question_id` | uuid | FK → questions(id) on delete restrict | server-authoritative question |
+| `position` | int | not null, >= 0 | roster order |
+| `submission_id` | uuid | not null, unique | server-issued per-question capability ID |
+| `attempt_id` | uuid | nullable FK → attempts(id) on delete set null, unique | authoritative stored result |
+| `created_at` | timestamptz | not null default now() | |
+
+**Unique:** `(session_id, question_id)` and `(session_id, position)`.
+
 ### `attempts`
-Every time a student answers a practice question.
+
+An authoritative practice first answer or mock final result. Practice stores one first answer per assigned question per run. Mock completion stores every assigned question, including an explicit unanswered row.
 
 | Column | Type | Constraints | Notes |
 |---|---|---|---|
 | `id` | uuid | PK | |
 | `user_id` | uuid | FK → users(id) on delete cascade | |
 | `question_id` | uuid | FK → questions(id) on delete restrict | |
-| `selected_answer` | char(1) | not null check (selected_answer in ('A','B','C','D')) | |
+| `selected_answer` | text | nullable | null means unanswered in a finalized mock; practice requires a value |
 | `is_correct` | boolean | not null | |
 | `time_taken_ms` | int | check (time_taken_ms >= 0) | how long they spent |
-| `context` | text | not null default 'practice' check (context in ('practice','mock')) | |
+| `submission_key` | uuid | nullable | server-issued key for session-backed attempts |
+| `session_id` | uuid | nullable FK → assessment_sessions(id) on delete cascade | null only for historical flows |
+| `context` | `attempt_context` | not null default 'practice' | |
 | `created_at` | timestamptz | not null default now() | |
 
 **Indexes:**
 - `(user_id, created_at desc)` — user's history page
 - `(user_id, question_id)` — has this user seen this question?
 - `(question_id)` — question performance analytics
-- `(user_id, context, created_at)` — analytics queries
+- unique `(user_id, submission_key)` — replay identity
+- unique `(session_id, question_id)` where session is not null — one result per run question
 
 **No `updated_at`** — attempts are immutable.
 
 Attempts can be read by their owner but are inserted only by trusted, server-side grading routes. An `AFTER INSERT` trigger creates progression atomically, so a saved attempt can never receive a client-supplied correctness bonus.
+The trigger excludes mock rows whose `selected_answer` is null, so unanswered questions remain part of the score history without awarding XP.
 
 ---
 

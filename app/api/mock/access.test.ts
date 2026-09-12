@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { mock, test } from 'node:test';
+import type { NextRequest } from 'next/server';
 import type { ClaimsUser } from '@/lib/supabase/server';
 
 let user: ClaimsUser | null = null;
@@ -23,7 +24,7 @@ mock.module('@/lib/supabase/admin', {
 test('mock APIs enforce the development restriction before processing requests', async t => {
   const { GET } = await import('./start/route');
   const { POST } = await import('./submit/route');
-  const endpoints: { method: string; path: string; handler: (request: Request) => Promise<Response> }[] = [
+  const endpoints: { method: string; path: string; handler: (request: NextRequest) => Promise<Response> }[] = [
     { method: 'GET', path: 'start', handler: GET },
     { method: 'POST', path: 'submit', handler: POST },
   ];
@@ -45,7 +46,7 @@ test('mock APIs enforce the development restriction before processing requests',
             method,
             ...(body === undefined ? {} : { body, headers: { 'Content-Type': 'application/json' } }),
           });
-          const response = await handler(request);
+          const response = await handler(request as NextRequest);
 
           assert.equal(response.status, user ? 403 : 401);
           assert.deepEqual(await response.json(), user
