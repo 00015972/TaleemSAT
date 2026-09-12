@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   BellRing,
   CalendarDays,
@@ -15,6 +15,7 @@ import {
   Target,
 } from 'lucide-react';
 import { AppMenuButton } from '@/components/app-menu-button';
+import { buildAuthCallbackUrl } from '@/lib/auth/redirect';
 import { createClient } from '@/lib/supabase/client';
 
 const TARGET_SCORES = ['1200', '1300', '1350', '1400', '1450', '1500', '1550+'];
@@ -89,6 +90,7 @@ export function SettingsForm({
   const [errorMsg, setErrorMsg] = useState('');
   const [resetStatus, setResetStatus] = useState<ResetStatus>('idle');
   const [resetError, setResetError] = useState('');
+  const resetSubmittingRef = useRef(false);
 
   const isDirty = !profileMatches(form, savedProfile);
   const displayName = form.fullName.trim() || 'Student';
@@ -131,20 +133,34 @@ export function SettingsForm({
   }
 
   async function sendPasswordReset() {
+    if (resetSubmittingRef.current) return;
+
+    resetSubmittingRef.current = true;
     setResetStatus('sending');
     setResetError('');
-    const supabase = createClient();
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
-    });
 
-    if (error) {
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: buildAuthCallbackUrl(window.location.origin, {
+          next: '/reset-password',
+          flow: 'recovery',
+        }),
+      });
+
+      if (error) {
+        setResetError('We could not send the reset email. Please try again.');
+        setResetStatus('error');
+        return;
+      }
+
+      setResetStatus('sent');
+    } catch {
       setResetError('We could not send the reset email. Please try again.');
       setResetStatus('error');
-      return;
+    } finally {
+      resetSubmittingRef.current = false;
     }
-
-    setResetStatus('sent');
   }
 
   return (

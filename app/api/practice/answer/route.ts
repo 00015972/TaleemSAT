@@ -1,4 +1,4 @@
-import { createClient, getClaimsUser } from '@/lib/supabase/server';
+import { getClaimsUser } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { NextRequest } from 'next/server';
 import { gridInAnswerMatches } from '@/lib/grading/grid-in';
@@ -9,24 +9,29 @@ import {
 import type { ProgressionOutcome } from '@/lib/progression/types';
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
   const user = await getClaimsUser();
 
   if (!user) {
     return Response.json({ error: 'AUTH_REQUIRED' }, { status: 401 });
   }
 
-  let body: {
+  let rawBody: unknown;
+  try {
+    rawBody = await request.json();
+  } catch {
+    return Response.json({ error: 'INVALID_JSON' }, { status: 400 });
+  }
+
+  if (!rawBody || Array.isArray(rawBody) || typeof rawBody !== 'object') {
+    return Response.json({ error: 'INVALID_BODY' }, { status: 400 });
+  }
+
+  const body = rawBody as {
     questionId?: string;
     selectedAnswer?: string;
     timeTakenMs?: number;
     recordAttempt?: boolean;
   };
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: 'INVALID_JSON' }, { status: 400 });
-  }
 
   const { questionId, selectedAnswer, timeTakenMs, recordAttempt } = body;
 
@@ -37,8 +42,10 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: 'INVALID_RECORD_ATTEMPT' }, { status: 400 });
   }
 
-  // Fetch question server-side — correct_answer never leaves the server
-  const { data: question } = await supabase
+  // Grading keys are not readable by the authenticated browser role. Create
+  // the server-only client only after authentication and request validation.
+  const admin = createAdminClient();
+  const { data: question } = await admin
     .from('questions')
     .select('correct_answer, accepted_answers, explanation, status, question_type')
     .eq('id', questionId)
@@ -59,7 +66,6 @@ export async function POST(request: NextRequest) {
   // answer always was; the extra guesses are just the student self-correcting.
   let progression: ProgressionOutcome | null = null;
   if (recordAttempt === true) {
-    const admin = createAdminClient();
     const { data: attempt, error: attemptError } = await admin
       .from('attempts')
       .insert({

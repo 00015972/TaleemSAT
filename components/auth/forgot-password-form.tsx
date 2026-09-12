@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
+import { buildAuthCallbackUrl } from '@/lib/auth/redirect';
 import { createClient } from '@/lib/supabase/client';
 
 export function ForgotPasswordForm() {
@@ -9,25 +10,37 @@ export function ForgotPasswordForm() {
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const submittingRef = useRef(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (submittingRef.current) return;
+
+    submittingRef.current = true;
     setError('');
     setLoading(true);
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
-    });
+    try {
+      const supabase = createClient();
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: buildAuthCallbackUrl(window.location.origin, {
+          next: '/reset-password',
+          flow: 'recovery',
+        }),
+      });
 
-    if (error) {
-      setError(error.message);
+      if (resetError) {
+        setError(resetError.message);
+        return;
+      }
+
+      setSent(true);
+    } catch {
+      setError('Unable to send a reset link right now. Please try again.');
+    } finally {
+      submittingRef.current = false;
       setLoading(false);
-      return;
     }
-
-    setSent(true);
-    setLoading(false);
   }
 
   if (sent) {
@@ -36,13 +49,20 @@ export function ForgotPasswordForm() {
         className="rounded-l p-8 text-center"
         style={{ background: 'var(--surf)', border: '1px solid var(--border)' }}
       >
-        <div className="text-3xl mb-4">✉️</div>
+        <div className="text-3xl mb-4" aria-hidden="true">
+          ✉️
+        </div>
         <h1 className="font-serif text-2xl font-bold mb-2" style={{ color: 'var(--txt)' }}>
           Check your email
         </h1>
-        <p className="text-sm mb-6 leading-relaxed" style={{ color: 'var(--txt-soft)' }}>
+        <p
+          role="status"
+          className="text-sm mb-6 leading-relaxed"
+          style={{ color: 'var(--txt-soft)' }}
+        >
           We sent a password reset link to{' '}
-          <strong style={{ color: 'var(--txt)' }}>{email}</strong>. The link expires in 1 hour.
+          <strong style={{ color: 'var(--txt)' }}>{email}</strong>. Follow that link to choose a
+          new password.
         </p>
         <Link
           href="/login"
@@ -70,6 +90,8 @@ export function ForgotPasswordForm() {
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {error && (
           <p
+            id="forgot-password-error"
+            role="alert"
             className="rounded p-3 text-sm"
             style={{
               background: 'color-mix(in srgb, var(--err) 10%, transparent)',
@@ -81,16 +103,22 @@ export function ForgotPasswordForm() {
         )}
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium" style={{ color: 'var(--txt)' }}>
+          <label
+            htmlFor="forgot-password-email"
+            className="text-sm font-medium"
+            style={{ color: 'var(--txt)' }}
+          >
             Email
           </label>
           <input
+            id="forgot-password-email"
             type="email"
             value={email}
             onChange={e => setEmail(e.target.value)}
             placeholder="you@example.com"
             required
             autoComplete="email"
+            aria-describedby={error ? 'forgot-password-error' : undefined}
             className="rounded px-3 py-2 text-sm w-full outline-none"
             style={{
               background: 'var(--bg)',

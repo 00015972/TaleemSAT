@@ -1,26 +1,36 @@
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
+import {
+  getCallbackFailurePath,
+  isRecoveryCallback,
+  RECOVERY_COOKIE_MAX_AGE_SECONDS,
+  RECOVERY_COOKIE_NAME,
+} from '@/lib/auth/flow';
+import { getSafeAuthRedirect } from '@/lib/auth/redirect';
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl;
   const code = searchParams.get('code');
-  const next = searchParams.get('next') ?? '/dashboard';
+  const requestedNext = searchParams.get('next');
+  const next = getSafeAuthRedirect(requestedNext);
+  const recovery = isRecoveryCallback(requestedNext, searchParams.get('flow'));
+  const pendingCookies: Array<{
+    name: string;
+    value: string;
+    options: CookieOptions;
+  }> = [];
 
   if (code) {
-    const cookieStore = await cookies();
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
           getAll() {
-            return cookieStore.getAll();
+            return request.cookies.getAll();
           },
           setAll(cookiesToSet) {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
+            pendingCookies.push(...cookiesToSet);
           },
         },
       }
@@ -28,11 +38,33 @@ export async function GET(request: NextRequest) {
 
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      return NextResponse.redirect(new URL(next, origin));
+      const response = NextResponse.redirect(new URL(next, origin));
+      pendingCookies.forEach(({ name, value, options }) =>
+        response.cookies.set(name, value, options)
+      );
+
+      if (recovery) {
+        response.cookies.set(RECOVERY_COOKIE_NAME, '1', {
+          httpOnly: true,
+          maxAge: RECOVERY_COOKIE_MAX_AGE_SECONDS,
+          path: '/',
+          sameSite: 'lax',
+          secure: process.env.NODE_ENV === 'production',
+        });
+      } else {
+        response.cookies.delete(RECOVERY_COOKIE_NAME);
+      }
+
+      return response;
     }
   }
 
-  return NextResponse.redirect(
-    new URL('/login?error=auth_callback_failed', origin)
+  const response = NextResponse.redirect(
+    new URL(getCallbackFailurePath(recovery), origin)
   );
+  pendingCookies.forEach(({ name, value, options }) =>
+    response.cookies.set(name, value, options)
+  );
+  response.cookies.delete(RECOVERY_COOKIE_NAME);
+  return response;
 }

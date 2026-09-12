@@ -1,5 +1,12 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { getSafeAuthRedirect } from '@/lib/auth/redirect';
+
+function redirectWithRefreshedCookies(url: URL, source: NextResponse) {
+  const response = NextResponse.redirect(url);
+  source.cookies.getAll().forEach(cookie => response.cookies.set(cookie));
+  return response;
+}
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -39,7 +46,10 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith('/forgot-password');
 
   if (user && isAuthPage) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    return redirectWithRefreshedCookies(
+      new URL('/dashboard', request.url),
+      supabaseResponse
+    );
   }
 
   // Routes that require authentication
@@ -54,14 +64,20 @@ export async function proxy(request: NextRequest) {
   if (!user && isProtectedRoute) {
     const redirectUrl = new URL('/login', request.url);
     if (pathname !== '/dashboard') {
-      redirectUrl.searchParams.set('next', pathname);
+      redirectUrl.searchParams.set(
+        'next',
+        getSafeAuthRedirect(`${pathname}${request.nextUrl.search}`)
+      );
     }
-    return NextResponse.redirect(redirectUrl);
+    return redirectWithRefreshedCookies(redirectUrl, supabaseResponse);
   }
 
   // Admin routes require auth (role check happens in the layout)
   if (pathname.startsWith('/admin') && !user) {
-    return NextResponse.redirect(new URL('/login', request.url));
+    return redirectWithRefreshedCookies(
+      new URL('/login', request.url),
+      supabaseResponse
+    );
   }
 
   return supabaseResponse;

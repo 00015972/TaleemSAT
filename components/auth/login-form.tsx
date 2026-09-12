@@ -1,38 +1,58 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { getSafeAuthRedirect } from '@/lib/auth/redirect';
 import { createClient } from '@/lib/supabase/client';
 
-export function LoginForm({ next }: { next: string }) {
+export function LoginForm({
+  next,
+  initialError = '',
+}: {
+  next: string;
+  initialError?: string;
+}) {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(initialError);
   const [loading, setLoading] = useState(false);
+  const submittingRef = useRef(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (submittingRef.current) return;
+
+    submittingRef.current = true;
     setError('');
     setLoading(true);
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    try {
+      const supabase = createClient();
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
-      setError(
-        error.message.toLowerCase().includes('invalid')
-          ? 'Incorrect email or password. Please try again.'
-          : error.message
-      );
+      if (signInError) {
+        setError(
+          signInError.message.toLowerCase().includes('invalid')
+            ? 'Incorrect email or password. Please try again.'
+            : signInError.message
+        );
+        return;
+      }
+
+      router.push(getSafeAuthRedirect(next));
+      router.refresh();
+    } catch {
+      setError('Unable to sign in right now. Please try again.');
+    } finally {
+      submittingRef.current = false;
       setLoading(false);
-      return;
     }
-
-    router.push(next);
-    router.refresh();
   }
 
   return (
@@ -50,6 +70,8 @@ export function LoginForm({ next }: { next: string }) {
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {error && (
           <p
+            id="login-error"
+            role="alert"
             className="rounded p-3 text-sm"
             style={{
               background: 'color-mix(in srgb, var(--err) 10%, transparent)',
@@ -62,16 +84,18 @@ export function LoginForm({ next }: { next: string }) {
         )}
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium" style={{ color: 'var(--txt)' }}>
+          <label htmlFor="login-email" className="text-sm font-medium" style={{ color: 'var(--txt)' }}>
             Email
           </label>
           <input
+            id="login-email"
             type="email"
             value={email}
             onChange={e => setEmail(e.target.value)}
             placeholder="you@example.com"
             required
             autoComplete="email"
+            aria-describedby={error ? 'login-error' : undefined}
             className="rounded px-3 py-2 text-sm w-full outline-none transition-colors focus:ring-1"
             style={{
               background: 'var(--bg)',
@@ -83,7 +107,7 @@ export function LoginForm({ next }: { next: string }) {
 
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
-            <label className="text-sm font-medium" style={{ color: 'var(--txt)' }}>
+            <label htmlFor="login-password" className="text-sm font-medium" style={{ color: 'var(--txt)' }}>
               Password
             </label>
             <Link
@@ -96,12 +120,14 @@ export function LoginForm({ next }: { next: string }) {
           </div>
           <div className="relative">
             <input
+              id="login-password"
               type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={e => setPassword(e.target.value)}
               placeholder="••••••••"
               required
               autoComplete="current-password"
+              aria-describedby={error ? 'login-error' : undefined}
               className="rounded px-3 py-2 text-sm w-full outline-none pr-14"
               style={{
                 background: 'var(--bg)',

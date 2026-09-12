@@ -1,8 +1,9 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import type { CSSProperties } from 'react';
 import { FiArrowLeft, FiEdit3 } from 'react-icons/fi';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireAdmin } from '@/lib/admin/require-admin';
 import {
   QuestionForm,
   type SubjectOption,
@@ -31,19 +32,24 @@ export default async function EditQuestionPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const supabase = await createClient();
+  const gate = await requireAdmin();
+  if (!gate.ok) {
+    if (gate.response.status === 401) redirect('/login');
+    notFound();
+  }
+  const admin = createAdminClient();
 
   const [{ data: question }, { data: subjectRows }, { data: categoryRows }] =
     await Promise.all([
-      supabase
+      admin
         .from('questions')
         .select(
           'id, subject_id, category_id, question_text, passage, question_type, options, correct_answer, accepted_answers, explanation, difficulty, status, tags, tables, chart_svg'
         )
         .eq('id', id)
         .single(),
-      supabase.from('subjects').select('id, name').order('display_order'),
-      supabase.from('categories').select('id, name, subject_id').order('display_order'),
+      admin.from('subjects').select('id, name').order('display_order'),
+      admin.from('categories').select('id, name, subject_id').order('display_order'),
     ]);
 
   if (!question) notFound();

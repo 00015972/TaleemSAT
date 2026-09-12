@@ -25,12 +25,13 @@ type NavItem = {
   icon: () => React.ReactElement;
   /** brand-tinted icon chip; primary nav only, alternated for rhythm */
   chip?: 'green' | 'gold';
+  badge?: string;
 };
 
 const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', exact: true, icon: IconGrid, chip: 'green' },
   { href: '/question-bank', label: 'Question Bank', icon: IconBubble, chip: 'gold' },
-  { href: '/mock', label: 'Mock Test', icon: IconClock, chip: 'green' },
+  { href: '/mock', label: 'Mock Test', icon: IconClock, chip: 'green', badge: 'In development' },
   { href: '/analytics', label: 'Analytics', icon: IconChart, chip: 'green' },
 ];
 
@@ -125,7 +126,8 @@ export function AppSidebar({
                 key={item.href}
                 href={item.href}
                 onClick={onNavigate}
-                title={item.label}
+                title={item.badge ? `${item.label} · ${item.badge}` : item.label}
+                aria-label={item.badge ? `${item.label} · ${item.badge}` : item.label}
                 className={`sb-link${active ? ' on' : ''}`}
                 aria-current={active ? 'page' : undefined}
               >
@@ -135,7 +137,14 @@ export function AppSidebar({
                 >
                   <Icon />
                 </span>
-                <span className="sb-label">{item.label}</span>
+                <span className="sb-label">
+                  {item.label}
+                  {item.badge && (
+                    <span className="mt-1 block w-fit rounded-full border border-current px-2 py-0.5 text-[10px] font-medium leading-tight">
+                      {item.badge}
+                    </span>
+                  )}
+                </span>
               </Link>
             );
           })}
