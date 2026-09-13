@@ -1,12 +1,12 @@
 import type { Metadata } from 'next';
-import Script from 'next/script';
+import { fontVariables } from './fonts';
 import { Providers } from './providers';
 import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Taleem SAT — The Smarter Way to Conquer the Digital SAT',
   description:
-    'A modern SAT preparation platform built by a 1500-scorer for ambitious students. Daily questions, AI-powered analysis, and certificates that mean something.',
+    'Focused Digital SAT practice with category-based questions, accuracy tracking, daily missions, streaks, and XP. Free during beta.',
 };
 
 const themeScript = `
@@ -21,15 +21,35 @@ const themeScript = `
 })();
 `;
 
+const sidebarScript = `
+(function(){
+  try {
+    if (localStorage.getItem('taleem_sb_collapsed') === 'true') {
+      document.documentElement.setAttribute('data-sb-collapsed', 'true');
+    }
+  } catch (e) {}
+})();
+`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
+    <html
+      lang="en"
+      suppressHydrationWarning
+      data-scroll-behavior="smooth"
+      className={fontVariables}
+    >
       <head>
-        <Script id="theme-script" strategy="beforeInteractive">
-          {themeScript}
-        </Script>
+        {/* Plain <script> tags, not next/script's <Script strategy="beforeInteractive">:
+            these must block paint (set data-theme before first render, no FOUC), and
+            next/script's beforeInteractive path re-renders this exact element on the
+            client on every Fast Refresh, which trips React 19's "script tag rendered
+            on the client" dev warning. A server-rendered inline script has no such
+            problem — it's real static HTML the browser executes on initial parse. */}
+        <script id="theme-script" dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script id="sidebar-script" dangerouslySetInnerHTML={{ __html: sidebarScript }} />
       </head>
-      <body>
+      <body suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>
     </html>

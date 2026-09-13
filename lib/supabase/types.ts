@@ -9,509 +9,1488 @@ export type Json =
   | boolean
   | null
   | { [key: string]: Json | undefined }
-  | Json[];
+  | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: '14.5';
-  };
+    PostgrestVersion: "14.5"
+  }
   public: {
     Tables: {
+      admin_user_notes: {
+        Row: {
+          author_user_id: string | null
+          body: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          author_user_id?: string | null
+          body: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          author_user_id?: string | null
+          body?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_user_notes_author_user_id_fkey"
+            columns: ["author_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_user_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_insights: {
         Row: {
-          computed_at: string;
-          expires_at: string;
-          id: string;
-          kind: Database['public']['Enums']['ai_kind'];
-          payload: Json;
-          prompt_hash: string;
-          user_id: string;
-        };
+          computed_at: string
+          expires_at: string
+          id: string
+          kind: Database["public"]["Enums"]["ai_kind"]
+          payload: Json
+          prompt_hash: string
+          user_id: string
+        }
         Insert: {
-          computed_at?: string;
-          expires_at: string;
-          id?: string;
-          kind: Database['public']['Enums']['ai_kind'];
-          payload: Json;
-          prompt_hash: string;
-          user_id: string;
-        };
+          computed_at?: string
+          expires_at: string
+          id?: string
+          kind: Database["public"]["Enums"]["ai_kind"]
+          payload: Json
+          prompt_hash: string
+          user_id: string
+        }
         Update: {
-          computed_at?: string;
-          expires_at?: string;
-          id?: string;
-          kind?: Database['public']['Enums']['ai_kind'];
-          payload?: Json;
-          prompt_hash?: string;
-          user_id?: string;
-        };
-        Relationships: [];
-      };
+          computed_at?: string
+          expires_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["ai_kind"]
+          payload?: Json
+          prompt_hash?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_insights_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessment_session_questions: {
+        Row: {
+          attempt_id: string | null
+          created_at: string
+          id: string
+          position: number
+          question_id: string
+          session_id: string
+          submission_id: string
+        }
+        Insert: {
+          attempt_id?: string | null
+          created_at?: string
+          id?: string
+          position: number
+          question_id: string
+          session_id: string
+          submission_id?: string
+        }
+        Update: {
+          attempt_id?: string | null
+          created_at?: string
+          id?: string
+          position?: number
+          question_id?: string
+          session_id?: string
+          submission_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_session_questions_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: true
+            referencedRelation: "attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessment_session_questions_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessment_session_questions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessment_sessions: {
+        Row: {
+          completed_at: string | null
+          config: Json
+          context: Database["public"]["Enums"]["attempt_context"]
+          created_at: string
+          id: string
+          status: Database["public"]["Enums"]["assessment_session_status"]
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          config?: Json
+          context: Database["public"]["Enums"]["attempt_context"]
+          created_at?: string
+          id?: string
+          status?: Database["public"]["Enums"]["assessment_session_status"]
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          config?: Json
+          context?: Database["public"]["Enums"]["attempt_context"]
+          created_at?: string
+          id?: string
+          status?: Database["public"]["Enums"]["assessment_session_status"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attempts: {
         Row: {
-          context: Database['public']['Enums']['attempt_context'];
-          created_at: string;
-          id: string;
-          is_correct: boolean;
-          question_id: string;
-          selected_answer: string;
-          time_taken_ms: number | null;
-          user_id: string;
-        };
+          context: Database["public"]["Enums"]["attempt_context"]
+          created_at: string
+          id: string
+          is_correct: boolean
+          question_id: string
+          selected_answer: string | null
+          session_id: string | null
+          submission_key: string | null
+          time_taken_ms: number | null
+          user_id: string
+        }
         Insert: {
-          context?: Database['public']['Enums']['attempt_context'];
-          created_at?: string;
-          id?: string;
-          is_correct: boolean;
-          question_id: string;
-          selected_answer: string;
-          time_taken_ms?: number | null;
-          user_id: string;
-        };
+          context?: Database["public"]["Enums"]["attempt_context"]
+          created_at?: string
+          id?: string
+          is_correct: boolean
+          question_id: string
+          selected_answer?: string | null
+          session_id?: string | null
+          submission_key?: string | null
+          time_taken_ms?: number | null
+          user_id: string
+        }
         Update: {
-          context?: Database['public']['Enums']['attempt_context'];
-          created_at?: string;
-          id?: string;
-          is_correct?: boolean;
-          question_id?: string;
-          selected_answer?: string;
-          time_taken_ms?: number | null;
-          user_id?: string;
-        };
-        Relationships: [];
-      };
+          context?: Database["public"]["Enums"]["attempt_context"]
+          created_at?: string
+          id?: string
+          is_correct?: boolean
+          question_id?: string
+          selected_answer?: string | null
+          session_id?: string | null
+          submission_key?: string | null
+          time_taken_ms?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attempts_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attempts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
-          action: string;
-          actor_user_id: string | null;
-          after: Json | null;
-          before: Json | null;
-          created_at: string;
-          id: string;
-          note: string | null;
-          target_id: string | null;
-          target_type: string;
-        };
+          action: string
+          actor_user_id: string | null
+          after: Json | null
+          before: Json | null
+          created_at: string
+          id: string
+          note: string | null
+          target_id: string | null
+          target_type: string
+        }
         Insert: {
-          action: string;
-          actor_user_id?: string | null;
-          after?: Json | null;
-          before?: Json | null;
-          created_at?: string;
-          id?: string;
-          note?: string | null;
-          target_id?: string | null;
-          target_type: string;
-        };
+          action: string
+          actor_user_id?: string | null
+          after?: Json | null
+          before?: Json | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          target_id?: string | null
+          target_type: string
+        }
         Update: {
-          action?: string;
-          actor_user_id?: string | null;
-          after?: Json | null;
-          before?: Json | null;
-          created_at?: string;
-          id?: string;
-          note?: string | null;
-          target_id?: string | null;
-          target_type?: string;
-        };
-        Relationships: [];
-      };
+          action?: string
+          actor_user_id?: string | null
+          after?: Json | null
+          before?: Json | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          target_id?: string | null
+          target_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_log_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
-          created_at: string;
-          description: string | null;
-          display_order: number;
-          id: string;
-          name: string;
-          slug: string;
-          subject_id: string;
-        };
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          name: string
+          slug: string
+          subject_id: string
+        }
         Insert: {
-          created_at?: string;
-          description?: string | null;
-          display_order?: number;
-          id?: string;
-          name: string;
-          slug: string;
-          subject_id: string;
-        };
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          name: string
+          slug: string
+          subject_id: string
+        }
         Update: {
-          created_at?: string;
-          description?: string | null;
-          display_order?: number;
-          id?: string;
-          name?: string;
-          slug?: string;
-          subject_id?: string;
-        };
-        Relationships: [];
-      };
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          name?: string
+          slug?: string
+          subject_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "categories_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_progress: {
+        Row: {
+          activity_date: string
+          created_at: string
+          id: string
+          qualifying_question_count: number
+          streak_crossed_at: string | null
+          streak_earned: boolean
+          updated_at: string
+          user_id: string
+          xp_earned: number
+        }
+        Insert: {
+          activity_date: string
+          created_at?: string
+          id?: string
+          qualifying_question_count?: number
+          streak_crossed_at?: string | null
+          streak_earned?: boolean
+          updated_at?: string
+          user_id: string
+          xp_earned?: number
+        }
+        Update: {
+          activity_date?: string
+          created_at?: string
+          id?: string
+          qualifying_question_count?: number
+          streak_crossed_at?: string | null
+          streak_earned?: boolean
+          updated_at?: string
+          user_id?: string
+          xp_earned?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attempts_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       certificates: {
         Row: {
-          awarded_at: string;
-          id: string;
-          pdf_generated_at: string | null;
-          pdf_url: string | null;
-          tier: number;
-          user_id: string;
-        };
+          awarded_at: string
+          id: string
+          pdf_generated_at: string | null
+          pdf_url: string | null
+          tier: number
+          user_id: string
+        }
         Insert: {
-          awarded_at?: string;
-          id?: string;
-          pdf_generated_at?: string | null;
-          pdf_url?: string | null;
-          tier: number;
-          user_id: string;
-        };
+          awarded_at?: string
+          id?: string
+          pdf_generated_at?: string | null
+          pdf_url?: string | null
+          tier: number
+          user_id: string
+        }
         Update: {
-          awarded_at?: string;
-          id?: string;
-          pdf_generated_at?: string | null;
-          pdf_url?: string | null;
-          tier?: number;
-          user_id?: string;
-        };
-        Relationships: [];
-      };
+          awarded_at?: string
+          id?: string
+          pdf_generated_at?: string | null
+          pdf_url?: string | null
+          tier?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "certificates_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_subscriptions: {
         Row: {
-          category: Database['public']['Enums']['email_category'];
-          email: string;
-          id: string;
-          subscribed_at: string;
-          unsubscribed_at: string | null;
-          user_id: string | null;
-        };
+          category: Database["public"]["Enums"]["email_category"]
+          email: string
+          id: string
+          subscribed_at: string
+          unsubscribed_at: string | null
+          user_id: string | null
+        }
         Insert: {
-          category: Database['public']['Enums']['email_category'];
-          email: string;
-          id?: string;
-          subscribed_at?: string;
-          unsubscribed_at?: string | null;
-          user_id?: string | null;
-        };
+          category: Database["public"]["Enums"]["email_category"]
+          email: string
+          id?: string
+          subscribed_at?: string
+          unsubscribed_at?: string | null
+          user_id?: string | null
+        }
         Update: {
-          category?: Database['public']['Enums']['email_category'];
-          email?: string;
-          id?: string;
-          subscribed_at?: string;
-          unsubscribed_at?: string | null;
-          user_id?: string | null;
-        };
-        Relationships: [];
-      };
-      points_ledger: {
+          category?: Database["public"]["Enums"]["email_category"]
+          email?: string
+          id?: string
+          subscribed_at?: string
+          unsubscribed_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exam_modules: {
         Row: {
-          created_at: string;
-          delta: number;
-          id: string;
-          reason: string;
-          reference_id: string | null;
-          user_id: string;
-        };
+          created_at: string
+          display_order: number
+          exam_id: string
+          id: string
+          module_number: number
+          subject_id: string
+          time_limit_seconds: number | null
+          updated_at: string
+          variant: Database["public"]["Enums"]["module_variant"] | null
+        }
         Insert: {
-          created_at?: string;
-          delta: number;
-          id?: string;
-          reason: string;
-          reference_id?: string | null;
-          user_id: string;
-        };
+          created_at?: string
+          display_order?: number
+          exam_id: string
+          id?: string
+          module_number: number
+          subject_id: string
+          time_limit_seconds?: number | null
+          updated_at?: string
+          variant?: Database["public"]["Enums"]["module_variant"] | null
+        }
         Update: {
-          created_at?: string;
-          delta?: number;
-          id?: string;
-          reason?: string;
-          reference_id?: string | null;
-          user_id?: string;
-        };
-        Relationships: [];
-      };
-      qod_answers: {
+          created_at?: string
+          display_order?: number
+          exam_id?: string
+          id?: string
+          module_number?: number
+          subject_id?: string
+          time_limit_seconds?: number | null
+          updated_at?: string
+          variant?: Database["public"]["Enums"]["module_variant"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_modules_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_modules_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exam_questions: {
         Row: {
-          created_at: string;
-          id: string;
-          is_correct: boolean;
-          points_awarded: number;
-          qod_id: string;
-          selected_answer: string;
-          user_id: string;
-        };
+          created_at: string
+          id: string
+          module_id: string
+          position: number
+          question_id: string
+        }
         Insert: {
-          created_at?: string;
-          id?: string;
-          is_correct: boolean;
-          points_awarded?: number;
-          qod_id: string;
-          selected_answer: string;
-          user_id: string;
-        };
+          created_at?: string
+          id?: string
+          module_id: string
+          position: number
+          question_id: string
+        }
         Update: {
-          created_at?: string;
-          id?: string;
-          is_correct?: boolean;
-          points_awarded?: number;
-          qod_id?: string;
-          selected_answer?: string;
-          user_id?: string;
-        };
-        Relationships: [];
-      };
-      qod_schedule: {
+          created_at?: string
+          id?: string
+          module_id?: string
+          position?: number
+          question_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_questions_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "exam_modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_questions_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exams: {
         Row: {
-          created_at: string;
-          created_by: string | null;
-          id: string;
-          question_id: string;
-          scheduled_date: string;
-        };
+          created_at: string
+          created_by: string | null
+          display_order: number
+          id: string
+          status: Database["public"]["Enums"]["exam_status"]
+          title: string
+          updated_at: string
+          version: string
+          year: number
+        }
         Insert: {
-          created_at?: string;
-          created_by?: string | null;
-          id?: string;
-          question_id: string;
-          scheduled_date: string;
-        };
+          created_at?: string
+          created_by?: string | null
+          display_order?: number
+          id?: string
+          status?: Database["public"]["Enums"]["exam_status"]
+          title: string
+          updated_at?: string
+          version: string
+          year: number
+        }
         Update: {
-          created_at?: string;
-          created_by?: string | null;
-          id?: string;
-          question_id?: string;
-          scheduled_date?: string;
-        };
-        Relationships: [];
-      };
+          created_at?: string
+          created_by?: string | null
+          display_order?: number
+          id?: string
+          status?: Database["public"]["Enums"]["exam_status"]
+          title?: string
+          updated_at?: string
+          version?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exams_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_job_items: {
+        Row: {
+          accepted_answers: string[]
+          category_id: string | null
+          chart_svg: string | null
+          correct_answer: string | null
+          created_at: string
+          difficulty: Database["public"]["Enums"]["difficulty"] | null
+          explanation: string | null
+          id: string
+          job_id: string
+          options: Json
+          passage: string | null
+          question_id: string | null
+          question_image_url: string | null
+          question_text: string | null
+          question_type: Database["public"]["Enums"]["question_type"]
+          source_ref: string | null
+          status: Database["public"]["Enums"]["import_item_status"]
+          subject_id: string | null
+          tables: string[]
+          topic_id: string | null
+          updated_at: string
+          validation_errors: Json | null
+          verification_notes: Json | null
+        }
+        Insert: {
+          accepted_answers?: string[]
+          category_id?: string | null
+          chart_svg?: string | null
+          correct_answer?: string | null
+          created_at?: string
+          difficulty?: Database["public"]["Enums"]["difficulty"] | null
+          explanation?: string | null
+          id?: string
+          job_id: string
+          options?: Json
+          passage?: string | null
+          question_id?: string | null
+          question_image_url?: string | null
+          question_text?: string | null
+          question_type?: Database["public"]["Enums"]["question_type"]
+          source_ref?: string | null
+          status?: Database["public"]["Enums"]["import_item_status"]
+          subject_id?: string | null
+          tables?: string[]
+          topic_id?: string | null
+          updated_at?: string
+          validation_errors?: Json | null
+          verification_notes?: Json | null
+        }
+        Update: {
+          accepted_answers?: string[]
+          category_id?: string | null
+          chart_svg?: string | null
+          correct_answer?: string | null
+          created_at?: string
+          difficulty?: Database["public"]["Enums"]["difficulty"] | null
+          explanation?: string | null
+          id?: string
+          job_id?: string
+          options?: Json
+          passage?: string | null
+          question_id?: string | null
+          question_image_url?: string | null
+          question_text?: string | null
+          question_type?: Database["public"]["Enums"]["question_type"]
+          source_ref?: string | null
+          status?: Database["public"]["Enums"]["import_item_status"]
+          subject_id?: string | null
+          tables?: string[]
+          topic_id?: string | null
+          updated_at?: string
+          validation_errors?: Json | null
+          verification_notes?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_job_items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_job_items_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "import_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_job_items_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_job_items_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_jobs: {
+        Row: {
+          completed_at: string | null
+          config: Json
+          created_at: string
+          created_by: string
+          error: string | null
+          failed_count: number
+          id: string
+          source_filename: string | null
+          source_format: string
+          source_html_path: string | null
+          source_pdf_path: string | null
+          status: Database["public"]["Enums"]["import_job_status"]
+          success_count: number
+          total_count: number
+          trigger_run_id: string | null
+          type: Database["public"]["Enums"]["import_job_type"]
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          config?: Json
+          created_at?: string
+          created_by: string
+          error?: string | null
+          failed_count?: number
+          id?: string
+          source_filename?: string | null
+          source_format?: string
+          source_html_path?: string | null
+          source_pdf_path?: string | null
+          status?: Database["public"]["Enums"]["import_job_status"]
+          success_count?: number
+          total_count?: number
+          trigger_run_id?: string | null
+          type: Database["public"]["Enums"]["import_job_type"]
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          config?: Json
+          created_at?: string
+          created_by?: string
+          error?: string | null
+          failed_count?: number
+          id?: string
+          source_filename?: string | null
+          source_format?: string
+          source_html_path?: string | null
+          source_pdf_path?: string | null
+          status?: Database["public"]["Enums"]["import_job_status"]
+          success_count?: number
+          total_count?: number
+          trigger_run_id?: string | null
+          type?: Database["public"]["Enums"]["import_job_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_jobs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      question_ai_explanations: {
+        Row: {
+          created_at: string
+          payload: Json
+          question_id: string
+        }
+        Insert: {
+          created_at?: string
+          payload: Json
+          question_id: string
+        }
+        Update: {
+          created_at?: string
+          payload?: Json
+          question_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_ai_explanations_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: true
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       questions: {
         Row: {
-          category_id: string;
-          correct_answer: string;
-          created_at: string;
-          created_by: string | null;
-          difficulty: Database['public']['Enums']['difficulty'];
-          explanation: string;
-          id: string;
-          options: Json;
-          passage: string | null;
-          question_text: string;
-          status: Database['public']['Enums']['question_status'];
-          subject_id: string;
-          tags: string[];
-          updated_at: string;
-        };
+          accepted_answers: string[]
+          category_id: string
+          chart_svg: string | null
+          correct_answer: string
+          created_at: string
+          created_by: string | null
+          difficulty: Database["public"]["Enums"]["difficulty"]
+          explanation: string
+          id: string
+          options: Json
+          passage: string | null
+          question_image_url: string | null
+          question_text: string
+          question_type: Database["public"]["Enums"]["question_type"]
+          source_ref: string | null
+          status: Database["public"]["Enums"]["question_status"]
+          subject_id: string
+          tables: string[]
+          tags: string[]
+          topic_id: string | null
+          updated_at: string
+        }
         Insert: {
-          category_id: string;
-          correct_answer: string;
-          created_at?: string;
-          created_by?: string | null;
-          difficulty: Database['public']['Enums']['difficulty'];
-          explanation: string;
-          id?: string;
-          options: Json;
-          passage?: string | null;
-          question_text: string;
-          status?: Database['public']['Enums']['question_status'];
-          subject_id: string;
-          tags?: string[];
-          updated_at?: string;
-        };
+          accepted_answers?: string[]
+          category_id: string
+          chart_svg?: string | null
+          correct_answer: string
+          created_at?: string
+          created_by?: string | null
+          difficulty: Database["public"]["Enums"]["difficulty"]
+          explanation: string
+          id?: string
+          options: Json
+          passage?: string | null
+          question_image_url?: string | null
+          question_text: string
+          question_type?: Database["public"]["Enums"]["question_type"]
+          source_ref?: string | null
+          status?: Database["public"]["Enums"]["question_status"]
+          subject_id: string
+          tables?: string[]
+          tags?: string[]
+          topic_id?: string | null
+          updated_at?: string
+        }
         Update: {
-          category_id?: string;
-          correct_answer?: string;
-          created_at?: string;
-          created_by?: string | null;
-          difficulty?: Database['public']['Enums']['difficulty'];
-          explanation?: string;
-          id?: string;
-          options?: Json;
-          passage?: string | null;
-          question_text?: string;
-          status?: Database['public']['Enums']['question_status'];
-          subject_id?: string;
-          tags?: string[];
-          updated_at?: string;
-        };
-        Relationships: [];
-      };
+          accepted_answers?: string[]
+          category_id?: string
+          chart_svg?: string | null
+          correct_answer?: string
+          created_at?: string
+          created_by?: string | null
+          difficulty?: Database["public"]["Enums"]["difficulty"]
+          explanation?: string
+          id?: string
+          options?: Json
+          passage?: string | null
+          question_image_url?: string | null
+          question_text?: string
+          question_type?: Database["public"]["Enums"]["question_type"]
+          source_ref?: string | null
+          status?: Database["public"]["Enums"]["question_status"]
+          subject_id?: string
+          tables?: string[]
+          tags?: string[]
+          topic_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "questions_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "questions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "questions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      progression_events: {
+        Row: {
+          activity_date: string
+          attempt_id: string
+          base_xp: number
+          context: Database["public"]["Enums"]["attempt_context"]
+          correct_bonus_xp: number
+          created_at: string
+          id: string
+          is_correct: boolean
+          question_id: string
+          streak_extended: boolean
+          timezone: string
+          user_id: string
+          xp_delta: number
+        }
+        Insert: {
+          activity_date: string
+          attempt_id: string
+          base_xp?: number
+          context: Database["public"]["Enums"]["attempt_context"]
+          correct_bonus_xp?: number
+          created_at?: string
+          id?: string
+          is_correct: boolean
+          question_id: string
+          streak_extended?: boolean
+          timezone: string
+          user_id: string
+          xp_delta: number
+        }
+        Update: {
+          activity_date?: string
+          attempt_id?: string
+          base_xp?: number
+          context?: Database["public"]["Enums"]["attempt_context"]
+          correct_bonus_xp?: number
+          created_at?: string
+          id?: string
+          is_correct?: boolean
+          question_id?: string
+          streak_extended?: boolean
+          timezone?: string
+          user_id?: string
+          xp_delta?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "progression_events_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: true
+            referencedRelation: "attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "progression_events_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "progression_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stripe_events: {
         Row: {
-          id: string;
-          processed_at: string;
-          raw: Json;
-          stripe_event_id: string;
-          type: string;
-        };
+          id: string
+          processed_at: string
+          raw: Json
+          stripe_event_id: string
+          type: string
+        }
         Insert: {
-          id?: string;
-          processed_at?: string;
-          raw: Json;
-          stripe_event_id: string;
-          type: string;
-        };
+          id?: string
+          processed_at?: string
+          raw: Json
+          stripe_event_id: string
+          type: string
+        }
         Update: {
-          id?: string;
-          processed_at?: string;
-          raw?: Json;
-          stripe_event_id?: string;
-          type?: string;
-        };
-        Relationships: [];
-      };
+          id?: string
+          processed_at?: string
+          raw?: Json
+          stripe_event_id?: string
+          type?: string
+        }
+        Relationships: []
+      }
       subjects: {
         Row: {
-          created_at: string;
-          display_order: number;
-          id: string;
-          name: string;
-          slug: string;
-        };
+          created_at: string
+          display_order: number
+          id: string
+          name: string
+          slug: string
+        }
         Insert: {
-          created_at?: string;
-          display_order?: number;
-          id?: string;
-          name: string;
-          slug: string;
-        };
+          created_at?: string
+          display_order?: number
+          id?: string
+          name: string
+          slug: string
+        }
         Update: {
-          created_at?: string;
-          display_order?: number;
-          id?: string;
-          name?: string;
-          slug?: string;
-        };
-        Relationships: [];
-      };
+          created_at?: string
+          display_order?: number
+          id?: string
+          name?: string
+          slug?: string
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
-          cancel_at_period_end: boolean;
-          created_at: string;
-          current_period_end: string | null;
-          id: string;
-          payme_transaction_id: string | null;
-          provider: Database['public']['Enums']['subscription_provider'];
-          status: Database['public']['Enums']['subscription_status'];
-          stripe_customer_id: string | null;
-          stripe_subscription_id: string | null;
-          tier: Database['public']['Enums']['user_tier'];
-          updated_at: string;
-          user_id: string;
-        };
+          cancel_at_period_end: boolean
+          created_at: string
+          current_period_end: string | null
+          id: string
+          payme_transaction_id: string | null
+          provider: Database["public"]["Enums"]["subscription_provider"]
+          status: Database["public"]["Enums"]["subscription_status"]
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          tier: Database["public"]["Enums"]["user_tier"]
+          updated_at: string
+          user_id: string
+        }
         Insert: {
-          cancel_at_period_end?: boolean;
-          created_at?: string;
-          current_period_end?: string | null;
-          id?: string;
-          payme_transaction_id?: string | null;
-          provider: Database['public']['Enums']['subscription_provider'];
-          status: Database['public']['Enums']['subscription_status'];
-          stripe_customer_id?: string | null;
-          stripe_subscription_id?: string | null;
-          tier: Database['public']['Enums']['user_tier'];
-          updated_at?: string;
-          user_id: string;
-        };
+          cancel_at_period_end?: boolean
+          created_at?: string
+          current_period_end?: string | null
+          id?: string
+          payme_transaction_id?: string | null
+          provider: Database["public"]["Enums"]["subscription_provider"]
+          status: Database["public"]["Enums"]["subscription_status"]
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          tier: Database["public"]["Enums"]["user_tier"]
+          updated_at?: string
+          user_id: string
+        }
         Update: {
-          cancel_at_period_end?: boolean;
-          created_at?: string;
-          current_period_end?: string | null;
-          id?: string;
-          payme_transaction_id?: string | null;
-          provider?: Database['public']['Enums']['subscription_provider'];
-          status?: Database['public']['Enums']['subscription_status'];
-          stripe_customer_id?: string | null;
-          stripe_subscription_id?: string | null;
-          tier?: Database['public']['Enums']['user_tier'];
-          updated_at?: string;
-          user_id?: string;
-        };
-        Relationships: [];
-      };
+          cancel_at_period_end?: boolean
+          created_at?: string
+          current_period_end?: string | null
+          id?: string
+          payme_transaction_id?: string | null
+          provider?: Database["public"]["Enums"]["subscription_provider"]
+          status?: Database["public"]["Enums"]["subscription_status"]
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          tier?: Database["public"]["Enums"]["user_tier"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      topics: {
+        Row: {
+          category_id: string
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          name: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          name: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          name?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "topics_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
-          created_at: string;
-          current_period_end: string | null;
-          email: string;
-          exam_date: string | null;
-          full_name: string | null;
-          id: string;
-          last_qod_answered_at: string | null;
-          marketing_opt_in: boolean;
-          points: number;
-          role: Database['public']['Enums']['user_role'];
-          streak_days: number;
-          stripe_customer_id: string | null;
-          subscription_id: string | null;
+          created_at: string
+          current_streak: number
+          current_period_end: string | null
+          email: string
+          exam_date: string | null
+          full_name: string | null
+          id: string
+          last_streak_date: string | null
+          longest_streak: number
+          marketing_opt_in: boolean
+          role: Database["public"]["Enums"]["user_role"]
+          stripe_customer_id: string | null
+          subscription_id: string | null
           subscription_status:
-            | Database['public']['Enums']['subscription_status']
-            | null;
-          target_sat_score: number | null;
-          tier: Database['public']['Enums']['user_tier'];
-          updated_at: string;
-        };
+            | Database["public"]["Enums"]["subscription_status"]
+            | null
+          target_sat_score: number | null
+          tier: Database["public"]["Enums"]["user_tier"]
+          timezone: string
+          total_xp: number
+          updated_at: string
+        }
         Insert: {
-          created_at?: string;
-          current_period_end?: string | null;
-          email: string;
-          exam_date?: string | null;
-          full_name?: string | null;
-          id: string;
-          last_qod_answered_at?: string | null;
-          marketing_opt_in?: boolean;
-          points?: number;
-          role?: Database['public']['Enums']['user_role'];
-          streak_days?: number;
-          stripe_customer_id?: string | null;
-          subscription_id?: string | null;
+          created_at?: string
+          current_streak?: number
+          current_period_end?: string | null
+          email: string
+          exam_date?: string | null
+          full_name?: string | null
+          id: string
+          last_streak_date?: string | null
+          longest_streak?: number
+          marketing_opt_in?: boolean
+          role?: Database["public"]["Enums"]["user_role"]
+          stripe_customer_id?: string | null
+          subscription_id?: string | null
           subscription_status?:
-            | Database['public']['Enums']['subscription_status']
-            | null;
-          target_sat_score?: number | null;
-          tier?: Database['public']['Enums']['user_tier'];
-          updated_at?: string;
-        };
+            | Database["public"]["Enums"]["subscription_status"]
+            | null
+          target_sat_score?: number | null
+          tier?: Database["public"]["Enums"]["user_tier"]
+          timezone?: string
+          total_xp?: number
+          updated_at?: string
+        }
         Update: {
-          created_at?: string;
-          current_period_end?: string | null;
-          email?: string;
-          exam_date?: string | null;
-          full_name?: string | null;
-          id?: string;
-          last_qod_answered_at?: string | null;
-          marketing_opt_in?: boolean;
-          points?: number;
-          role?: Database['public']['Enums']['user_role'];
-          streak_days?: number;
-          stripe_customer_id?: string | null;
-          subscription_id?: string | null;
+          created_at?: string
+          current_streak?: number
+          current_period_end?: string | null
+          email?: string
+          exam_date?: string | null
+          full_name?: string | null
+          id?: string
+          last_streak_date?: string | null
+          longest_streak?: number
+          marketing_opt_in?: boolean
+          role?: Database["public"]["Enums"]["user_role"]
+          stripe_customer_id?: string | null
+          subscription_id?: string | null
           subscription_status?:
-            | Database['public']['Enums']['subscription_status']
-            | null;
-          target_sat_score?: number | null;
-          tier?: Database['public']['Enums']['user_tier'];
-          updated_at?: string;
-        };
-        Relationships: [];
-      };
-    };
-    Views: Record<string, never>;
+            | Database["public"]["Enums"]["subscription_status"]
+            | null
+          target_sat_score?: number | null
+          tier?: Database["public"]["Enums"]["user_tier"]
+          timezone?: string
+          total_xp?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      vocab_cache: {
+        Row: {
+          created_at: string
+          definition: string
+          display: string
+          part_of_speech: string | null
+          ru: string
+          uz: string
+          word: string
+        }
+        Insert: {
+          created_at?: string
+          definition: string
+          display: string
+          part_of_speech?: string | null
+          ru: string
+          uz: string
+          word: string
+        }
+        Update: {
+          created_at?: string
+          definition?: string
+          display?: string
+          part_of_speech?: string | null
+          ru?: string
+          uz?: string
+          word?: string
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
     Functions: {
-      is_admin: { Args: never; Returns: boolean };
-    };
+      admin_users_directory: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_role?: Database["public"]["Enums"]["user_role"] | null
+          p_search?: string | null
+          p_segment?: string | null
+          p_sort?: string
+          p_tier?: Database["public"]["Enums"]["user_tier"] | null
+        }
+        Returns: {
+          accuracy: number | null
+          attempts_7d: number
+          correct_attempts: number
+          created_at: string
+          daily_activity: Json
+          email: string
+          filtered_total: number
+          full_name: string | null
+          id: string
+          last_active_at: string | null
+          role: Database["public"]["Enums"]["user_role"]
+          subscription_status: Database["public"]["Enums"]["subscription_status"] | null
+          tier: Database["public"]["Enums"]["user_tier"]
+          total_attempts: number
+        }[]
+      }
+      admin_users_summary: {
+        Args: never
+        Returns: {
+          inactive_paid: number
+          needs_attention: number
+          paid_access: number
+          recent_upgrades: number
+          renewal_risk: number
+          total_users: number
+          weekly_active: number
+          workspace_health: number
+        }[]
+      }
+      create_assessment_session: {
+        Args: {
+          p_config?: Json
+          p_context: Database["public"]["Enums"]["attempt_context"]
+          p_question_ids: string[]
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      finalize_mock_session: {
+        Args: { p_results: Json; p_session_id: string; p_user_id: string }
+        Returns: Json
+      }
+      get_dashboard_snapshot: {
+        Args: {
+          p_timezone: string
+          p_today: string
+          p_week_start: string
+        }
+        Returns: Json
+      }
+      get_import_job_item_counts: {
+        Args: {
+          p_job_ids: string[]
+        }
+        Returns: {
+          failed_count: number
+          job_id: string
+          success_count: number
+        }[]
+      }
+      get_practice_overview: {
+        Args: never
+        Returns: {
+          category_attempted_counts: Json
+          category_display_order: number
+          category_id: string
+          category_name: string
+          category_question_counts: Json
+          category_slug: string
+          subject_attempted_counts: Json
+          subject_display_order: number
+          subject_id: string
+          subject_name: string
+          subject_question_counts: Json
+          subject_slug: string
+          topic_attempted_counts: Json
+          topic_display_order: number
+          topic_id: string
+          topic_name: string
+          topic_question_counts: Json
+          topic_slug: string
+        }[]
+      }
+      get_practice_run: {
+        Args: {
+          p_difficulty?: Database["public"]["Enums"]["difficulty"] | null
+          p_scope_kind: string
+          p_scope_slug: string
+        }
+        Returns: Json
+      }
+      is_admin: { Args: never; Returns: boolean }
+      record_practice_session_answer: {
+        Args: {
+          p_is_correct: boolean
+          p_selected_answer: string
+          p_session_id: string
+          p_submission_id: string
+          p_time_taken_ms?: number | null
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      progression_timezone: {
+        Args: { p_timezone: string }
+        Returns: string
+      }
+      rebuild_progression_summaries: { Args: never; Returns: undefined }
+    }
     Enums: {
-      ai_kind: 'weakness' | 'plan' | 'prediction';
-      attempt_context: 'practice' | 'qod' | 'mock';
-      difficulty: 'easy' | 'medium' | 'hard';
-      email_category: 'engagement' | 'marketing';
-      question_status: 'draft' | 'published' | 'archived';
-      subscription_provider: 'stripe' | 'payme';
+      ai_kind: "weakness" | "plan" | "prediction"
+      assessment_session_status: "active" | "completed"
+      attempt_context: "practice" | "mock"
+      difficulty: "easy" | "medium" | "hard"
+      email_category: "engagement" | "marketing"
+      exam_status: "draft" | "published" | "archived"
+      module_variant: "easy" | "hard"
+      import_item_status:
+        | "pending_review"
+        | "verification_failed"
+        | "approved"
+        | "rejected"
+      import_job_status: "queued" | "running" | "completed" | "failed"
+      import_job_type: "extract" | "generate"
+      question_status: "draft" | "published" | "archived"
+      question_type: "mcq" | "grid_in"
+      subscription_provider: "stripe" | "payme"
       subscription_status:
-        | 'active'
-        | 'past_due'
-        | 'canceled'
-        | 'incomplete'
-        | 'trialing';
-      user_role: 'student' | 'admin';
-      user_tier: 'free' | 'pro' | 'elite';
-    };
-    CompositeTypes: Record<string, never>;
-  };
-};
+        | "active"
+        | "past_due"
+        | "canceled"
+        | "incomplete"
+        | "trialing"
+      user_role: "student" | "admin"
+      user_tier: "free" | "pro" | "elite"
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      ai_kind: ["weakness", "plan", "prediction"],
+      assessment_session_status: ["active", "completed"],
+      attempt_context: ["practice", "mock"],
+      difficulty: ["easy", "medium", "hard"],
+      email_category: ["engagement", "marketing"],
+      exam_status: ["draft", "published", "archived"],
+      module_variant: ["easy", "hard"],
+      import_item_status: [
+        "pending_review",
+        "verification_failed",
+        "approved",
+        "rejected",
+      ],
+      import_job_status: ["queued", "running", "completed", "failed"],
+      import_job_type: ["extract", "generate"],
+      question_status: ["draft", "published", "archived"],
+      question_type: ["mcq", "grid_in"],
+      subscription_provider: ["stripe", "payme"],
+      subscription_status: [
+        "active",
+        "past_due",
+        "canceled",
+        "incomplete",
+        "trialing",
+      ],
+      user_role: ["student", "admin"],
+      user_tier: ["free", "pro", "elite"],
+    },
+  },
+} as const

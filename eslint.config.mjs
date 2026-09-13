@@ -6,6 +6,7 @@ const config = [
     ignores: [
       '.next/**',
       'node_modules/**',
+      '.trigger/**',
       'drizzle/migrations/**',
       'build/**',
       'out/**',

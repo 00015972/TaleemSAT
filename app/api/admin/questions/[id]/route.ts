@@ -4,8 +4,10 @@ import { requireAdmin } from '@/lib/admin/require-admin';
 import { logAudit } from '@/lib/admin/audit';
 import {
   validateQuestion,
-  type QuestionInput,
 } from '@/lib/admin/question-validation';
+import { sanitizeQuestionTextBlocks, sanitizeRichText } from '@/lib/import/richtext-sanitize';
+import { invalidPathParameter, parseJsonRequest } from '@/lib/validation/request';
+import { questionInputSchema, uuidSchema } from '@/lib/validation/schemas';
 
 export async function PATCH(
   request: NextRequest,
@@ -16,13 +18,11 @@ export async function PATCH(
   const { user } = gate;
 
   const { id } = await params;
+  if (!uuidSchema.safeParse(id).success) return invalidPathParameter('id');
 
-  let body: QuestionInput;
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: 'INVALID_JSON' }, { status: 400 });
-  }
+  const parsed = await parseJsonRequest(request, questionInputSchema);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
 
   const result = validateQuestion(body);
   if (!result.ok) {
@@ -45,16 +45,25 @@ export async function PATCH(
     return Response.json({ error: 'QUESTION_NOT_FOUND' }, { status: 404 });
   }
 
+  const questionType = (body.questionType ?? 'mcq') as 'mcq' | 'grid_in';
   const { error } = await admin
     .from('questions')
     .update({
       subject_id: body.subjectId,
       category_id: body.categoryId,
-      question_text: body.questionText.trim(),
+      question_text: sanitizeQuestionTextBlocks(body.questionText.trim()),
       passage: body.passage?.trim() || null,
-      options: (['A', 'B', 'C', 'D'] as const).map(k => ({ id: k, text: body.options[k] })),
+      question_type: questionType,
+      options:
+        questionType === 'grid_in'
+          ? []
+          : (['A', 'B', 'C', 'D'] as const).map(k => ({
+              id: k,
+              text: sanitizeRichText(body.options[k]),
+            })),
       correct_answer: body.correctAnswer,
-      explanation: body.explanation.trim(),
+      accepted_answers: questionType === 'grid_in' ? (body.acceptedAnswers ?? []) : [],
+      explanation: sanitizeQuestionTextBlocks(body.explanation.trim()),
       difficulty: body.difficulty as 'easy' | 'medium' | 'hard',
       status: body.status as 'draft' | 'published' | 'archived',
       tags: body.tags ?? [],
@@ -78,6 +87,60 @@ export async function PATCH(
       correct_answer: body.correctAnswer,
       difficulty: body.difficulty,
     },
+  });
+
+  return Response.json({ id });
+}
+
+/**
+ * Hard delete. `exam_questions` restricts deletion of a question used in an
+ * exam, and `attempts` has no ON DELETE clause (defaults to the same
+ * restrict behavior) — either one blocks this with a 23503 FK violation,
+ * which we surface as a friendly prompt to archive instead.
+ */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const gate = await requireAdmin();
+  if (!gate.ok) return gate.response;
+  const { user } = gate;
+
+  const { id } = await params;
+  if (!uuidSchema.safeParse(id).success) return invalidPathParameter('id');
+  const admin = createAdminClient();
+
+  const { data: before } = await admin
+    .from('questions')
+    .select('status, question_text')
+    .eq('id', id)
+    .single();
+
+  if (!before) {
+    return Response.json({ error: 'QUESTION_NOT_FOUND' }, { status: 404 });
+  }
+
+  const { error } = await admin.from('questions').delete().eq('id', id);
+
+  if (error) {
+    if (error.code === '23503') {
+      return Response.json(
+        {
+          error: 'IN_USE',
+          detail: 'This question is used in an exam or already has student attempts recorded. Archive it instead of deleting.',
+        },
+        { status: 409 }
+      );
+    }
+    return Response.json({ error: 'DELETE_FAILED', detail: error.message }, { status: 500 });
+  }
+
+  await logAudit(admin, {
+    actorUserId: user.id,
+    action: 'question.delete',
+    targetType: 'question',
+    targetId: id,
+    before,
   });
 
   return Response.json({ id });

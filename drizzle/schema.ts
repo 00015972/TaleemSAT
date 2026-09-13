@@ -9,6 +9,7 @@ import {
   date,
   uniqueIndex,
   index,
+  check,
   pgEnum,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
@@ -33,10 +34,29 @@ export const questionStatusEnum = pgEnum('question_status', [
   'archived',
 ]);
 export const difficultyEnum = pgEnum('difficulty', ['easy', 'medium', 'hard']);
+export const questionTypeEnum = pgEnum('question_type', ['mcq', 'grid_in']);
+export const examStatusEnum = pgEnum('exam_status', ['draft', 'published', 'archived']);
+export const moduleVariantEnum = pgEnum('module_variant', ['easy', 'hard']);
+export const importJobTypeEnum = pgEnum('import_job_type', ['extract', 'generate']);
+export const importJobStatusEnum = pgEnum('import_job_status', [
+  'queued',
+  'running',
+  'completed',
+  'failed',
+]);
+export const importItemStatusEnum = pgEnum('import_item_status', [
+  'pending_review',
+  'verification_failed',
+  'approved',
+  'rejected',
+]);
 export const attemptContextEnum = pgEnum('attempt_context', [
   'practice',
-  'qod',
   'mock',
+]);
+export const assessmentSessionStatusEnum = pgEnum('assessment_session_status', [
+  'active',
+  'completed',
 ]);
 export const aiKindEnum = pgEnum('ai_kind', ['weakness', 'plan', 'prediction']);
 export const emailCategoryEnum = pgEnum('email_category', [
@@ -79,9 +99,11 @@ export const users = pgTable(
     fullName: text('full_name'),
     role: roleEnum('role').notNull().default('student'),
     tier: tierEnum('tier').notNull().default('free'),
-    points: integer('points').notNull().default(0),
-    streakDays: integer('streak_days').notNull().default(0),
-    lastQodAnsweredAt: timestamp('last_qod_answered_at', { withTimezone: true }),
+    timezone: text('timezone').notNull().default('Asia/Tashkent'),
+    totalXp: integer('total_xp').notNull().default(0),
+    currentStreak: integer('current_streak').notNull().default(0),
+    longestStreak: integer('longest_streak').notNull().default(0),
+    lastStreakDate: date('last_streak_date'),
     targetSatScore: integer('target_sat_score'),
     examDate: date('exam_date'),
     marketingOptIn: boolean('marketing_opt_in').notNull().default(true),
@@ -95,6 +117,37 @@ export const users = pgTable(
   (t) => [
     index('users_role_idx').on(t.role),
     index('users_tier_idx').on(t.tier),
+    check(
+      'users_progression_counters_nonnegative_chk',
+      sql`${t.totalXp} >= 0
+        and ${t.currentStreak} >= 0
+        and ${t.longestStreak} >= 0
+        and ${t.longestStreak} >= ${t.currentStreak}`
+    ),
+  ]
+);
+
+// ─── Internal admin user notes ─────────────────────────────────────
+export const adminUserNotes = pgTable(
+  'admin_user_notes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    authorUserId: uuid('author_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    body: text('body').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('admin_user_notes_user_created_idx').on(t.userId, t.createdAt),
+    index('admin_user_notes_author_idx').on(t.authorUserId),
+    check(
+      'admin_user_notes_body_length_chk',
+      sql`char_length(btrim(${t.body})) between 1 and 2000`
+    ),
   ]
 );
 
@@ -111,12 +164,25 @@ export const questions = pgTable(
       .references(() => categories.id),
     passage: text('passage'),
     questionText: text('question_text').notNull(),
-    options: jsonb('options').notNull(), // { A: '...', B: '...', C: '...', D: '...' }
-    correctAnswer: text('correct_answer').notNull(), // 'A' | 'B' | 'C' | 'D'
+    questionImageUrl: text('question_image_url'),
+    // Sanitized inline <svg> chart markup — see lib/import/svg-sanitize.ts.
+    // Mutually exclusive with questionImageUrl in practice: a figure is
+    // either a code-generated chart or a pasted image, never both.
+    chartSvg: text('chart_svg'),
+    // Sanitized <table> markup, in document order — see
+    // lib/import/table-sanitize.ts. questionText carries a `[[table:N]]`
+    // token at each table's original position.
+    tables: text('tables').array().notNull().default(sql`'{}'::text[]`),
+    questionType: questionTypeEnum('question_type').notNull().default('mcq'),
+    options: jsonb('options').notNull(), // [{ id: 'A', text: '...' }, ...]; [] for grid_in
+    correctAnswer: text('correct_answer').notNull(), // 'A'-'D' for mcq; canonical value for grid_in
+    // Grid-in only: every accepted written form, e.g. ['3/2', '1.5'].
+    acceptedAnswers: text('accepted_answers').array().notNull().default(sql`'{}'::text[]`),
     explanation: text('explanation').notNull(),
     difficulty: difficultyEnum('difficulty').notNull(),
     status: questionStatusEnum('status').notNull().default('draft'),
     tags: text('tags').array().notNull().default(sql`'{}'::text[]`),
+    topicId: uuid('topic_id'),
     createdBy: uuid('created_by').references(() => users.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -125,6 +191,40 @@ export const questions = pgTable(
     index('questions_category_id_idx').on(t.categoryId),
     index('questions_status_idx').on(t.status),
     index('questions_tags_gin_idx').using('gin', t.tags),
+    index('questions_published_subject_manifest_idx')
+      .on(t.subjectId, t.createdAt, t.id, t.difficulty)
+      .where(sql`${t.status} = 'published'`),
+    index('questions_published_category_manifest_idx')
+      .on(t.categoryId, t.createdAt, t.id, t.difficulty)
+      .where(sql`${t.status} = 'published'`),
+    index('questions_published_topic_manifest_idx')
+      .on(t.topicId, t.createdAt, t.id, t.difficulty)
+      .where(sql`${t.status} = 'published'`),
+  ]
+);
+
+// ─── Assessment sessions ───────────────────────────────────────────
+export const assessmentSessions = pgTable(
+  'assessment_sessions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    context: attemptContextEnum('context').notNull(),
+    status: assessmentSessionStatusEnum('status').notNull().default('active'),
+    config: jsonb('config').notNull().default(sql`'{}'::jsonb`),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+  },
+  (t) => [
+    index('assessment_sessions_user_created_idx').on(t.userId, t.createdAt),
+    check('assessment_sessions_config_object_chk', sql`jsonb_typeof(${t.config}) = 'object'`),
+    check(
+      'assessment_sessions_completion_chk',
+      sql`(${t.status} = 'active' and ${t.completedAt} is null)
+        or (${t.status} = 'completed' and ${t.completedAt} is not null)`
+    ),
   ]
 );
 
@@ -139,69 +239,130 @@ export const attempts = pgTable(
     questionId: uuid('question_id')
       .notNull()
       .references(() => questions.id),
-    selectedAnswer: text('selected_answer').notNull(),
+    selectedAnswer: text('selected_answer'),
     isCorrect: boolean('is_correct').notNull(),
     timeTakenMs: integer('time_taken_ms'),
+    submissionKey: uuid('submission_key'),
+    sessionId: uuid('session_id').references(() => assessmentSessions.id, {
+      onDelete: 'cascade',
+    }),
     context: attemptContextEnum('context').notNull().default('practice'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index('attempts_user_id_created_at_idx').on(t.userId, t.createdAt),
+    // Makes the dashboard's all-time correct/total tallies index-only rather
+    // than a heap lookup per attempt row.
+    index('attempts_user_correct_idx').on(t.userId, t.isCorrect),
     index('attempts_question_id_idx').on(t.questionId),
+    index('attempts_user_question_idx').on(t.userId, t.questionId),
+    uniqueIndex('attempts_user_submission_key_unique').on(t.userId, t.submissionKey),
+    uniqueIndex('attempts_session_question_unique')
+      .on(t.sessionId, t.questionId)
+      .where(sql`${t.sessionId} is not null`),
   ]
 );
 
-// ─── QOD schedule ───────────────────────────────────────────────────
-export const qodSchedule = pgTable(
-  'qod_schedule',
+export const assessmentSessionQuestions = pgTable(
+  'assessment_session_questions',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    scheduledDate: date('scheduled_date').notNull().unique(),
+    sessionId: uuid('session_id')
+      .notNull()
+      .references(() => assessmentSessions.id, { onDelete: 'cascade' }),
     questionId: uuid('question_id')
       .notNull()
-      .references(() => questions.id),
-    createdBy: uuid('created_by').references(() => users.id),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [uniqueIndex('qod_scheduled_date_unique_idx').on(t.scheduledDate)]
-);
-
-// ─── QOD answers ────────────────────────────────────────────────────
-export const qodAnswers = pgTable(
-  'qod_answers',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    qodId: uuid('qod_id')
-      .notNull()
-      .references(() => qodSchedule.id, { onDelete: 'cascade' }),
-    selectedAnswer: text('selected_answer').notNull(),
-    isCorrect: boolean('is_correct').notNull(),
-    pointsAwarded: integer('points_awarded').notNull().default(0),
+      .references(() => questions.id, { onDelete: 'restrict' }),
+    position: integer('position').notNull(),
+    submissionId: uuid('submission_id').notNull().defaultRandom(),
+    attemptId: uuid('attempt_id').references(() => attempts.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex('qod_answers_user_qod_unique_idx').on(t.userId, t.qodId),
-    index('qod_answers_user_id_idx').on(t.userId),
+    uniqueIndex('assessment_session_questions_session_question_unique').on(
+      t.sessionId,
+      t.questionId
+    ),
+    uniqueIndex('assessment_session_questions_session_position_unique').on(
+      t.sessionId,
+      t.position
+    ),
+    uniqueIndex('assessment_session_questions_submission_unique').on(t.submissionId),
+    uniqueIndex('assessment_session_questions_attempt_unique').on(t.attemptId),
+    index('assessment_session_questions_question_idx').on(t.questionId),
+    check('assessment_session_questions_position_chk', sql`${t.position} >= 0`),
   ]
 );
 
-// ─── Points ledger ──────────────────────────────────────────────────
-export const pointsLedger = pgTable(
-  'points_ledger',
+// ─── Attempt-driven progression ────────────────────────────────────
+export const progressionEvents = pgTable(
+  'progression_events',
   {
     id: uuid('id').primaryKey().defaultRandom(),
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    delta: integer('delta').notNull(),
-    reason: text('reason').notNull(),
-    referenceId: uuid('reference_id'),
+    questionId: uuid('question_id')
+      .notNull()
+      .references(() => questions.id, { onDelete: 'restrict' }),
+    attemptId: uuid('attempt_id')
+      .notNull()
+      .references(() => attempts.id, { onDelete: 'restrict' }),
+    context: attemptContextEnum('context').notNull(),
+    isCorrect: boolean('is_correct').notNull(),
+    baseXp: integer('base_xp').notNull().default(5),
+    correctBonusXp: integer('correct_bonus_xp').notNull().default(0),
+    xpDelta: integer('xp_delta').notNull(),
+    activityDate: date('activity_date').notNull(),
+    timezone: text('timezone').notNull(),
+    streakExtended: boolean('streak_extended').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index('points_ledger_user_id_idx').on(t.userId)]
+  (t) => [
+    uniqueIndex('progression_events_user_question_unique').on(t.userId, t.questionId),
+    uniqueIndex('progression_events_attempt_unique').on(t.attemptId),
+    index('progression_events_user_activity_idx').on(t.userId, t.activityDate, t.createdAt),
+    index('progression_events_user_created_at_idx').on(t.userId, t.createdAt),
+    index('progression_events_question_id_idx').on(t.questionId),
+    check(
+      'progression_events_xp_shape_chk',
+      sql`${t.baseXp} = 5
+        and ${t.correctBonusXp} in (0, 5)
+        and ${t.correctBonusXp} = case when ${t.isCorrect} then 5 else 0 end
+        and ${t.xpDelta} = ${t.baseXp} + ${t.correctBonusXp}`
+    ),
+  ]
+);
+
+export const dailyProgress = pgTable(
+  'daily_progress',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    activityDate: date('activity_date').notNull(),
+    qualifyingQuestionCount: integer('qualifying_question_count').notNull().default(0),
+    xpEarned: integer('xp_earned').notNull().default(0),
+    streakEarned: boolean('streak_earned').notNull().default(false),
+    streakCrossedAt: timestamp('streak_crossed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('daily_progress_user_date_unique').on(t.userId, t.activityDate),
+    check(
+      'daily_progress_counts_nonnegative_chk',
+      sql`${t.qualifyingQuestionCount} >= 0 and ${t.xpEarned} >= 0`
+    ),
+    check(
+      'daily_progress_streak_state_chk',
+      sql`(${t.streakEarned}
+          and ${t.qualifyingQuestionCount} >= 5
+          and ${t.streakCrossedAt} is not null)
+        or (not ${t.streakEarned} and ${t.streakCrossedAt} is null)`
+    ),
+  ]
 );
 
 // ─── Certificates ───────────────────────────────────────────────────
@@ -280,8 +441,8 @@ export const auditLog = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     actorUserId: uuid('actor_user_id').references(() => users.id),
-    action: text('action').notNull(), // 'question.create', 'qod.schedule', ...
-    targetType: text('target_type').notNull(), // 'question' | 'qod'
+    action: text('action').notNull(), // 'question.create', 'user.update', ...
+    targetType: text('target_type').notNull(), // 'question' | 'user'
     targetId: uuid('target_id'),
     before: jsonb('before'),
     after: jsonb('after'),
@@ -308,5 +469,179 @@ export const emailSubscriptions = pgTable(
   (t) => [
     uniqueIndex('email_subs_email_category_unique_idx').on(t.email, t.category),
     index('email_subs_user_id_idx').on(t.userId),
+  ]
+);
+
+// ─── Import pipeline ────────────────────────────────────────────────
+// Staging for the admin HTML question-import pipeline. Output lands in
+// `import_job_items` for human review; only approved items are promoted
+// into `questions` as drafts.
+export const importJobs = pgTable(
+  'import_jobs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    type: importJobTypeEnum('type').notNull(),
+    status: importJobStatusEnum('status').notNull().default('queued'),
+    // extract: {}. generate: { subjectSlug, categorySlug, difficulty, count }.
+    config: jsonb('config').notNull().default(sql`'{}'::jsonb`),
+    sourceFormat: text('source_format').notNull().default('html'),
+    // Path within the `source-html` bucket.
+    sourceHtmlPath: text('source_html_path'),
+    sourceFilename: text('source_filename'),
+    totalCount: integer('total_count').notNull().default(0),
+    successCount: integer('success_count').notNull().default(0),
+    failedCount: integer('failed_count').notNull().default(0),
+    error: text('error'),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+  },
+  (t) => [
+    index('import_jobs_status_idx').on(t.status),
+    index('import_jobs_created_by_idx').on(t.createdBy),
+    index('import_jobs_created_at_idx').on(t.createdAt),
+    index('import_jobs_source_format_idx').on(t.sourceFormat),
+  ]
+);
+
+export const importJobItems = pgTable(
+  'import_job_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    jobId: uuid('job_id')
+      .notNull()
+      .references(() => importJobs.id, { onDelete: 'cascade' }),
+    status: importItemStatusEnum('status').notNull().default('pending_review'),
+    // College Board Question ID, or batch index.
+    sourceRef: text('source_ref'),
+    subjectId: uuid('subject_id').references(() => subjects.id),
+    categoryId: uuid('category_id').references(() => categories.id),
+    questionType: questionTypeEnum('question_type').notNull().default('mcq'),
+    questionText: text('question_text'),
+    passage: text('passage'),
+    options: jsonb('options').notNull().default(sql`'[]'::jsonb`),
+    correctAnswer: text('correct_answer'),
+    acceptedAnswers: text('accepted_answers').array().notNull().default(sql`'{}'::text[]`),
+    explanation: text('explanation'),
+    difficulty: difficultyEnum('difficulty'),
+    questionImageUrl: text('question_image_url'),
+    chartSvg: text('chart_svg'),
+    tables: text('tables').array().notNull().default(sql`'{}'::text[]`),
+    // Why the item passed/failed its answer check (solver vs verifier model).
+    verificationNotes: jsonb('verification_notes'),
+    // validateQuestion() output at staging time, so reviewers see blockers.
+    validationErrors: jsonb('validation_errors'),
+    // Set on promotion; also guards against double-promotion.
+    questionId: uuid('question_id').references(() => questions.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('import_job_items_job_id_idx').on(t.jobId),
+    index('import_job_items_status_idx').on(t.status),
+    index('import_job_items_job_status_idx').on(t.jobId, t.status),
+  ]
+);
+
+
+// ─── Topics ─────────────────────────────────────────────────────────
+// Third taxonomy tier (subject -> category -> topic). Drives the Practice
+// page's per-topic cards; the 8 categories remain the College Board domains
+// used for analytics and AI weakness insights.
+export const topics = pgTable(
+  'topics',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    categoryId: uuid('category_id')
+      .notNull()
+      .references(() => categories.id, { onDelete: 'cascade' }),
+    slug: text('slug').notNull().unique(),
+    name: text('name').notNull(),
+    description: text('description'),
+    displayOrder: integer('display_order').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('topics_category_id_idx').on(t.categoryId),
+    index('topics_display_order_idx').on(t.displayOrder),
+  ]
+);
+
+// ─── Exams (mock tests) ─────────────────────────────────────────────
+// A named, versioned mock test - e.g. "March 2026, Version A" - built from
+// four fixed modules. Module 2's easy/hard variant is fixed per version
+// rather than chosen adaptively from Module 1 performance.
+export const exams = pgTable(
+  'exams',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    title: text('title').notNull(), // 'March 2026'
+    version: text('version').notNull(), // 'A'
+    year: integer('year').notNull(), // groups the card rows
+    status: examStatusEnum('status').notNull().default('draft'),
+    displayOrder: integer('display_order').notNull().default(0),
+    createdBy: uuid('created_by').references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('exams_title_version_unique').on(t.title, t.version),
+    index('exams_year_idx').on(t.year),
+    index('exams_status_idx').on(t.status),
+  ]
+);
+
+// One row per section-module: RW M1, RW M2, Math M1, Math M2.
+export const examModules = pgTable(
+  'exam_modules',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    examId: uuid('exam_id')
+      .notNull()
+      .references(() => exams.id, { onDelete: 'cascade' }),
+    subjectId: uuid('subject_id')
+      .notNull()
+      .references(() => subjects.id),
+    moduleNumber: integer('module_number').notNull(), // 1 | 2
+    // null for Module 1; 'easy' | 'hard' for Module 2.
+    variant: moduleVariantEnum('variant'),
+    timeLimitSeconds: integer('time_limit_seconds'),
+    displayOrder: integer('display_order').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('exam_modules_exam_subject_number_unique').on(
+      t.examId,
+      t.subjectId,
+      t.moduleNumber
+    ),
+    index('exam_modules_exam_id_idx').on(t.examId),
+  ]
+);
+
+export const examQuestions = pgTable(
+  'exam_questions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    moduleId: uuid('module_id')
+      .notNull()
+      .references(() => examModules.id, { onDelete: 'cascade' }),
+    // restrict: a question in a published exam must not silently vanish.
+    questionId: uuid('question_id')
+      .notNull()
+      .references(() => questions.id, { onDelete: 'restrict' }),
+    position: integer('position').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('exam_questions_module_position_unique').on(t.moduleId, t.position),
+    uniqueIndex('exam_questions_module_question_unique').on(t.moduleId, t.questionId),
+    index('exam_questions_module_id_idx').on(t.moduleId),
+    index('exam_questions_question_id_idx').on(t.questionId),
   ]
 );

@@ -1,0 +1,375 @@
+{
+  "date": "2026-09-11",
+  "commit": "9bb0af5",
+  "tracked_files_before_audit_artifacts": 289,
+  "typescript_sources_in_app_components_lib_drizzle": 124,
+  "page_routes": 19,
+  "api_route_files_excluding_auth_callback": 18,
+  "css": {
+    "bytes": 497957,
+    "gzip": 81774,
+    "lines": 21217,
+    "rules": 3278,
+    "declarations": 12408,
+    "important": 74,
+    "duplicateSelectors": 420,
+    "mostRepeated": [
+      [
+        "to",
+        45
+      ],
+      [
+        "from",
+        40
+      ],
+      [
+        "50%",
+        24
+      ],
+      [
+        "0%,\r\n  100%",
+        8
+      ],
+      [
+        "0%",
+        6
+      ],
+      [
+        ".focus-plan-paper",
+        5
+      ],
+      [
+        ".app-tb",
+        4
+      ],
+      [
+        ".focus-target-card",
+        4
+      ],
+      [
+        ".focus-card-content",
+        4
+      ],
+      [
+        ".focus-target-orb",
+        4
+      ],
+      [
+        ".imports-studio-overview",
+        4
+      ],
+      [
+        ".ex-practice .prref-grid",
+        4
+      ],
+      [
+        ".admin-cockpit-topbar",
+        4
+      ],
+      [
+        ".questions-cockpit-metrics",
+        4
+      ],
+      [
+        ".question-studio-route-icon",
+        4
+      ]
+    ]
+  },
+  "production_chunks": [
+    {
+      "file": "140sq1plrqq7b.css",
+      "bytes": 383313,
+      "gzip": 69443,
+      "posthog": false
+    },
+    {
+      "file": "0xgq06bytvvy~.js",
+      "bytes": 241865,
+      "gzip": 63348,
+      "posthog": false
+    },
+    {
+      "file": "0j.xi8pk7xuz0.js",
+      "bytes": 227316,
+      "gzip": 70984,
+      "posthog": false
+    },
+    {
+      "file": "11gf45cpnj_.8.js",
+      "bytes": 191954,
+      "gzip": 62766,
+      "posthog": true
+    },
+    {
+      "file": "0.to4ykyhnbek.js",
+      "bytes": 137460,
+      "gzip": 37357,
+      "posthog": false
+    },
+    {
+      "file": "03~yq9q893hmn.js",
+      "bytes": 112594,
+      "gzip": 39627,
+      "posthog": false
+    },
+    {
+      "file": "0qztl~3gb2ya9.js",
+      "bytes": 54648,
+      "gzip": 12889,
+      "posthog": false
+    },
+    {
+      "file": "0kzunyxv.0y60.js",
+      "bytes": 43937,
+      "gzip": 9163,
+      "posthog": false
+    },
+    {
+      "file": "08j4zam0s.aao.js",
+      "bytes": 43616,
+      "gzip": 13549,
+      "posthog": false
+    },
+    {
+      "file": "0dr8j3cf.eei9.js",
+      "bytes": 33194,
+      "gzip": 10334,
+      "posthog": false
+    },
+    {
+      "file": "0hklmklwm-rbm.js",
+      "bytes": 32209,
+      "gzip": 11099,
+      "posthog": false
+    },
+    {
+      "file": "0c8nfn4smhn45.js",
+      "bytes": 31977,
+      "gzip": 9061,
+      "posthog": false
+    },
+    {
+      "file": "132~o0r567v3q.js",
+      "bytes": 22045,
+      "gzip": 6275,
+      "posthog": false
+    },
+    {
+      "file": "07i.eqoxwgaw8.js",
+      "bytes": 21905,
+      "gzip": 6133,
+      "posthog": false
+    },
+    {
+      "file": "0.-2b7uf.-v25.js",
+      "bytes": 21329,
+      "gzip": 6791,
+      "posthog": false
+    },
+    {
+      "file": "0z3898ovaclax.js",
+      "bytes": 20527,
+      "gzip": 6478,
+      "posthog": false
+    },
+    {
+      "file": "0l04b5qtcked4.js",
+      "bytes": 16583,
+      "gzip": 3026,
+      "posthog": false
+    },
+    {
+      "file": "04k24ln4cs8pb.js",
+      "bytes": 14521,
+      "gzip": 4515,
+      "posthog": false
+    },
+    {
+      "file": "0~0gphy4knauy.js",
+      "bytes": 12894,
+      "gzip": 3607,
+      "posthog": false
+    },
+    {
+      "file": "0hl2_5utzvew-.js",
+      "bytes": 11257,
+      "gzip": 4142,
+      "posthog": false
+    },
+    {
+      "file": "turbopack-0a78c31riabzm.js",
+      "bytes": 10613,
+      "gzip": 4159,
+      "posthog": false
+    },
+    {
+      "file": "13n.kidjs0i.9.js",
+      "bytes": 9613,
+      "gzip": 3839,
+      "posthog": false
+    },
+    {
+      "file": "0825tir3bok0..js",
+      "bytes": 7769,
+      "gzip": 3241,
+      "posthog": false
+    },
+    {
+      "file": "0bu1c0bbztg4h.js",
+      "bytes": 7445,
+      "gzip": 2598,
+      "posthog": false
+    },
+    {
+      "file": "0d3ns34p75gu..js",
+      "bytes": 5829,
+      "gzip": 2499,
+      "posthog": false
+    },
+    {
+      "file": "03wcm7k_f7x-o.js",
+      "bytes": 5812,
+      "gzip": 1866,
+      "posthog": false
+    },
+    {
+      "file": "0_~qp1gwl_epi.js",
+      "bytes": 5772,
+      "gzip": 2410,
+      "posthog": false
+    },
+    {
+      "file": "0x6qy3l8d02wt.js",
+      "bytes": 5587,
+      "gzip": 2018,
+      "posthog": false
+    },
+    {
+      "file": "0h4w3vj9yx.f-.js",
+      "bytes": 5001,
+      "gzip": 1966,
+      "posthog": false
+    },
+    {
+      "file": "0~gmyr4ijakwg.js",
+      "bytes": 3414,
+      "gzip": 1474,
+      "posthog": false
+    },
+    {
+      "file": "0vy3ew1odqwcf.js",
+      "bytes": 3377,
+      "gzip": 1451,
+      "posthog": false
+    },
+    {
+      "file": "0vkwp-qm84ete.js",
+      "bytes": 3240,
+      "gzip": 1252,
+      "posthog": false
+    },
+    {
+      "file": "03z4np.i0fxrm.js",
+      "bytes": 3035,
+      "gzip": 1174,
+      "posthog": false
+    },
+    {
+      "file": "0~ycz7u8fcmue.js",
+      "bytes": 2795,
+      "gzip": 1122,
+      "posthog": false
+    },
+    {
+      "file": "14-dd02w.5e13.js",
+      "bytes": 939,
+      "gzip": 650,
+      "posthog": false
+    },
+    {
+      "file": "0tfxd7z51q3a4.js",
+      "bytes": 248,
+      "gzip": 212,
+      "posthog": false
+    }
+  ],
+  "advisory_counts": {
+    "info": 0,
+    "low": 7,
+    "moderate": 26,
+    "high": 32,
+    "critical": 2
+  },
+  "content": {
+    "total": 1581,
+    "published": 1561,
+    "coverage": {
+      "math/advanced-math/hard/published": 102,
+      "english/craft-and-structure/easy/published": 63,
+      "english/information-and-ideas/hard/published": 113,
+      "math/problem-solving-data-analysis/easy/published": 80,
+      "math/geometry-trigonometry/easy/published": 44,
+      "math/problem-solving-data-analysis/medium/published": 79,
+      "math/advanced-math/medium/published": 96,
+      "english/craft-and-structure/medium/published": 63,
+      "math/advanced-math/easy/published": 57,
+      "math/algebra/easy/published": 102,
+      "math/geometry-trigonometry/medium/published": 68,
+      "english/standard-english-conventions/easy/published": 45,
+      "english/standard-english-conventions/medium/published": 42,
+      "english/craft-and-structure/hard/published": 62,
+      "english/expression-of-ideas/medium/published": 77,
+      "english/information-and-ideas/medium/published": 82,
+      "english/standard-english-conventions/hard/published": 73,
+      "math/algebra/medium/published": 110,
+      "english/expression-of-ideas/hard/published": 37,
+      "math/geometry-trigonometry/hard/archived": 1,
+      "math/problem-solving-data-analysis/hard/published": 66,
+      "english/information-and-ideas/easy/published": 60,
+      "english/expression-of-ideas/easy/published": 40,
+      "math/geometry-trigonometry/medium/archived": 2,
+      "math/advanced-math/hard/archived": 2,
+      "math/algebra/easy/archived": 3,
+      "english/information-and-ideas/hard/archived": 2,
+      "math/algebra/medium/archived": 2,
+      "math/advanced-math/medium/archived": 3,
+      "math/advanced-math/easy/archived": 1,
+      "english/craft-and-structure/hard/archived": 1,
+      "math/problem-solving-data-analysis/medium/archived": 1,
+      "math/geometry-trigonometry/easy/archived": 1,
+      "math/problem-solving-data-analysis/easy/archived": 1
+    },
+    "issueCounts": {
+      "without_tags": 1552,
+      "svg_question": 152,
+      "table_question": 79,
+      "published_without_topic": 11
+    },
+    "duplicateSourceGroups": 0,
+    "duplicateStemGroups": 5
+  },
+  "local_production_http_ms": {
+    "login": [
+      22,
+      4,
+      4
+    ],
+    "landing": [
+      2389,
+      2294,
+      2425
+    ],
+    "health": [
+      917,
+      470,
+      551
+    ]
+  },
+  "limits": [
+    "Local production measurements with remote Supabase; not deployed p95 or mobile Web Vitals",
+    "Database audit scripts were read-only; no account creation, answer submissions, test emails, or deployments performed",
+    "Authenticated direct SQL/REST RLS and column-grant isolation not verified",
+    "Inventory is exhaustive for tracked paths; not a claim of exhaustive line-by-line proof or dependency-source review"
+  ]
+}

@@ -1,294 +1,480 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { Fragment, type CSSProperties } from 'react';
+import {
+  ArrowRight,
+  CalendarDays,
+  Check,
+  Flame,
+  Pencil,
+  Sparkles,
+  Target,
+  Trophy,
+} from 'lucide-react';
+import { createClient, getAppProfile, getClaimsUser } from '@/lib/supabase/server';
+import { AppMenuButton } from '@/components/app-menu-button';
 import { ResendVerificationButton } from '@/components/resend-verification-button';
+import {
+  computeDashboardSnapshot,
+  type DayActivity,
+  type SubjectSnapshot,
+  type SubjectTrend,
+} from '@/lib/analytics/dashboard-snapshot';
+import { AccuracyTrendChart } from '@/components/dashboard/accuracy-trend';
+import { Reveal } from '@/components/dashboard/reveal';
+import { CountUp } from '@/components/dashboard/count-up';
+import { localDateAt, mondayWeekStart, normalizeTimeZone } from '@/lib/progression/dates';
 
+export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Dashboard — Taleem SAT' };
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 export default async function DashboardPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // `getClaimsUser` verifies the access token's signature locally against the
+  // cached JWKS. `getUser` re-fetches the auth record from Supabase on every
+  // call, which is a full round trip — 300-700 ms from Tashkent — to learn
+  // things this page already has in the token.
+  const [supabase, user, profile] = await Promise.all([
+    createClient(),
+    getClaimsUser(),
+    getAppProfile(),
+  ]);
 
   if (!user) redirect('/login');
 
-  const { data: profile } = await supabase
-    .from('users')
-    .select('full_name, tier, points, streak_days, target_sat_score, exam_date')
-    .eq('id', user.id)
-    .single();
+  // Server Component: captured once for every time-based value in this request.
+  // eslint-disable-next-line react-hooks/purity
+  const requestNowMs = Date.now();
 
-  // Fetch today's QOD status in parallel with profile
+  // Date boundaries are resolved here, not in SQL, so the timezone rules stay
+  // in one tested place and the snapshot query stays a pure read.
+  const timezone = normalizeTimeZone(profile?.timezone);
+  const todayStr = localDateAt(new Date(requestNowMs), timezone);
 
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const { data: todayQOD } = await supabase
-    .from('qod_schedule')
-    .select('id')
-    .eq('scheduled_date', todayStr)
-    .maybeSingle();
+  const snapshot = await computeDashboardSnapshot(supabase, {
+    timezone,
+    today: todayStr,
+    weekStart: mondayWeekStart(todayStr),
+  });
+  const progression = snapshot.progression;
 
-  const qodAnswered = todayQOD
-    ? (await supabase
-        .from('qod_answers')
-        .select('is_correct')
-        .eq('user_id', user.id)
-        .eq('qod_id', todayQOD.id)
-        .maybeSingle()
-      ).data
-    : null;
-
-  const isVerified = !!user.email_confirmed_at;
+  const isVerified = user.emailVerified;
   const rawName: string =
     (profile?.full_name as string | null) ??
     (user.user_metadata?.full_name as string | undefined) ??
     '';
   const firstName = rawName.split(' ')[0] || 'there';
 
-  // Server Component: Date.now() runs once per request, not on re-renders
-  // eslint-disable-next-line react-hooks/purity
-  const nowMs = Date.now();
   const daysToExam = profile?.exam_date
-    ? Math.ceil(
-        (new Date(profile.exam_date as string).getTime() - nowMs) /
-          (1000 * 60 * 60 * 24)
-      )
+    ? Math.ceil((new Date(profile.exam_date as string).getTime() - requestNowMs) / DAY_MS)
     : null;
 
   const tier = (profile?.tier as string | null) ?? 'free';
-  const streak = profile?.streak_days ?? 0;
+  const targetScore = profile?.target_sat_score ?? null;
 
   const todayLabel = new Date(`${todayStr}T00:00:00`).toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
   });
+  const examDateLabel = profile?.exam_date
+    ? new Date(`${profile.exam_date}T00:00:00`).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : null;
+  const renewsLabel = profile?.current_period_end
+    ? new Date(profile.current_period_end as string).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      })
+    : null;
+
+  const math = snapshot.bySubject.find(subject => subject.slug === 'math');
+  const english = snapshot.bySubject.find(subject => subject.slug === 'english');
+  const mathTrend = snapshot.subjectTrend.find(subject => subject.slug === 'math');
+  const englishTrend = snapshot.subjectTrend.find(subject => subject.slug === 'english');
+  const latestTrend = snapshot.accuracyTrend.at(-1);
+  const earliestTrend = snapshot.accuracyTrend.at(0);
+  const latestAccuracy = latestTrend?.accuracy ?? snapshot.overallAccuracy;
+  const accuracyDelta =
+    latestTrend && earliestTrend
+      ? Math.round((latestTrend.accuracy - earliestTrend.accuracy) * 100)
+      : null;
+
+  const missionItems = [
+    { label: '1 new question', done: progression.today.newQuestions >= 1 },
+    { label: '5 new questions', done: progression.today.newQuestions >= 5 },
+    { label: '10 new questions', done: progression.today.newQuestions >= 10 },
+  ];
+  const missionsCompleted = missionItems.filter(item => item.done).length;
+  const questionsToStreak = Math.max(
+    0,
+    progression.today.goal - progression.today.newQuestions
+  );
+  const streakCopy = progression.today.streakEarned
+    ? 'Streak protected for today.'
+    : progression.currentStreak > 0
+      ? `${questionsToStreak} new question${questionsToStreak === 1 ? '' : 's'} to extend today.`
+      : `${questionsToStreak} new question${questionsToStreak === 1 ? '' : 's'} to start your streak.`;
 
   return (
-    <div className="wrap py-5">
-      {/* Email verification banner */}
-      {!isVerified && (
-        <div
-          className="mb-5 rounded p-4 flex items-center justify-between gap-4 flex-wrap"
-          style={{
-            background: 'color-mix(in srgb, var(--gold) 12%, transparent)',
-            border: '1px solid color-mix(in srgb, var(--gold) 30%, transparent)',
-          }}
-        >
-          <p className="text-sm" style={{ color: 'var(--txt)' }}>
-            <strong>Verify your email</strong> to unlock practice questions and the
-            Daily Question.
-          </p>
-          <ResendVerificationButton email={user.email!} />
-        </div>
-      )}
+    <div className="focus-dashboard">
+      <div className="focus-dashboard-glow focus-dashboard-glow-one" aria-hidden="true" />
+      <div className="focus-dashboard-glow focus-dashboard-glow-two" aria-hidden="true" />
 
-      {/* Welcome */}
-      <div className="app-head">
-        <h1>Welcome back, {firstName}.</h1>
-        <p>
-          {daysToExam && daysToExam > 0
-            ? `${daysToExam} day${daysToExam === 1 ? '' : 's'} until your exam. Keep going.`
-            : 'Ready for today’s question?'}
-        </p>
-      </div>
-
-      {/* Getting started (unverified only) */}
-      {!isVerified && (
-        <div className="app-panel mb-5">
-          <p className="app-label mb-3">Getting started</p>
-          <div className="flex flex-col gap-3">
-            <ChecklistItem done={isVerified} label="Verify your email" />
-            <ChecklistItem
-              done={false}
-              label="Answer your first practice question"
-              disabled={!isVerified}
-            />
-            <ChecklistItem
-              done={false}
-              label="Try the Daily Question"
-              disabled={!isVerified}
-            />
+      <div className="focus-dashboard-inner">
+        {!isVerified && (
+          <div className="focus-verify" role="status">
+            <div className="focus-verify-copy">
+              <span className="focus-verify-icon" aria-hidden="true">!</span>
+              <div>
+                <strong>Verify your email to unlock every mission.</strong>
+                <p>Practice is ready as soon as you confirm.</p>
+              </div>
+            </div>
+            <ResendVerificationButton email={user.email!} />
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Today — the ritual leads */}
-      <div className="app-panel accent prx-anim">
-        <p className="app-label">Today · {todayLabel}</p>
-        <div className="home-today">
-          <TodayStatus hasQOD={!!todayQOD} answered={qodAnswered} />
-          <div className="home-streak">
-            <div className={`num${streak === 0 ? ' zero' : ''}`}>{streak}</div>
-            <div className="lbl">day streak</div>
+        <header className="focus-header">
+          <div className="focus-heading">
+            <p className="focus-eyebrow">Mission control · {todayLabel}</p>
+            <div className="focus-heading-row">
+              <AppMenuButton className="focus-inline-menu" />
+              <div className="focus-heading-copy">
+                <h1>Ready for the next level, {firstName}?</h1>
+                <p className="focus-header-sub">
+                  {daysToExam && daysToExam > 0
+                    ? `${daysToExam} day${daysToExam === 1 ? '' : 's'} to test day. Your next best score starts here.`
+                    : 'Your next best score starts with one focused answer.'}
+                </p>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+          <Link href="/settings" className="focus-level-pill">
+            <Sparkles size={14} aria-hidden="true" />
+            <span>
+              <small>Current plan</small>
+              <strong>{tier}</strong>
+            </span>
+            <ArrowRight size={13} aria-hidden="true" />
+          </Link>
+        </header>
 
-      {/* The ledger */}
-      <div className="home-tiles">
-        <Tile label="Points" value={String(profile?.points ?? 0)} delay={0.06} />
-        <Tile
-          label="Target score"
-          value={profile?.target_sat_score ? String(profile.target_sat_score) : '—'}
-          delay={0.1}
-        />
-        <Tile
-          label="Exam in"
-          value={daysToExam && daysToExam > 0 ? String(daysToExam) : '—'}
-          unit={daysToExam && daysToExam > 0 ? 'days' : undefined}
-          delay={0.14}
-        />
-        <Tile label="Plan" value={tier} capitalize delay={0.18} />
-      </div>
+        <section className="focus-hero" aria-label="Score and accuracy overview">
+          <Reveal className="focus-card focus-target-card">
+            <div className="focus-card-content">
+              <p className="focus-label">
+                <Target size={13} aria-hidden="true" /> Score quest
+              </p>
+              {targetScore ? (
+                <h2>
+                  <CountUp value={targetScore} />
+                  <span>finish line</span>
+                </h2>
+              ) : (
+                <h2 className="focus-target-empty">
+                  Set your
+                  <span>score goal</span>
+                </h2>
+              )}
+              <p className="focus-target-meta">
+                {examDateLabel
+                  ? `${examDateLabel}${daysToExam && daysToExam > 0 ? ` · ${daysToExam} days` : ''}`
+                  : 'Choose a score and test date to start your map.'}
+              </p>
+              <Link href="/settings" className="focus-button focus-button-ink">
+                <Pencil size={13} aria-hidden="true" />
+                {targetScore ? 'Edit score plan' : 'Build score plan'}
+              </Link>
+            </div>
 
-      {/* Practice CTA */}
-      <div className="app-panel prx-anim" style={{ animationDelay: '0.22s' }}>
-        <div className="home-cta">
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="home-cta-bubs" aria-hidden="true">
-              {['A', 'B', 'C', 'D'].map(l => (
-                <span key={l} className="home-cta-bub">{l}</span>
+            <div className="focus-target-orb" aria-hidden="true" />
+            <div className="focus-plan-paper" aria-hidden="true">
+              <i className="focus-plan-line" />
+              <strong>SAT<br />PLAN</strong>
+              <span className="focus-plan-bubbles">
+                <i /><i /><i className="filled" /><i />
+              </span>
+              <i className="focus-plan-rule" />
+            </div>
+            <span className="focus-spark focus-spark-one" aria-hidden="true">✦</span>
+            <span className="focus-spark focus-spark-two" aria-hidden="true">✦</span>
+          </Reveal>
+
+          <Reveal className="focus-card focus-accuracy-card" delay={80}>
+            <div className="focus-card-head">
+              <div>
+                <p className="focus-label">Accuracy power-up</p>
+                <h2>Your {snapshot.accuracyTrend.length}-attempt climb</h2>
+              </div>
+              <div className="focus-accuracy-metric">
+                <strong><CountUp value={Math.round(latestAccuracy * 100)} suffix="%" /></strong>
+                <span>
+                  {accuracyDelta === null
+                    ? 'building your baseline'
+                    : `${accuracyDelta >= 0 ? '↑' : '↓'} ${Math.abs(accuracyDelta)}% across this run`}
+                </span>
+              </div>
+            </div>
+            <AccuracyTrendChart points={snapshot.accuracyTrend} />
+          </Reveal>
+        </section>
+
+        <section className="focus-missions" aria-label="Daily momentum">
+          <Reveal className="focus-card focus-stat-card focus-streak-card">
+            <p className="focus-label"><Flame size={13} aria-hidden="true" /> Combo streak</p>
+            <p className="focus-stat-value">
+              <CountUp value={progression.currentStreak} /> <small>days</small>
+            </p>
+            <p className="focus-stat-copy">
+              {streakCopy} <span>Best: {progression.longestStreak} days</span>
+            </p>
+            <div className="focus-streak-cube" aria-hidden="true">
+              <span>{progression.currentStreak}</span>
+              <i />
+            </div>
+          </Reveal>
+
+          <Reveal className="focus-card focus-stat-card focus-xp-card" delay={80}>
+            <p className="focus-label"><Trophy size={13} aria-hidden="true" /> XP collected</p>
+            <p className="focus-stat-value">
+              {progression.weekXp > 0 ? '+' : ''}<CountUp value={progression.weekXp} />
+            </p>
+            <p className="focus-stat-copy">
+              Monday–today <span><CountUp value={progression.totalXp} /> lifetime XP</span>
+            </p>
+            <div className="focus-xp-medal" aria-hidden="true">
+              <span>★</span><i /><b />
+            </div>
+          </Reveal>
+
+          <Reveal className="focus-card focus-stat-card focus-mission-card" delay={160}>
+            <div className="focus-mission-head">
+              <div>
+                <p className="focus-label">Daily missions</p>
+                <p className="focus-stat-value">{missionsCompleted} <small>/ 3</small></p>
+              </div>
+              <Link href="/question-bank" aria-label="Continue daily missions">
+                <ArrowRight size={16} />
+              </Link>
+            </div>
+            <div className="focus-mission-bubbles" aria-label={`${missionsCompleted} of 3 missions completed`}>
+              {missionItems.map(item => (
+                <span key={item.label} className={item.done ? 'done' : ''} title={item.label}>
+                  {item.done ? <Check size={12} aria-hidden="true" /> : null}
+                </span>
               ))}
             </div>
-            <div>
-              <p className="home-qtitle">Open the practice room</p>
-              <p className="home-qsub">
-                Eight SAT categories, one question at a time, at your own pace.
-              </p>
-            </div>
+            <p className="focus-stat-copy">
+              {missionsCompleted === 3
+                ? 'All clear. You owned today.'
+                : `${progression.today.newQuestions} new question${progression.today.newQuestions === 1 ? '' : 's'} logged today.`}
+            </p>
+          </Reveal>
+        </section>
+
+        <div className="focus-section-heading">
+          <div>
+            <p className="focus-eyebrow">Skill loadout</p>
+            <h2>Where your score is moving</h2>
           </div>
-          <Link href="/practice" className="prx-btn shrink-0">
-            Start practicing →
-          </Link>
+          <Link href="/question-bank">View all topics <ArrowRight size={14} /></Link>
         </div>
+
+        <section className="focus-subjects" aria-label="Subject performance">
+          <SubjectCard
+            kind="math"
+            label={(math?.accuracy ?? 0) >= (english?.accuracy ?? 0) ? 'Power skill' : 'Next level'}
+            title="Math"
+            stat={math}
+            trend={mathTrend}
+          />
+          <SubjectCard
+            kind="reading"
+            label={(english?.accuracy ?? 0) > (math?.accuracy ?? 0) ? 'Power skill' : 'Next level'}
+            title="Reading & Writing"
+            stat={english}
+            trend={englishTrend}
+            delay={80}
+          />
+        </section>
+
+        <div className="focus-section-heading">
+          <div>
+            <p className="focus-eyebrow">Activity arena</p>
+            <h2>Your rhythm, made visible</h2>
+          </div>
+        </div>
+
+        <section className="focus-activity" aria-label="Practice activity">
+          <Reveal className="focus-card focus-practice-card">
+            <div className="focus-card-head">
+              <div>
+                <p className="focus-label">Practice this month</p>
+                <h2><CountUp value={snapshot.monthCount} /> <small>answers</small></h2>
+              </div>
+              <span className="focus-practice-badge">+{snapshot.weekCount} this week</span>
+            </div>
+            <div className="focus-practice-stats">
+              <div><span>Today</span><strong><CountUp value={snapshot.todayCount} /></strong></div>
+              <div><span>This week</span><strong><CountUp value={snapshot.weekCount} /></strong></div>
+              <div><span>All time</span><strong><CountUp value={snapshot.totalAttempts} /></strong></div>
+            </div>
+            <div className="focus-practice-meter" aria-label={`${snapshot.monthCount} answers this month`}>
+              <i style={{ '--focus-meter': `${Math.min(100, snapshot.monthCount)}%` } as CSSProperties} />
+            </div>
+            <div className="focus-answer-sheet" aria-hidden="true">
+              {['A', 'B', 'C', 'D'].map((choice, index) => (
+                <span key={choice} className={index === 2 ? 'filled' : ''}>{choice}</span>
+              ))}
+            </div>
+            <Link href="/question-bank" className="focus-button focus-button-mint">
+              Start a practice mission <ArrowRight size={13} />
+            </Link>
+          </Reveal>
+
+          <Reveal className="focus-card focus-heat-card" delay={80}>
+            <div className="focus-card-head">
+              <div>
+                <p className="focus-label"><CalendarDays size={13} aria-hidden="true" /> Last four weeks</p>
+                <h2>Activity map</h2>
+              </div>
+              <span className="focus-heat-total">{snapshot.monthCount} answers</span>
+            </div>
+            <ActivityHeatmap days={snapshot.dailyActivity} />
+          </Reveal>
+        </section>
+
+        <footer className="focus-footer-note">
+          <span>Focus Arcade · live student data</span>
+          <span>{renewsLabel && tier !== 'free' ? `Plan renews ${renewsLabel}` : 'Keep showing up. The score follows.'}</span>
+        </footer>
       </div>
     </div>
   );
 }
 
-function TodayStatus({
-  hasQOD,
-  answered,
-}: {
-  hasQOD: boolean;
-  answered: { is_correct: boolean } | null;
-}) {
-  if (!hasQOD) {
-    return (
-      <div className="home-qrow">
-        <span className="home-qbub" aria-hidden="true">—</span>
-        <div className="min-w-0">
-          <p className="home-qtitle">No question scheduled today.</p>
-          <p className="home-qsub">Rest day — or sneak in some practice below.</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!answered) {
-    return (
-      <div className="home-qrow">
-        <span className="home-qbub wait" aria-hidden="true">?</span>
-        <div className="min-w-0">
-          <p className="home-qtitle">Today&rsquo;s question is waiting.</p>
-          <p className="home-qsub">+1 point and your streak on the line.</p>
-          <Link
-            href="/qod"
-            className="prx-btn inline-block"
-            style={{ marginTop: '0.55rem' }}
-          >
-            Answer now →
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  const correct = answered.is_correct;
-  return (
-    <div className="home-qrow">
-      <span className={`home-qbub ${correct ? 'hit' : 'miss'}`} aria-hidden="true">
-        {correct ? '✓' : '✗'}
-      </span>
-      <div className="min-w-0">
-        <p className="home-qtitle">
-          {correct ? 'Answered — correct.' : 'Answered — not your day.'}
-        </p>
-        <p className="home-qsub">
-          {correct
-            ? '+1 point earned. Streak safe.'
-            : 'Streak intact. Tomorrow is a fresh chance.'}
-          {'  '}
-          <Link href="/qod" className="underline" style={{ color: 'var(--green)' }}>
-            Review →
-          </Link>
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function Tile({
+function SubjectCard({
+  kind,
   label,
-  value,
-  unit,
-  capitalize,
-  delay,
+  title,
+  stat,
+  trend,
+  delay = 0,
 }: {
+  kind: 'math' | 'reading';
   label: string;
-  value: string;
-  unit?: string;
-  capitalize?: boolean;
-  delay: number;
+  title: string;
+  stat?: SubjectSnapshot;
+  trend?: SubjectTrend;
+  delay?: number;
 }) {
-  return (
-    <div className="home-tile prx-anim" style={{ animationDelay: `${delay}s` }}>
-      <p className="app-label">{label}</p>
-      <p className="num" style={{ textTransform: capitalize ? 'capitalize' : undefined }}>
-        {value}
-        {unit && <span className="unit"> {unit}</span>}
-      </p>
-    </div>
-  );
-}
+  const percent = Math.round((stat?.accuracy ?? 0) * 100);
+  const prior = trend?.prior30 == null ? null : Math.round(trend.prior30 * 100);
+  const change = prior == null ? null : percent - prior;
+  const circumference = 2 * Math.PI * 35;
+  const offset = circumference * (1 - Math.max(0.02, percent / 100));
 
-function ChecklistItem({
-  done,
-  label,
-  disabled,
-}: {
-  done: boolean;
-  label: string;
-  disabled?: boolean;
-}) {
   return (
-    <div className="flex items-center gap-3">
-      <div
-        className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
-        style={{
-          background: done ? 'var(--green)' : 'transparent',
-          border: `2px solid ${done ? 'var(--green)' : 'var(--muted-l)'}`,
-        }}
-      >
-        {done && (
-          <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-            <path
-              d="M1.5 4l2.5 2.5L8.5 1"
-              stroke="white"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+    <Reveal className={`focus-card focus-subject-card focus-subject-${kind}`} delay={delay}>
+      <div>
+        <p className="focus-label">{label}</p>
+        <h3>{title}</h3>
+        <p className="focus-subject-copy">
+          {stat ? `${stat.correct} of ${stat.attempts} correct` : 'No answers recorded yet'}
+        </p>
+        <span className={`focus-change${change != null && change < 0 ? ' down' : ''}`}>
+          {change == null
+            ? 'Building your baseline'
+            : `${change >= 0 ? '↑' : '↓'} ${Math.abs(change)}% vs prior 30 days`}
+        </span>
+      </div>
+
+      <div className="focus-subject-visual" aria-hidden="true">
+        <div className={`focus-subject-art focus-subject-art-${kind}`}>
+          {kind === 'math' ? (
+            <><strong>∑</strong><i>×</i><b>÷</b></>
+          ) : (
+            <><strong>Aa</strong><i /><b /></>
+          )}
+        </div>
+        <div className="focus-ring">
+          <svg viewBox="0 0 80 80">
+            <circle className="focus-ring-track" cx="40" cy="40" r="35" />
+            <circle
+              className="focus-ring-progress"
+              cx="40"
+              cy="40"
+              r="35"
+              pathLength={circumference}
+              strokeDasharray={circumference}
+              strokeDashoffset={circumference}
+              style={{ '--focus-ring-offset': offset } as CSSProperties}
             />
           </svg>
-        )}
+          <span><CountUp value={percent} suffix="%" /></span>
+        </div>
       </div>
-      <span
-        className="text-sm"
-        style={{ color: disabled ? 'var(--muted)' : 'var(--txt)' }}
-      >
-        {label}
-      </span>
-    </div>
+    </Reveal>
+  );
+}
+
+function ActivityHeatmap({ days }: { days: DayActivity[] }) {
+  const max = Math.max(1, ...days.map(day => day.count));
+  const intensity = (count: number) => {
+    if (count === 0) return 0;
+    const ratio = count / max;
+    if (ratio > 0.75) return 4;
+    if (ratio > 0.45) return 3;
+    if (ratio > 0.2) return 2;
+    return 1;
+  };
+
+  const first = new Date(`${days[0]?.date ?? new Date().toISOString().slice(0, 10)}T00:00:00`);
+  const leadingBlank = (first.getDay() + 6) % 7;
+  const cells: (DayActivity | null)[] = [...Array(leadingBlank).fill(null), ...days];
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const weeks: (DayActivity | null)[][] = [];
+  for (let index = 0; index < cells.length; index += 7) {
+    weeks.push(cells.slice(index, index + 7));
+  }
+
+  return (
+    <>
+      <div className="focus-heat-grid">
+        <span />
+        {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, index) => (
+          <span key={`${day}-${index}`} className="focus-heat-day">{day}</span>
+        ))}
+        {weeks.map((week, weekIndex) => (
+          <Fragment key={weekIndex}>
+            <span className="focus-heat-week">
+              {week.find(Boolean)
+                ? new Date(`${week.find(Boolean)!.date}T00:00:00`).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                  })
+                : ''}
+            </span>
+            {week.map((cell, dayIndex) => (
+              <span
+                key={`${weekIndex}-${dayIndex}`}
+                className={`focus-heat-cell focus-heat-${cell ? intensity(cell.count) : 0}`}
+                title={cell ? `${cell.date}: ${cell.count} answer${cell.count === 1 ? '' : 's'}` : undefined}
+                style={{ '--focus-cell-index': weekIndex * 7 + dayIndex } as CSSProperties}
+              />
+            ))}
+          </Fragment>
+        ))}
+      </div>
+      <div className="focus-heat-legend">
+        <span>Rest</span><i /><i className="focus-heat-2" /><i className="focus-heat-3" /><i className="focus-heat-4" /><span>Power day</span>
+      </div>
+    </>
   );
 }

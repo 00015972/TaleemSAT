@@ -1,5 +1,12 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { getSafeAuthRedirect } from '@/lib/auth/redirect';
+
+function redirectWithRefreshedCookies(url: URL, source: NextResponse) {
+  const response = NextResponse.redirect(url);
+  source.cookies.getAll().forEach(cookie => response.cookies.set(cookie));
+  return response;
+}
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -25,11 +32,10 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  // IMPORTANT: do not add logic between createServerClient and getUser —
+  // IMPORTANT: do not add logic between createServerClient and getClaims —
   // this call refreshes the session and sets auth cookies.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data, error } = await supabase.auth.getClaims();
+  const user = !error && data?.claims?.sub ? data.claims : null;
 
   const { pathname } = request.nextUrl;
 
@@ -40,29 +46,38 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith('/forgot-password');
 
   if (user && isAuthPage) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    return redirectWithRefreshedCookies(
+      new URL('/dashboard', request.url),
+      supabaseResponse
+    );
   }
 
   // Routes that require authentication
   const isProtectedRoute =
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/settings') ||
-    pathname.startsWith('/practice') ||
-    pathname.startsWith('/qod') ||
+    pathname.startsWith('/question-bank') ||
+    pathname.startsWith('/mock') ||
     pathname.startsWith('/analytics') ||
     pathname.startsWith('/certificates');
 
   if (!user && isProtectedRoute) {
     const redirectUrl = new URL('/login', request.url);
     if (pathname !== '/dashboard') {
-      redirectUrl.searchParams.set('next', pathname);
+      redirectUrl.searchParams.set(
+        'next',
+        getSafeAuthRedirect(`${pathname}${request.nextUrl.search}`)
+      );
     }
-    return NextResponse.redirect(redirectUrl);
+    return redirectWithRefreshedCookies(redirectUrl, supabaseResponse);
   }
 
   // Admin routes require auth (role check happens in the layout)
   if (pathname.startsWith('/admin') && !user) {
-    return NextResponse.redirect(new URL('/login', request.url));
+    return redirectWithRefreshedCookies(
+      new URL('/login', request.url),
+      supabaseResponse
+    );
   }
 
   return supabaseResponse;
@@ -70,6 +85,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js)$).*)',
+    '/((?!api(?:/|$)|_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js)$).*)',
   ],
 };

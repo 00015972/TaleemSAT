@@ -1,0 +1,126 @@
+{
+  "date": "2026-09-11",
+  "step": "B01 framework update",
+  "next": "16.3.4",
+  "eslint_config_next": "16.3.4",
+  "sharp": "0.35.4",
+  "external_pnpm_used": "11.24.0",
+  "before": {
+    "info": 0,
+    "low": 7,
+    "moderate": 26,
+    "high": 32,
+    "critical": 2
+  },
+  "after": {
+    "info": 0,
+    "low": 7,
+    "moderate": 20,
+    "high": 25,
+    "critical": 0
+  },
+  "typecheck": "passed",
+  "lint": "passed",
+  "tests": {
+    "passed": 15,
+    "failed": 0
+  },
+  "production_build": "passed",
+  "http_checks": [
+    {
+      "path": "/login",
+      "expected": 200,
+      "status": 200,
+      "pass": true,
+      "bytes": 13602,
+      "mime": "text/html; charset=utf-8",
+      "location": null
+    },
+    {
+      "path": "/signup",
+      "expected": 200,
+      "status": 200,
+      "pass": true,
+      "bytes": 15146,
+      "mime": "text/html; charset=utf-8",
+      "location": null
+    },
+    {
+      "path": "/forgot-password",
+      "expected": 200,
+      "status": 200,
+      "pass": true,
+      "bytes": 12949,
+      "mime": "text/html; charset=utf-8",
+      "location": null
+    },
+    {
+      "path": "/reset-password",
+      "expected": 200,
+      "status": 200,
+      "pass": true,
+      "bytes": 12573,
+      "mime": "text/html; charset=utf-8",
+      "location": null
+    },
+    {
+      "path": "/dashboard",
+      "expected": 307,
+      "status": 307,
+      "pass": true,
+      "bytes": 6,
+      "mime": null,
+      "location": "/login"
+    },
+    {
+      "path": "/question-bank",
+      "expected": 307,
+      "status": 307,
+      "pass": true,
+      "bytes": 28,
+      "mime": null,
+      "location": "/login?next=%2Fquestion-bank"
+    },
+    {
+      "path": "/admin/questions",
+      "expected": 307,
+      "status": 307,
+      "pass": true,
+      "bytes": 6,
+      "mime": null,
+      "location": "/login"
+    },
+    {
+      "path": "/api/mock/start",
+      "expected": 401,
+      "status": 401,
+      "pass": true,
+      "bytes": 25,
+      "mime": "application/json",
+      "location": null
+    },
+    {
+      "path": "/api/practice/manifest",
+      "expected": 401,
+      "status": 401,
+      "pass": true,
+      "bytes": 25,
+      "mime": "application/json",
+      "location": null
+    },
+    {
+      "path": "/_next/image?url=%2Flogo.jpg&w=128&q=75",
+      "expected": 200,
+      "status": 200,
+      "pass": true,
+      "bytes": 2738,
+      "mime": "image/jpeg",
+      "location": null
+    }
+  ],
+  "deployed": false,
+  "limits": [
+    "HTTP checks do not verify authenticated browser journeys or email recovery",
+    "52 dependency advisory records remain; see triage document"
+  ]
+}

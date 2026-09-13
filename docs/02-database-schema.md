@@ -9,12 +9,9 @@
 
 ```
 users ──┬── attempts ──── questions ─── categories ─── subjects
-        │
-        ├── qod_answers ── qod_schedule ─── questions
-        │
+        ├── progression_events ─── attempts
+        ├── daily_progress
         ├── certificates
-        │
-        ├── points_ledger
         │
         ├── ai_insights
         │
@@ -95,9 +92,12 @@ Authenticated users. This is our application-level user table; Supabase's `auth.
 | `subscription_id` | text | unique | current active Stripe subscription |
 | `subscription_status` | text | | `active`, `past_due`, `canceled`, null |
 | `current_period_end` | timestamptz | | for grace-period logic |
-| `streak_days` | int | not null default 0 | consecutive days with a QOD answer |
-| `last_qod_answered_at` | date | | for streak tracking |
 | `marketing_opt_in` | boolean | not null default true | from signup form |
+| `timezone` | text | not null default `Asia/Tashkent` | saved IANA zone used for future progression dates |
+| `total_xp` | int | not null default 0, check >= 0 | rebuildable lifetime-XP cache |
+| `current_streak` | int | not null default 0, check >= 0 | rebuildable active-streak cache |
+| `longest_streak` | int | not null default 0, check >= current_streak | retained personal best |
+| `last_streak_date` | date | | most recent local date that reached five new questions |
 | `created_at` | timestamptz | not null default now() | |
 | `updated_at` | timestamptz | not null default now() | |
 | `deleted_at` | timestamptz | | soft delete for account deletion requests |
@@ -106,7 +106,6 @@ Authenticated users. This is our application-level user table; Supabase's `auth.
 - `(email)` — automatic via unique
 - `(tier)` for tier-based queries
 - `(stripe_customer_id)` for webhook lookups
-- `(last_qod_answered_at)` for streak recovery jobs
 
 ---
 
@@ -141,85 +140,112 @@ The question bank.
 
 ---
 
+### `assessment_sessions`
+
+Server-issued practice and mock runs. Browser callers cannot insert or update these rows directly.
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | uuid | PK | server-issued run ID |
+| `user_id` | uuid | FK → users(id) on delete cascade | owner |
+| `context` | `attempt_context` | not null | `practice` or `mock` |
+| `status` | `assessment_session_status` | not null default `active` | `active` or `completed` |
+| `config` | jsonb | not null, object | bounded scope/configuration metadata |
+| `created_at` | timestamptz | not null default now() | |
+| `completed_at` | timestamptz | required only when completed | mock finalization time |
+
+### `assessment_session_questions`
+
+Immutable ordered roster for one assessment session.
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | uuid | PK | |
+| `session_id` | uuid | FK → assessment_sessions(id) on delete cascade | |
+| `question_id` | uuid | FK → questions(id) on delete restrict | server-authoritative question |
+| `position` | int | not null, >= 0 | roster order |
+| `submission_id` | uuid | not null, unique | server-issued per-question capability ID |
+| `attempt_id` | uuid | nullable FK → attempts(id) on delete set null, unique | authoritative stored result |
+| `created_at` | timestamptz | not null default now() | |
+
+**Unique:** `(session_id, question_id)` and `(session_id, position)`.
+
 ### `attempts`
-Every time a student answers a practice question.
+
+An authoritative practice first answer or mock final result. Practice stores one first answer per assigned question per run. Mock completion stores every assigned question, including an explicit unanswered row.
 
 | Column | Type | Constraints | Notes |
 |---|---|---|---|
 | `id` | uuid | PK | |
 | `user_id` | uuid | FK → users(id) on delete cascade | |
 | `question_id` | uuid | FK → questions(id) on delete restrict | |
-| `selected_answer` | char(1) | not null check (selected_answer in ('A','B','C','D')) | |
+| `selected_answer` | text | nullable | null means unanswered in a finalized mock; practice requires a value |
 | `is_correct` | boolean | not null | |
 | `time_taken_ms` | int | check (time_taken_ms >= 0) | how long they spent |
-| `context` | text | not null default 'practice' check (context in ('practice','qod','mock')) | |
+| `submission_key` | uuid | nullable | server-issued key for session-backed attempts |
+| `session_id` | uuid | nullable FK → assessment_sessions(id) on delete cascade | null only for historical flows |
+| `context` | `attempt_context` | not null default 'practice' | |
 | `created_at` | timestamptz | not null default now() | |
 
 **Indexes:**
 - `(user_id, created_at desc)` — user's history page
 - `(user_id, question_id)` — has this user seen this question?
 - `(question_id)` — question performance analytics
-- `(user_id, context, created_at)` — analytics queries
+- unique `(user_id, submission_key)` — replay identity
+- unique `(session_id, question_id)` where session is not null — one result per run question
 
 **No `updated_at`** — attempts are immutable.
 
+Attempts can be read by their owner but are inserted only by trusted, server-side grading routes. An `AFTER INSERT` trigger creates progression atomically, so a saved attempt can never receive a client-supplied correctness bonus.
+The trigger excludes mock rows whose `selected_answer` is null, so unanswered questions remain part of the score history without awarding XP.
+
 ---
 
-### `qod_schedule`
-Which question is the QOD on which day. Admin sets this in advance.
+### `progression_events`
+
+Immutable XP ledger. A row is created only for the earliest scored attempt by one student on one SAT question, regardless of whether it came from practice or a mock test.
 
 | Column | Type | Constraints | Notes |
 |---|---|---|---|
 | `id` | uuid | PK | |
-| `scheduled_date` | date | unique not null | exactly one QOD per day |
+| `user_id` | uuid | FK → users(id) on delete cascade | |
 | `question_id` | uuid | FK → questions(id) on delete restrict | |
-| `created_by` | uuid | FK → users(id) on delete set null | admin who scheduled |
-| `created_at` | timestamptz | not null default now() | |
+| `attempt_id` | uuid | FK → attempts(id) on delete restrict, unique | source scored attempt |
+| `context` | `attempt_context` | not null | `practice` or `mock` snapshot |
+| `is_correct` | boolean | not null | first-attempt result snapshot |
+| `base_xp` | int | not null, exactly 5 | effort award |
+| `correct_bonus_xp` | int | not null, 0 or 5 | 5 only when `is_correct` |
+| `xp_delta` | int | not null, base + bonus | 5 or 10 |
+| `activity_date` | date | not null | saved-timezone local date at award time |
+| `timezone` | text | not null | IANA-zone snapshot; later changes do not regroup history |
+| `streak_extended` | boolean | not null default false | true only on the day's fifth qualifying question |
+| `created_at` | timestamptz | not null default now() | copied from the source attempt |
 
-**Indexes:**
-- `(scheduled_date)` — unique
-- `(question_id)` — find which days a question has been QOD (prevent reuse)
+**Unique:** `(user_id, question_id)` is the exactly-once award boundary.
+
+**Indexes:** `(user_id, activity_date, created_at)`, `(user_id, created_at)`, `(question_id)`, plus the unique attempt index.
 
 ---
 
-### `qod_answers`
-A student's answer to a specific day's QOD. One row per (user, date).
+### `daily_progress`
+
+Rebuildable read model for dashboard streaks, weekly XP, and daily missions.
 
 | Column | Type | Constraints | Notes |
 |---|---|---|---|
 | `id` | uuid | PK | |
 | `user_id` | uuid | FK → users(id) on delete cascade | |
-| `qod_schedule_id` | uuid | FK → qod_schedule(id) on delete restrict | |
-| `selected_answer` | char(1) | not null check (selected_answer in ('A','B','C','D')) | |
-| `is_correct` | boolean | not null | |
-| `points_awarded` | int | not null default 0 | typically 0 or 1 |
+| `activity_date` | date | not null | event-local calendar date |
+| `qualifying_question_count` | int | not null default 0, check >= 0 | first-ever questions only |
+| `xp_earned` | int | not null default 0, check >= 0 | sum of that day's ledger deltas |
+| `streak_earned` | boolean | not null default false | becomes true at five qualifying questions |
+| `streak_crossed_at` | timestamptz | required when earned | when question five was recorded |
 | `created_at` | timestamptz | not null default now() | |
+| `updated_at` | timestamptz | not null default now() | |
 
-**Unique:** `(user_id, qod_schedule_id)` — one attempt per user per day.
-**Indexes:**
-- `(user_id, created_at desc)` — user's QOD history
-- `(qod_schedule_id)` — daily aggregates ("X% of users got it right")
+**Unique:** `(user_id, activity_date)`.
 
----
-
-### `points_ledger`
-Append-only ledger of every point earned. Source of truth for total points.
-
-| Column | Type | Constraints | Notes |
-|---|---|---|---|
-| `id` | uuid | PK | |
-| `user_id` | uuid | FK → users(id) on delete cascade | |
-| `amount` | int | not null | usually +1, but flexible |
-| `reason` | text | not null check (reason in ('qod_correct','admin_adjustment','bonus','penalty')) | |
-| `reference_id` | uuid | | e.g., qod_answers.id |
-| `note` | text | | admin notes for manual adjustments |
-| `created_at` | timestamptz | not null default now() | |
-
-**Indexes:**
-- `(user_id, created_at desc)` — user history
-- `(user_id)` for sum/aggregates
-
-**Why a ledger?** Auditable. We can always reconstruct a user's total: `select sum(amount) from points_ledger where user_id = ?`. If we ever issue a refund or correction, we add a row, not edit history.
+The source-of-truth order is `attempts` → `progression_events` → `daily_progress` and cached fields on `users`. The ledger is never recreated by the summary rebuild; the latter two layers may be deterministically repaired from it.
 
 ---
 
@@ -336,22 +362,14 @@ RLS is **on** for every table. Default-deny. Policies are listed by table below;
 
 ### `attempts`
 - **SELECT:** user can read their own attempts. Admins can read all.
-- **INSERT:** user can insert their own (`user_id = auth.uid()`). Server validates `is_correct`, can't be spoofed.
+- **INSERT:** trusted grading routes only. Browser-role insert privilege is revoked so `is_correct` cannot be spoofed.
 - **UPDATE / DELETE:** disabled. Attempts are immutable.
 
-### `qod_schedule`
-- **SELECT:** all authenticated users can read **today's** QOD schedule (filter at policy or query level). Admins can read all.
-- **INSERT / UPDATE / DELETE:** admins only.
+### `progression_events` and `daily_progress`
 
-### `qod_answers`
-- **SELECT:** user can read their own. Admins can read all.
-- **INSERT:** user can insert their own. Server validates and enforces one-per-day.
-- **UPDATE / DELETE:** disabled.
-
-### `points_ledger`
-- **SELECT:** user can read their own. Admins can read all.
-- **INSERT:** **disabled for client.** Only the server (service role) writes here, to prevent point inflation.
-- **UPDATE / DELETE:** disabled.
+- **SELECT:** authenticated students can read only their own rows.
+- **INSERT / UPDATE / DELETE:** service role only.
+- Progression counters on `users` are not browser-writable. Authenticated users retain column-level update access only to normal profile fields and `timezone`.
 
 ### `certificates`
 - **SELECT:** user can read their own. Admins can read all.
@@ -407,9 +425,6 @@ create trigger trg_auth_user_created
   after insert on auth.users
   for each row execute function handle_new_auth_user();
 ```
-
-### Streak update on QOD answer
-Logic lives in the API route, not a trigger (easier to test and reason about).
 
 ---
 

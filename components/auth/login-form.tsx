@@ -1,141 +1,118 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { LockKeyhole, Mail } from 'lucide-react';
+import { getSafeAuthRedirect } from '@/lib/auth/redirect';
 import { createClient } from '@/lib/supabase/client';
+import {
+  AuthAlert,
+  AuthInput,
+  AuthPanelHeader,
+  AuthPasswordInput,
+  AuthStage,
+  AuthSubmitButton,
+} from '@/components/auth/auth-ui';
+import { TURNSTILE_ENABLED, TurnstileWidget, type TurnstileWidgetHandle } from '@/components/auth/turnstile-widget';
 
-export function LoginForm({ next }: { next: string }) {
+export function LoginForm({
+  next,
+  initialError = '',
+}: {
+  next: string;
+  initialError?: string;
+}) {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(initialError);
   const [loading, setLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string>();
+  const submittingRef = useRef(false);
+  const turnstileRef = useRef<TurnstileWidgetHandle>(null);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (submittingRef.current) return;
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-
-    if (error) {
-      setError(
-        error.message.toLowerCase().includes('invalid')
-          ? 'Incorrect email or password. Please try again.'
-          : error.message
-      );
-      setLoading(false);
+    if (TURNSTILE_ENABLED && !captchaToken) {
+      setError('Please complete the CAPTCHA challenge.');
       return;
     }
 
-    router.push(next);
-    router.refresh();
+    submittingRef.current = true;
+    setError('');
+    setLoading(true);
+
+    try {
+      const supabase = createClient();
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+        options: { captchaToken },
+      });
+
+      turnstileRef.current?.reset();
+      setCaptchaToken(undefined);
+
+      if (signInError) {
+        setError(
+          signInError.message.toLowerCase().includes('invalid')
+            ? 'Incorrect email or password. Please try again.'
+            : signInError.message
+        );
+        return;
+      }
+
+      router.push(getSafeAuthRedirect(next));
+      router.refresh();
+    } catch {
+      setError('Unable to sign in right now. Please try again.');
+    } finally {
+      submittingRef.current = false;
+      setLoading(false);
+    }
   }
 
   return (
-    <div
-      className="rounded-l p-8"
-      style={{ background: 'var(--surf)', border: '1px solid var(--border)' }}
-    >
-      <h1 className="font-serif text-2xl font-bold mb-1" style={{ color: 'var(--txt)' }}>
-        Welcome back
-      </h1>
-      <p className="text-sm mb-6" style={{ color: 'var(--txt-soft)' }}>
-        Sign in to continue your SAT journey.
-      </p>
+    <AuthStage art="login">
+      <AuthPanelHeader
+        eyebrow="Welcome back"
+        title="Ready for your next win?"
+        description="Sign in and continue building the score you are working toward."
+      />
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        {error && (
-          <p
-            className="rounded p-3 text-sm"
-            style={{
-              background: 'color-mix(in srgb, var(--err) 10%, transparent)',
-              color: 'var(--err)',
-              border: '1px solid color-mix(in srgb, var(--err) 25%, transparent)',
-            }}
-          >
-            {error}
-          </p>
-        )}
+      <form onSubmit={handleSubmit} className="auth-form">
+        {error && <AuthAlert id="login-error">{error}</AuthAlert>}
 
-        <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium" style={{ color: 'var(--txt)' }}>
-            Email
-          </label>
-          <input
-            type="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            placeholder="you@example.com"
-            required
-            autoComplete="email"
-            className="rounded px-3 py-2 text-sm w-full outline-none transition-colors focus:ring-1"
-            style={{
-              background: 'var(--bg)',
-              border: '1px solid var(--border)',
-              color: 'var(--txt)',
-            }}
-          />
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center justify-between">
-            <label className="text-sm font-medium" style={{ color: 'var(--txt)' }}>
-              Password
-            </label>
-            <Link
-              href="/forgot-password"
-              className="text-xs hover:underline"
-              style={{ color: 'var(--green)' }}
-            >
-              Forgot password?
-            </Link>
-          </div>
-          <div className="relative">
-            <input
-              type={showPassword ? 'text' : 'password'}
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-              autoComplete="current-password"
-              className="rounded px-3 py-2 text-sm w-full outline-none pr-14"
-              style={{
-                background: 'var(--bg)',
-                border: '1px solid var(--border)',
-                color: 'var(--txt)',
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(v => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium"
-              style={{ color: 'var(--txt-soft)' }}
-            >
-              {showPassword ? 'Hide' : 'Show'}
-            </button>
+        <div className="auth-field">
+          <label htmlFor="login-email">Email address</label>
+          <div className="auth-field-control">
+            <Mail size={17} aria-hidden="true" />
+            <AuthInput id="login-email" type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@example.com" required autoComplete="email" aria-describedby={error ? 'login-error' : undefined} />
           </div>
         </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded py-2.5 text-sm font-semibold transition-opacity disabled:opacity-60 mt-1"
-          style={{ background: 'var(--green)', color: '#fff' }}
-        >
-          {loading ? 'Signing in…' : 'Sign in'}
-        </button>
+        <div className="auth-field">
+          <div className="auth-field-label-row">
+            <label htmlFor="login-password">Password</label>
+            <Link href="/forgot-password">Forgot password?</Link>
+          </div>
+          <div className="auth-field-control">
+            <LockKeyhole size={17} aria-hidden="true" />
+            <AuthPasswordInput id="login-password" value={password} onChange={setPassword} placeholder="Enter your password" autoComplete="current-password" describedBy={error ? 'login-error' : undefined} />
+          </div>
+        </div>
+
+        <TurnstileWidget ref={turnstileRef} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken(undefined)} />
+
+        <AuthSubmitButton loading={loading} label="Continue learning" loadingLabel="Signing in…" />
       </form>
 
-      <p className="mt-6 text-center text-sm" style={{ color: 'var(--txt-soft)' }}>
-        Don&apos;t have an account?{' '}
-        <Link href="/signup" className="font-medium hover:underline" style={{ color: 'var(--green)' }}>
-          Sign up free
-        </Link>
+      <p className="auth-panel-footer">
+        New to Taleem SAT? <Link href="/signup">Create a free account</Link>
       </p>
-    </div>
+    </AuthStage>
   );
 }

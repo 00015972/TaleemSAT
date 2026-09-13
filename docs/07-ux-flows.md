@@ -41,9 +41,9 @@ Step 3: Email verification banner shown
    ↓ Verification link clicked (separate tab)
 Step 4: Dashboard (/dashboard) — "Welcome" tour
    ↓ "Try your first question" CTA
-Step 5: QOD page (/qod)
+Step 5: Practice page (/practice)
    ↓ Answers, sees result
-Step 6: Dashboard again — points updated
+Step 6: Dashboard again
 ```
 
 ### Key moments and screens
@@ -71,42 +71,30 @@ Top of every authenticated page until verified:
 └─────────────────────────────────────────────────────────┘
 ```
 - Practice routes are blocked behind this banner.
-- QOD answer is blocked.
 - Settings is accessible.
 
 #### 1.4 First-time dashboard
 - Hero card: "Welcome to Taleem SAT, Madina"
-- Three-step onboarding checklist:
+- Two-step onboarding checklist:
   - [ ] Verify your email
   - [ ] Answer your first practice question
-  - [ ] Try the Question of the Day
-- After 3 steps complete, checklist disappears.
-
-#### 1.5 QOD first answer
-- Big featured card, "Your first daily question!"
-- After submit:
-  - **Correct:** Confetti animation. "+1 point earned. 24 more for your first certificate."
-  - **Wrong:** Gentle reveal of correct answer. "It happens. The explanation is below — read it carefully."
-- "Try a practice question" suggested next.
+- After both steps complete, checklist disappears.
 
 ---
 
 ## Flow 2 — Returning daily student (Amir's morning ritual)
 
 ```
-Step 1: Open /dashboard (bookmarked, or arrives from daily reminder email)
-Step 2: Sees QOD widget — clicks "Answer today's question"
-Step 3: QOD page → submits → +1 point or 0 points
-Step 4: "Practice next" CTA → Practice page
-Step 5: 10–20 questions, refreshing for new ones
-Step 6: Leaves the app
+Step 1: Open /dashboard (bookmarked)
+Step 2: "Practice" CTA → Practice page
+Step 3: 10–20 questions, refreshing for new ones
+Step 4: Leaves the app
 ```
 
 ### Dashboard widgets (returning view)
-- Streak counter at top — "🔥 12-day streak"
-- QOD card prominent
 - Exam countdown — "47 days to your SAT"
 - Recent performance — last 7 days of accuracy
+- Daily Momentum — current/best streak, current-week/lifetime XP, and 1/5/10 new-question missions
 - Suggested categories — AI-driven for Pro+, generic for free
 - Recent activity feed
 
@@ -115,6 +103,15 @@ Step 6: Leaves the app
 - Eliminate-option mode (toggle in toolbar) — strike out wrong answers
 - Highlight mode (toggle) — highlight passage text
 - Both toggles: persist per session, not per question
+
+### Daily Momentum rules
+
+- A submitted SAT question qualifies only on the student's first-ever scored attempt, across both Practice and Mock Test.
+- The award is 5 XP for effort plus a 5 XP correct-answer bonus.
+- Five qualifying new questions on the saved-timezone local date protect or extend the streak. Visits, refreshes, answer selections, explanations, and familiar-question retries do not.
+- Reward feedback is server-confirmed: `+5 XP`, `+10 XP`, `N/5 new questions`, a streak extension, or `No new XP — already attempted`.
+- A missed streak displays as zero and is persisted as reset when the student next begins qualifying work. The longest streak remains visible.
+- The XP card uses Monday through the student's current local date; prior events retain the timezone/date captured when they were earned.
 
 ---
 
@@ -152,7 +149,6 @@ State H: "Next question" loading
 - Confetti micro-burst (subtle — single particle wave).
 - "Correct!" headline above explanation.
 - "+ Next question" CTA enabled.
-- If QOD context: "+1 point" overlay.
 
 ### State F — Wrong
 - Selected option turns error-red with X.
@@ -166,7 +162,7 @@ State H: "Next question" loading
   - **Why the right answer is right** (always shown)
   - **Why each wrong answer is wrong** (collapsible)
   - **Key rule** (always shown — the takeaway)
-- Light editorial styling — Source Serif 4, gold tag for the rule.
+- Light editorial styling — regular-weight Manrope, with a gold tag for the rule.
 
 ### State H — Next question loading
 - Card content fades out.
@@ -177,38 +173,6 @@ State H: "Next question" loading
 - **Out of questions in category:** "You've practiced every question in this category. Try another or wait for new content!" with cross-category suggestions.
 - **Quota exhausted (free tier):** "Daily limit reached. Upgrade to Pro for unlimited practice." with upgrade CTA.
 - **Network error mid-submit:** Toast "Couldn't save your answer. Try again?" with Retry.
-
----
-
-## Flow 4 — QOD lifecycle
-
-### Pre-answer (morning)
-- Big featured card on QOD page.
-- Difficulty + category visible.
-- "+1 point on the line" badge.
-- Points progress bar — "18 / 25 toward next certificate."
-
-### Mid-answer
-- Same as practice question (states C–D).
-- No special difference except QOD framing.
-
-### Post-correct
-- "🎉 +1 point earned!" animation.
-- New points total displayed.
-- If hit a 25-point milestone:
-  - Confetti larger
-  - "You just earned your 25-point certificate!" headline
-  - "View certificate" CTA → certificates page
-
-### Post-wrong
-- "Not today — but tomorrow is a fresh chance."
-- Explanation shown.
-- Suggested practice in that category.
-
-### Already-answered
-- Card shows the question, user's selected answer, correct answer, explanation.
-- "Come back tomorrow!" with countdown to midnight.
-- No retake.
 
 ---
 
@@ -291,15 +255,14 @@ Step 5: Email receipt + welcome
 ## Flow 7 — Earning a certificate
 
 ### Trigger
-- User correctly answers a QOD that brings their points to a milestone (25, 50, 75, 100, 150, 200).
+- User's points reach a milestone (25, 50, 75, 100, 150, 200).
 
 ### Sequence
-1. `POST /api/qod/answer` returns `certificate_earned: { id, tier: 25 }`.
-2. UI shows a special "Certificate earned!" overlay (different from regular +1).
-3. PDF generation queued (background task).
-4. Email: "🏆 You earned a 25-point certificate."
-5. Certificate appears on `/certificates` page within ~30s.
-6. Free tier sees the certificate but cannot download — upgrade prompt.
+1. UI shows a special "Certificate earned!" overlay.
+2. PDF generation queued (background task).
+3. Email: "🏆 You earned a 25-point certificate."
+4. Certificate appears on `/certificates` page within ~30s.
+5. Free tier sees the certificate but cannot download — upgrade prompt.
 
 ### Certificate page (`/certificates`)
 - Top: progress to next tier with bar.
@@ -308,47 +271,21 @@ Step 5: Email receipt + welcome
 
 ---
 
-## Flow 8 — Admin sets a QOD
-
-### Admin morning routine
-1. Log in to `/admin`.
-2. See top metric: "No QOD set for tomorrow" warning.
-3. Click → `/admin/qod`.
-4. Calendar view of past QODs + today's + future.
-5. Click "Schedule for tomorrow" → opens question picker.
-6. Filter by category, difficulty, search by text.
-7. Select a question → confirm.
-8. Done.
-
-### Picker UX
-- Search bar at top.
-- Filter dropdowns: subject, category, difficulty.
-- Recently-used-as-QOD questions are flagged ("Used as QOD on 2026-04-15") to avoid repetition.
-- Preview the question as a student would see it.
-
----
-
-## Flow 9 — Admin imports CSV
+## Flow 9 — Admin imports an HTML question bank
 
 ### Sequence
-1. `/admin/questions` → "Import CSV" button.
-2. Modal opens with:
-   - Drag-and-drop area
-   - "Download template" link
-   - Explanation of the format
-3. Drop CSV → preview first 5 rows.
-4. Click "Import 187 questions" (count detected).
-5. Progress bar shows import.
-6. Result screen:
-   - "187 imported successfully"
-   - "13 skipped due to errors:" with table of errors per row
-   - "Download error report" CSV link
-7. Imported questions land in `status = 'draft'` by default. Admin reviews + publishes in bulk.
+1. `/admin` redirects to `/admin/questions`; imports begin at `/admin/import-jobs` → "New import" → `/admin/import-jobs/new`.
+2. Drag-and-drop area (or "Choose file") accepts a hand-converted `.html` question-bank file — see [15-html-import-schema.md](15-html-import-schema.md) for the required shape.
+3. Click "Start import" → file uploads, server parses it synchronously (no AI involved — the HTML already tags question text, options, correct answer, explanation).
+4. Redirect to `/admin/import-jobs/:id` — the review queue for this job.
+5. Each parsed question lands as an `import_job_items` row: cleanly parsed ones are `pending_review`; anything the parser couldn't make sense of (missing correct-answer marker, unrecognized skill, malformed table, unsupported figure type) is flagged for manual fix-up.
+6. Admin reviews each item — fix inline where needed — and approves.
+7. Approved items are promoted into `questions` with `status = 'draft'`. Admin reviews + publishes in bulk from `/admin/questions`.
 
 ### Error handling
-- Validation per row: required fields, valid options, valid correct_answer, valid difficulty.
-- Errors don't block valid rows — partial success is allowed.
-- Errors logged in DB for audit (`import_log` table — future).
+- Validation happens per question; one malformed `<article>` never blocks the rest of the file — every question is parsed independently.
+- A file that yields zero parseable questions fails the upload outright (`NO_QUESTIONS_PARSED`) before anything is written to the DB.
+- Flagged items are visible in the review queue with the specific issue, not silently dropped.
 
 ---
 
@@ -396,7 +333,7 @@ Examples:
 Three kinds:
 - **Success** (green) — "Question added." Auto-dismiss 3s.
 - **Error** (red) — "Couldn't save." Manual dismiss + Retry button.
-- **Info** (gold) — "Streak saved for tomorrow." Auto-dismiss 4s.
+- **Info** (gold) — Auto-dismiss 4s.
 
 Top-right corner. Stack vertically. Max 3 visible.
 

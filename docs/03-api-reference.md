@@ -11,7 +11,7 @@
 - Local: `http://localhost:3000/api`
 - Prod: `https://taleemsat.com/api`
 
-**Why `/api/`?** In Next.js App Router, route handlers live under `app/api/` and are served at `/api/*`. This prefix clearly separates data endpoints from rendered pages and avoids URL collisions (e.g., `/qod` is a student page; `/api/qod/today` is its data endpoint). When we add mobile app support, we'll namespace as `/api/v1/*` and freeze that contract.
+**Why `/api/`?** In Next.js App Router, route handlers live under `app/api/` and are served at `/api/*`. This prefix clearly separates data endpoints from rendered pages and avoids URL collisions (e.g., `/practice` is a student page; `/api/attempts` is its data endpoint). When we add mobile app support, we'll namespace as `/api/v1/*` and freeze that contract.
 
 ### Auth
 - Session-based via Supabase Auth cookie. The `getSession()` helper reads the cookie and returns the user (or 401).
@@ -40,7 +40,6 @@
 | `NOT_FOUND` | 404 | Resource doesn't exist |
 | `VALIDATION_FAILED` | 400 | Body failed Zod validation |
 | `RATE_LIMITED` | 429 | Too many requests |
-| `ALREADY_ANSWERED` | 409 | Conflict — already answered today's QOD |
 | `TIER_INSUFFICIENT` | 402 | Feature requires a higher tier |
 | `INTERNAL_ERROR` | 500 | Server bug; logged to Sentry |
 
@@ -147,41 +146,111 @@ Fetch a single question. Used after attempt submission to show the explanation.
 
 ---
 
-## Attempts
+## Attempts and progression
 
-### `POST /api/attempts`
-Submit an answer to a practice question.
+### `GET /api/practice/manifest`
+
+Creates a server-owned practice run for the requested scope. The response contains a `sessionId`, an ordered student-safe question manifest, and a server-issued `submissionId` for every entry. The first safe question is included. Correct answers and explanations are excluded.
+
+### `POST /api/practice/answer`
+
+Grade an answer in a server-issued practice run. The server derives the question from the owned session/submission pair. The first checked response for that assigned question is stored atomically; later responses are unrecorded learning retries. A later practice run may record another first answer to the same question, while XP remains unique across the user's lifetime.
 
 **Auth:** required.
 
 **Body:**
 ```json
 {
-  "question_id": "uuid",
-  "selected_answer": "B",
-  "time_taken_ms": 24500,
-  "context": "practice"
+  "sessionId": "uuid",
+  "submissionId": "uuid",
+  "selectedAnswer": "B",
+  "timeTakenMs": 24500
 }
 ```
 
 **Response 200:**
 ```json
 {
-  "ok": true,
-  "data": {
-    "attempt_id": "uuid",
-    "correct": false,
-    "correct_answer": "C",
-    "explanation": "...",
-    "quota_remaining": 4
+  "isCorrect": true,
+  "firstResult": true,
+  "recorded": true,
+  "replayed": false,
+  "learningRetry": false,
+  "correctAnswer": "B",
+  "explanation": "...",
+  "progression": {
+    "isFirstEver": true,
+    "baseXp": 5,
+    "bonusXp": 5,
+    "xpAwarded": 10,
+    "streakExtended": false,
+    "snapshot": {
+      "timezone": "Asia/Tashkent",
+      "today": { "activityDate": "2026-09-08", "newQuestions": 3, "xpEarned": 25, "streakEarned": false, "goal": 5 },
+      "weekXp": 65,
+      "totalXp": 420,
+      "currentStreak": 2,
+      "longestStreak": 8,
+      "lastStreakDate": "2026-09-07"
+    }
   }
 }
 ```
 
 **Notes:**
-- Server looks up `correct_answer` server-side (client can't spoof it).
-- Increments daily quota counter for free-tier users.
-- `quota_remaining` only present for free tier.
+- The correct answer and explanation are returned only for a correct check; a wrong unlimited-retry guess does not reveal the key.
+- Clients cannot supply `recordAttempt` or a question ID. Replaying the exact server-issued submission returns the stored result; a changed later answer is graded without replacing it.
+- A correct first-ever answer awards 10 XP; an incorrect one awards 5 XP. A familiar question reports `isFirstEver: false` and zero award.
+- If the attempt is saved but progression display loading fails, the route still returns 200 with `progression: null` and `warning: "PROGRESSION_UNAVAILABLE"`.
+
+**Errors:** `AUTH_REQUIRED`, `INVALID_JSON`, `INVALID_REQUEST`, `SESSION_SUBMISSION_NOT_FOUND`, `QUESTION_NOT_FOUND`, `ATTEMPT_SAVE_FAILED`.
+
+---
+
+### `POST /api/mock/submit`
+
+Server-grade and atomically finalize a server-issued mock session. The server owns the roster and total; every assigned question creates one `mock` attempt, including unanswered questions with a null response and an incorrect result. Repeated finalization returns the original stored results.
+
+The endpoint remains launch-restricted with `403 MOCK_IN_DEVELOPMENT`. This contract describes the hardened implementation behind that gate.
+
+**Body:**
+
+```json
+{
+  "sessionId": "uuid",
+  "answers": [
+    { "submissionId": "uuid", "selectedAnswer": "A", "timeTakenMs": 65000 }
+  ]
+}
+```
+
+**Response 200:**
+
+```json
+{
+  "results": [
+    { "questionId": "uuid", "selectedAnswer": "A", "correctAnswer": "A", "isCorrect": true, "explanation": "...", "isFirstEver": true, "xpAwarded": 10 }
+  ],
+  "summary": { "total": 10, "correct": 7 },
+  "progression": { "newQuestions": 6, "xpAwarded": 50, "streakExtended": true, "snapshot": { "today": { "newQuestions": 7, "goal": 5 } } }
+}
+```
+
+Previously attempted questions are still scored and retained in ordinary attempt analytics, but cannot grant another event or award. If progression display loading fails after finalization, the saved score returns with `progression: null` and a warning.
+
+**Errors:** `AUTH_REQUIRED`, `MOCK_IN_DEVELOPMENT`, `INVALID_JSON`, `INVALID_REQUEST`, `MOCK_SESSION_NOT_FOUND`, `SUBMISSION_NOT_IN_SESSION`, `QUESTION_LOAD_FAILED`, `ATTEMPT_SAVE_FAILED`.
+
+---
+
+### `POST /api/profile/timezone`
+
+Save the authenticated student's browser-detected IANA timezone. This changes the local-date boundary for future progression events only.
+
+```json
+{ "timezone": "Asia/Tashkent" }
+```
+
+Returns `{ "timezone": "Asia/Tashkent" }`. Invalid or blank zones return `400 INVALID_TIMEZONE`; unauthenticated calls return `401 AUTH_REQUIRED`.
 
 ---
 
@@ -191,7 +260,7 @@ Paginated history of attempts for the analytics page.
 **Auth:** required.
 
 **Query params:**
-- `context` — `practice` | `qod` | `mock` | `all` (default: all)
+- `context` — `practice` | `mock` | `all` (default: all)
 - `category_id` — optional filter
 - `limit` — default 20, max 100
 - `cursor` — opaque cursor for pagination
@@ -209,82 +278,6 @@ Paginated history of attempts for the analytics page.
 
 ---
 
-## Question of the Day
-
-### `GET /api/qod/today`
-Get today's QOD. Returns the user's own answer if already answered.
-
-**Auth:** required.
-
-**Response 200 (not yet answered):**
-```json
-{
-  "ok": true,
-  "data": {
-    "question": { "id": "...", "passage": "...", "question_text": "...", "options": {...} },
-    "category_name": "Standard English Conventions",
-    "difficulty": "hard",
-    "answered": false,
-    "user_points": 18,
-    "next_certificate_at": 25
-  }
-}
-```
-
-**Response 200 (already answered):**
-```json
-{
-  "ok": true,
-  "data": {
-    "question": { "...full..." },
-    "answered": true,
-    "selected_answer": "C",
-    "is_correct": false,
-    "correct_answer": "A",
-    "explanation": "...",
-    "points_awarded": 0,
-    "user_points": 18
-  }
-}
-```
-
----
-
-### `POST /api/qod/answer`
-Submit an answer to today's QOD.
-
-**Auth:** required.
-
-**Body:**
-```json
-{ "selected_answer": "A" }
-```
-
-**Response 200:**
-```json
-{
-  "ok": true,
-  "data": {
-    "correct": true,
-    "correct_answer": "A",
-    "explanation": "...",
-    "points_awarded": 1,
-    "user_points": 19,
-    "streak_days": 5,
-    "certificate_earned": null
-  }
-}
-```
-
-**Errors:**
-- `ALREADY_ANSWERED` — user already answered today
-
-**Notes:**
-- If hitting a 25-pt milestone, `certificate_earned: { id, tier: 25 }` is returned and triggers PDF generation in the background.
-- Updates `users.streak_days` and `users.last_qod_answered_at`.
-
----
-
 ## Certificates
 
 ### `GET /api/certificates`
@@ -299,9 +292,7 @@ List the user's certificates.
   "data": {
     "certificates": [
       { "id": "uuid", "tier": 25, "awarded_at": "2026-04-15T...", "pdf_ready": true }
-    ],
-    "current_points": 18,
-    "next_tier": 25
+    ]
   }
 }
 ```
@@ -337,7 +328,6 @@ Performance breakdown for the analytics page.
   "data": {
     "overall_accuracy": 0.68,
     "total_attempts": 142,
-    "streak_days": 4,
     "by_subject": {
       "english": { "accuracy": 0.76, "attempts": 81 },
       "math": { "accuracy": 0.61, "attempts": 61 }
@@ -494,42 +484,26 @@ Update an existing question.
 ### `DELETE /api/admin/questions/:id`
 Soft-archive (sets `status = 'archived'`). Hard delete only via Supabase SQL editor.
 
-### `POST /api/admin/questions/import`
-Bulk import via CSV.
+### `POST /api/admin/import-jobs/html`
+Bulk import via a hand-converted HTML question-bank file.
 
-**Body:** multipart/form-data with a `file` field. See [11-content-pipeline.md](11-content-pipeline.md) for CSV format.
+**Body:** multipart/form-data with a `file` field (`.html`, max 20MB). See [15-html-import-schema.md](15-html-import-schema.md) for the HTML contract the parser expects.
 
-**Response 200:**
+**Response 201:**
 ```json
-{
-  "ok": true,
-  "data": {
-    "imported": 187,
-    "skipped": 13,
-    "errors": [ { "row": 14, "reason": "Missing correct_answer" } ]
-  }
-}
+{ "jobId": "uuid" }
 ```
 
-### `GET /api/admin/qod`
-List scheduled QODs (past + upcoming).
-
-### `POST /api/admin/qod`
-Schedule a QOD for a future date.
-
-**Body:**
-```json
-{ "scheduled_date": "2026-05-15", "question_id": "uuid" }
-```
-
-### `DELETE /api/admin/qod/:id`
-Unschedule (only allowed for future dates).
+**Notes:**
+- Parsing is synchronous, deterministic DOM parsing (`lib/import/html-questions.ts`) — no AI model involved.
+- Every parsed question is staged as an `import_job_items` row (`status: 'pending_review'` or flagged for review) under a new `import_jobs` row.
+- Nothing reaches students until an admin reviews and approves items at `/admin/import-jobs/:id`. See [11-content-pipeline.md](11-content-pipeline.md) for the full review/promote flow.
 
 ### `GET /api/admin/users?tier=pro&search=...`
 List users with filters.
 
 ### `PATCH /api/admin/users/:id`
-Update user (admin overrides: tier, role, points adjustment via `points_ledger`).
+Update user (admin overrides: tier, role).
 
 **Body:** any of `{ tier, role, full_name }` — sensitive changes are logged.
 
@@ -547,9 +521,7 @@ Dashboard overview metrics.
     "wau": 318,
     "mau": 481,
     "questions_count": 200,
-    "attempts_last_24h": 1843,
-    "qod_today_responses": 89,
-    "qod_today_accuracy": 0.62
+    "attempts_last_24h": 1843
   }
 }
 ```
@@ -577,7 +549,6 @@ Capture an email from the landing page (without full signup).
 | `POST /api/auth/signup` | 5 | per IP per hour |
 | `POST /api/auth/login` (via Supabase) | 10 | per email per 15 min |
 | `POST /api/attempts` | 60 | per user per minute |
-| `POST /api/qod/answer` | 5 | per user per hour |
 | `GET /api/ai/insights` | 10 | per user per day |
 | `POST /api/lead` | 5 | per IP per hour |
 | Everything else | 120 | per user per minute |

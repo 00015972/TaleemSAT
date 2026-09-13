@@ -2,11 +2,34 @@ import { NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { logAudit } from '@/lib/admin/audit';
+import { invalidPathParameter, parseJsonRequest } from '@/lib/validation/request';
+import { adminUserUpdateSchema, uuidSchema } from '@/lib/validation/schemas';
+import { getAdminUserDetail } from '@/lib/admin/users';
 
-const ROLES = ['student', 'admin'] as const;
-const TIERS = ['free', 'pro', 'elite'] as const;
-type Role = (typeof ROLES)[number];
-type Tier = (typeof TIERS)[number];
+type Role = 'student' | 'admin';
+type Tier = 'free' | 'pro' | 'elite';
+
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const gate = await requireAdmin();
+  if (!gate.ok) return gate.response;
+
+  const { id } = await params;
+  if (!uuidSchema.safeParse(id).success) return invalidPathParameter('id');
+
+  try {
+    const user = await getAdminUserDetail(id);
+    if (!user) {
+      return Response.json({ error: 'USER_NOT_FOUND' }, { status: 404 });
+    }
+    return Response.json({ user });
+  } catch (error) {
+    console.error('[admin-users] detail request failed', error);
+    return Response.json({ error: 'DETAIL_FAILED' }, { status: 500 });
+  }
+}
 
 /**
  * Change a user's role and/or tier. Sensitive: every change is audit-logged.
@@ -23,25 +46,12 @@ export async function PATCH(
   if (!gate.ok) return gate.response;
   const { user } = gate;
   const { id } = await params;
+  if (!uuidSchema.safeParse(id).success) return invalidPathParameter('id');
 
-  let body: { role?: string; tier?: string };
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: 'INVALID_JSON' }, { status: 400 });
-  }
-
+  const parsed = await parseJsonRequest(request, adminUserUpdateSchema);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
   const { role, tier } = body;
-
-  if (role === undefined && tier === undefined) {
-    return Response.json({ error: 'NOTHING_TO_UPDATE' }, { status: 400 });
-  }
-  if (role !== undefined && !ROLES.includes(role as Role)) {
-    return Response.json({ error: 'INVALID_ROLE' }, { status: 422 });
-  }
-  if (tier !== undefined && !TIERS.includes(tier as Tier)) {
-    return Response.json({ error: 'INVALID_TIER' }, { status: 422 });
-  }
 
   // Self-protection: never let an admin change their own role.
   if (role !== undefined && id === user.id) {
@@ -74,8 +84,8 @@ export async function PATCH(
   const patch: { role?: Role; tier?: Tier; updated_at: string } = {
     updated_at: new Date().toISOString(),
   };
-  if (role !== undefined) patch.role = role as Role;
-  if (tier !== undefined) patch.tier = tier as Tier;
+  if (role !== undefined) patch.role = role;
+  if (tier !== undefined) patch.tier = tier;
 
   const { error } = await admin.from('users').update(patch).eq('id', id);
   if (error) {

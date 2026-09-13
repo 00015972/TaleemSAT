@@ -11,7 +11,7 @@
 2. **Earliest value first.** Things that build the email list (signup) come before things that don't (mock tests).
 3. **Hard things early.** Auth, payments, content pipeline — these are foundational. Build them before they're urgent.
 4. **No backwards-compat debt.** We're pre-launch — break and rebuild freely until we have real users.
-5. **Manual before automated.** Many ops can be manual at first (QOD selection, certificate review). Automate only when manual hurts.
+5. **Manual before automated.** Many ops can be manual at first (certificate review). Automate only when manual hurts.
 
 ---
 
@@ -73,21 +73,20 @@
 
 ---
 
-## Phase 3 — QOD + points + streaks (4–5 days)
+## Phase 3 — Attempt-driven streaks and XP (restored)
 
-**Goal:** The daily ritual is live. Students get a point for each correct QOD. Streaks tick up.
+**Goal:** Reward actual SAT work from Practice and Mock Test without restoring Daily Questions or granting progress for visits.
 
 | Task | Notes |
 |---|---|
-| `GET /api/qod/today` + `POST /api/qod/answer` | Idempotent — one per user per day |
-| QOD page | Big featured question, points badge |
-| Dashboard QOD widget | "Answer today's question" CTA |
-| Points ledger writes | Server-only insert on correct QOD |
-| Streak tracking | Update `users.streak_days`, `last_qod_answered_at` |
-| Daily reminder email | Resend, sent ~10am local time if user hasn't answered |
-| Admin QOD scheduler | `POST /api/admin/qod` |
+| Immutable progression ledger | One award for the first-ever scored `(user, question)` attempt |
+| XP | 5 for effort + 5 when that first attempt is correct |
+| Daily streak | Earned after 5 new questions on the saved-timezone local date |
+| Practice + mock feedback | Server-confirmed per-answer and test-summary rewards |
+| Dashboard momentum row | Combo Streak, weekly/lifetime XP, and 1/5/10-question missions |
+| Historical backfill | Earliest existing attempt per student/question, idempotently rebuilt |
 
-**Done when:** Every day, an admin schedules a QOD. Students wake up, answer it, accumulate points. We see DAU pop on the analytics dashboard.
+**Done when:** Repeats still affect performance analytics but never grant more XP, five new questions extend the streak exactly once, and opening or refreshing the application performs no progression write.
 
 ---
 
@@ -100,15 +99,14 @@
 | Admin route group + role gate | `(admin)/` layout, middleware enforces |
 | Admin question list | Paginated table, filter by subject/category/status, search |
 | Add/edit question form | All fields, with a "Preview" button that renders the question as a student would see it |
-| CSV import endpoint | Validates row-by-row, returns errors |
-| CSV import UI | Drag-drop, progress, error summary |
+| HTML import endpoint | Parses a hand-converted question-bank HTML file, stages rows for review |
+| HTML import UI | Drag-drop, upload, hand off to the review queue |
 | Bulk load the 200 questions | Real content |
-| Admin QOD scheduling UI | Calendar view of past + future scheduled QODs |
 | Admin dashboard | Top-line metrics from `/api/admin/stats` |
 
 **Done when:** Tutor can log in to `/admin` and run the whole content side without me. 200 questions are live.
 
-See [11-content-pipeline.md](11-content-pipeline.md) for CSV spec.
+See [11-content-pipeline.md](11-content-pipeline.md) for the HTML import spec.
 
 ---
 
@@ -137,14 +135,14 @@ See [09-ai-features.md](09-ai-features.md) for prompt design.
 
 | Task | Notes |
 |---|---|
-| Award certificate row on milestone | Server-side check on each correct QOD |
+| Award certificate row on milestone | Server-side check |
 | PDF generation (`@react-pdf/renderer`) | Server-side; styled in editorial gold/green |
 | Certificate page (`/certificates`) | Earned + locked tiers |
 | `GET /api/certificates/:id/pdf` | Stream PDF, gate behind paid tier |
 | Email on certificate earned | "You earned a 25-point certificate!" |
 | Free-tier paywall on download | Free users see "Upgrade to download" |
 
-**Done when:** I can answer 25 QODs as a paid user and download a PDF with my name on it.
+**Done when:** I can hit the 25-point milestone as a paid user and download a PDF with my name on it.
 
 ---
 
@@ -210,9 +208,7 @@ See [10-monetization-payments.md](10-monetization-payments.md).
 
 These ship in any order based on data:
 
-- Streak recovery emails ("Don't lose your 12-day streak")
 - Referral program ("Invite a friend, both get 30 days of Pro")
-- Telegram bot integration (broadcast QOD to channel)
 - Multi-language UI (Uzbek, Russian)
 - Mobile PWA polish (install prompt, offline practice)
 - Leaderboards (opt-in)
@@ -240,16 +236,15 @@ For sanity, listing what we're **not** doing:
 
 ```
 Phase 0 ──► Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 5 ──► Phase 6
-                  │              │
-                  │              └─► Phase 4 (admin) ─┐
-                  │                                    │
-                  └────────────────► Phase 7 ──────────┴──► Phase 8 ──► Launch
+                  │                    │
+                  │                    └─► Phase 4 (admin) ─┐
+                  │                                          │
+                  └──────────────────────► Phase 7 ───────────┴──► Phase 8 ──► Launch
                                                                           │
                                                                           ▼
                                                                        Phase 9, 10
 ```
 
-- Phase 4 (admin) can run in parallel with Phase 3 (QOD) since they don't overlap heavily.
 - Phase 5 (AI) needs real attempts data, so don't start it until Phase 2 is live with a few users.
 - Phase 7 (payments) can technically happen earlier but there's nothing worth paying for until Phase 5–6 ship.
 
@@ -264,14 +259,13 @@ These assume one focused developer working 6 hours/day. Multiply by 1.5x for rea
 | 0. Foundation | 4 days | 4 |
 | 1. Auth | 4 days | 8 |
 | 2. Practice | 6 days | 14 |
-| 3. QOD | 4 days | 18 |
-| 4. Admin | 6 days | 24 |
-| 5. AI insights | 6 days | 30 |
-| 6. Certificates | 3 days | 33 |
-| 7. Payments | 6 days | 39 |
-| 8. Marketing pages | 3 days | 42 |
-| **Launchable MVP** | **~42 days** | **~6 weeks** |
-| 9. Mock SATs | 8 days | 50 |
+| 4. Admin | 6 days | 20 |
+| 5. AI insights | 6 days | 26 |
+| 6. Certificates | 3 days | 29 |
+| 7. Payments | 6 days | 35 |
+| 8. Marketing pages | 3 days | 38 |
+| **Launchable MVP** | **~38 days** | **~5.5 weeks** |
+| 9. Mock SATs | 8 days | 46 |
 | 10. Growth (ongoing) | — | — |
 
 ---
@@ -290,7 +284,6 @@ Launch = Phase 8 complete + private beta with ~20 students. Public marketing com
 - [ ] PostHog tracking key events
 - [ ] Manual QA pass complete (see [12-testing-strategy.md](12-testing-strategy.md))
 - [ ] Performance budgets met
-- [ ] First QOD scheduled for launch day
 
 ---
 

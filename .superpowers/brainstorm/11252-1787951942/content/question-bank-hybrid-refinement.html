@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TaleemSAT Question Bank — Hybrid Refinement</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --night: #07150d;
+      --night-2: #0a1c13;
+      --panel: #102a1c;
+      --panel-2: #153623;
+      --panel-3: #1a422b;
+      --mint: #80e1aa;
+      --mint-deep: #2f7e52;
+      --yellow: #f6d252;
+      --yellow-deep: #907419;
+      --coral: #ed654f;
+      --cream: #fff8e8;
+      --ink: #13251a;
+      --text: #eef8f1;
+      --muted: #8da996;
+      --line: #28533a;
+    }
+    * { box-sizing: border-box; }
+    html { background: #061109; scroll-behavior: smooth; }
+    body {
+      min-width: 320px;
+      min-height: 100vh;
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 83% 2%, rgba(237,101,79,.14), transparent 27rem),
+        radial-gradient(circle at 16% 35%, rgba(128,225,170,.08), transparent 28rem),
+        #07140c;
+      font-family: "Manrope", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input { font: inherit; }
+    button { color: inherit; }
+    .companion {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 14px clamp(18px,4vw,56px);
+      border-bottom: 1px solid rgba(128,225,170,.17);
+      background: rgba(5,16,9,.91);
+      backdrop-filter: blur(20px);
+    }
+    .brand { display: flex; align-items: center; gap: 11px; font-size: 12px; font-weight: 800; }
+    .brand-mark { display: grid; width: 33px; height: 33px; place-items: center; border: 1px solid var(--yellow); border-radius: 9px; color: var(--yellow); transform: rotate(-3deg); }
+    .brand small { display: block; margin-top: 2px; color: #718b7a; font-size: 8px; font-weight: 600; }
+    .refined { padding: 7px 10px; border: 1px solid #2d5b40; border-radius: 999px; color: var(--mint); background: #102a1c; font-size: 8px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    .intro { display: flex; align-items: end; justify-content: space-between; gap: 30px; width: min(calc(100% - 36px),1450px); margin: auto; padding: 35px 7px 18px; }
+    .eyebrow { margin: 0 0 8px; color: var(--yellow); font-size: 8px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+    .intro h1 { margin: 0; font-size: clamp(29px,4.2vw,50px); font-weight: 800; letter-spacing: -.06em; line-height: 1; }
+    .intro h1 span { color: var(--mint); }
+    .intro p:last-child { max-width: 405px; margin: 0 0 2px; color: var(--muted); font-size: 10px; line-height: 1.6; }
+    .screen-wrap { padding: 0 clamp(10px,3vw,40px) 115px; overflow-x: auto; }
+    .screen {
+      position: relative;
+      display: grid;
+      grid-template-columns: 178px minmax(0,1fr);
+      width: min(100%,1450px);
+      min-height: 1160px;
+      margin: auto;
+      overflow: hidden;
+      border: 1px solid #28503a;
+      border-radius: 25px;
+      background: var(--night);
+      box-shadow: 0 38px 90px rgba(0,0,0,.42), 0 7px 0 #020804;
+      isolation: isolate;
+    }
+    .screen::after { position: absolute; inset: 0; z-index: 40; border: 1px solid rgba(255,255,255,.05); border-radius: inherit; pointer-events: none; content: ""; }
+    .side { position: relative; z-index: 4; padding: 23px 13px; border-right: 1px solid #204731; background: #0d2418; }
+    .side-logo { display: flex; align-items: center; gap: 9px; padding: 0 7px 28px; font-size: 13px; font-weight: 800; letter-spacing: -.04em; }
+    .side-logo i { display: grid; width: 29px; height: 29px; place-items: center; border: 1px solid var(--yellow); border-radius: 8px; color: var(--yellow); font-size: 11px; font-style: normal; transform: rotate(-3deg); }
+    .side-logo em { color: var(--mint); font-style: normal; }
+    .nav-label { padding: 0 10px 7px; color: #516c5a; font-size: 7px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+    .nav-item { display: flex; align-items: center; gap: 9px; min-height: 40px; margin: 3px 0; padding: 0 9px; border-radius: 10px; color: #a9beaf; font-size: 9px; font-weight: 700; }
+    .nav-item i { display: grid; width: 24px; height: 24px; place-items: center; border-radius: 7px; color: var(--yellow); background: #284733; font-size: 10px; font-style: normal; }
+    .nav-item.active { color: #13251a; background: var(--mint); box-shadow: 0 5px 0 var(--mint-deep); transform: translateY(-2px); }
+    .nav-item.active i { color: #183221; background: rgba(255,255,255,.36); }
+    .side-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 13px; }
+    .side-stat { display: flex; align-items: center; gap: 5px; padding: 7px 6px; border: 1px solid #28513a; border-radius: 7px; color: #9ab1a1; background: #143221; font-size: 7px; }
+    .side-stat i { width: 7px; height: 7px; border-radius: 50%; background: var(--yellow); }
+    .side-stat + .side-stat i { background: var(--mint); }
+    .student { position: absolute; right: 13px; bottom: 20px; left: 13px; display: flex; align-items: center; gap: 8px; padding: 9px; border: 1px solid #24533a; border-radius: 11px; background: #143522; font-size: 8px; }
+    .student b { display: grid; width: 27px; height: 27px; place-items: center; border-radius: 50%; color: var(--ink); background: var(--yellow); }
+    .student small { display: block; margin-top: 1px; color: #6d8a76; font-size: 6px; }
+    .main {
+      position: relative;
+      min-width: 0;
+      padding: 28px 30px 33px;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 99% 0,rgba(237,101,79,.12),transparent 27%),
+        radial-gradient(circle at 27% 25%,rgba(128,225,170,.07),transparent 28%),
+        var(--night-2);
+    }
+    .main::before { position: absolute; inset: 0; opacity: .055; background-image: linear-gradient(45deg,#fff 25%,transparent 25%),linear-gradient(-45deg,#fff 25%,transparent 25%); background-position: 0 0,4px 4px; background-size: 8px 8px; mask-image: linear-gradient(to bottom,#000,transparent 45%); pointer-events: none; content: ""; }
+    .page-head { position: relative; z-index: 3; display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 22px; }
+    .page-head small { display: block; margin-bottom: 6px; color: var(--yellow); font-size: 7px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+    .page-head h2 { margin: 0; font-size: 33px; font-weight: 800; letter-spacing: -.06em; line-height: 1; }
+    .page-head p { margin: 7px 0 0; color: var(--muted); font-size: 8px; }
+    .tools { display: flex; flex-direction: column; align-items: stretch; gap: 7px; width: 275px; }
+    .search { display: flex; align-items: center; gap: 7px; padding: 9px 11px; border: 1px solid #2a503a; border-radius: 11px; color: #73907d; background: #10291b; font-size: 8px; }
+    .search i { font-size: 11px; font-style: normal; }
+    .difficulty { display: flex; gap: 3px; padding: 3px; border: 1px solid #2b503a; border-radius: 10px; background: #10291b; }
+    .difficulty span { flex: 1; padding: 6px 8px; border-radius: 7px; color: #77927f; font-size: 7px; font-weight: 700; text-align: center; }
+    .difficulty .on { color: var(--ink); background: var(--yellow); }
+    .label { margin: 0; color: #84a18d; font-size: 7px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+    .portals { position: relative; z-index: 2; display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
+    .portal { position: relative; min-height: 255px; overflow: hidden; padding: 19px; border: 1px solid; border-radius: 18px; color: var(--ink); box-shadow: 0 7px 0; }
+    .portal.reading { border-color: #b2f1cd; background: var(--mint); box-shadow-color: var(--mint-deep); }
+    .portal.math { border-color: #ffea91; background: var(--yellow); box-shadow-color: var(--yellow-deep); }
+    .portal-copy { position: relative; z-index: 5; width: 54%; }
+    .portal h3 { margin: 14px 0 4px; font-size: 22px; letter-spacing: -.05em; line-height: 1.03; }
+    .portal-meta { margin: 0 0 20px; color: rgba(19,37,26,.65); font-size: 8px; font-weight: 650; }
+    .progress { display: block; height: 5px; overflow: hidden; border-radius: 999px; background: rgba(7,26,15,.23); }
+    .progress i { display: block; width: var(--w); height: 100%; border-radius: inherit; background: currentColor; animation: progress-in 1.2s .35s cubic-bezier(.2,.8,.2,1) both; transform-origin: left; }
+    @keyframes progress-in { from { transform: scaleX(0); } }
+    .portal.reading .progress { color: #1d633e; }
+    .portal.math .progress { color: #8f6d0f; }
+    .portal-count { margin: 8px 0 15px; color: rgba(19,37,26,.62); font-size: 7px; }
+    .portal-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 11px; border: 1px solid #173d28; border-radius: 8px; color: #173622; background: rgba(255,255,255,.13); font-size: 7px; font-weight: 800; }
+    .portal-art { position: absolute; right: 12px; bottom: 12px; width: 46%; height: 82%; }
+    .art-orb { position: absolute; right: -35px; bottom: -55px; width: 185px; height: 185px; border-radius: 50%; background: var(--coral); animation: breathe 4.3s ease-in-out infinite; }
+    @keyframes breathe { 50% { transform: scale(1.045) translate(-3px,-3px); } }
+    .book { position: absolute; right: 17px; bottom: 25px; z-index: 3; width: 142px; height: 103px; border: 2px solid #b6a98f; border-radius: 6px 14px 14px 6px; background: var(--cream); box-shadow: 10px 10px 0 rgba(89,42,31,.22); transform: rotate(4deg); animation: float-book 3.4s ease-in-out infinite; }
+    @keyframes float-book { 50% { transform: rotate(1deg) translateY(-7px); } }
+    .book::before { position: absolute; top: 0; bottom: 0; left: 49%; width: 2px; background: #cfbea0; content: ""; }
+    .book-lines,.book-lines::before,.book-lines::after { position: absolute; top: 25px; left: 12px; width: 43px; height: 3px; border-radius: 2px; background: #c7b99f; content: ""; }
+    .book-lines::before { top: 13px; left: 0; } .book-lines::after { top: 26px; left: 0; width: 35px; }
+    .book-bubs { position: absolute; right: 11px; bottom: 16px; display: grid; grid-template-columns: repeat(2,16px); gap: 7px; }
+    .book-bubs i { width: 16px; height: 16px; border: 2px solid #698975; border-radius: 50%; }
+    .book-bubs i:nth-child(3) { border-color: var(--coral); background: var(--coral); }
+    .calculator { position: absolute; right: 26px; bottom: 24px; z-index: 4; width: 99px; height: 132px; padding: 12px; border: 2px solid #c8b99a; border-radius: 12px; background: var(--cream); box-shadow: 9px 10px 0 rgba(91,45,27,.23); transform: rotate(-5deg); animation: float-calc 3.2s ease-in-out infinite; }
+    @keyframes float-calc { 50% { transform: rotate(-2deg) translateY(-7px); } }
+    .calc-screen { display: block; height: 27px; margin-bottom: 9px; border-radius: 5px; background: #193a28; }
+    .calc-keys { display: grid; grid-template-columns: repeat(3,1fr); gap: 5px; }
+    .calc-keys i { height: 15px; border-radius: 4px; background: #b7cdbb; }
+    .calc-keys i:nth-child(3n) { background: var(--coral); }
+    .spark { position: absolute; z-index: 5; color: var(--cream); font-size: 16px; font-weight: 800; animation: sparkle 2.3s ease-in-out infinite; }
+    .spark.one { top: 13px; right: 16px; } .spark.two { right: 139px; bottom: 21px; animation-delay: .8s; }
+    @keyframes sparkle { 50% { opacity: .35; transform: rotate(22deg) scale(.7); } }
+    .deck { position: relative; z-index: 2; margin-top: 17px; padding: 17px; border: 1px solid #2b563d; border-radius: 18px; background: #102a1c; box-shadow: 0 6px 0 #041008; }
+    .deck-head { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 13px; }
+    .deck-head h3 { margin: 4px 0 0; font-size: 17px; letter-spacing: -.04em; }
+    .deck-head span { color: #77937f; font-size: 7px; }
+    .shelves { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .shelf { padding: 12px 12px 17px; border: 1px solid #284f38; border-radius: 13px; background: #0d2418; }
+    .shelf-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 11px; }
+    .shelf-head strong { font-size: 9px; }
+    .shelf-head small { color: #76917e; font-size: 6px; }
+    .categories { display: grid; grid-template-columns: repeat(4,1fr); gap: 7px; }
+    .category { position: relative; min-height: 100px; padding: 10px 8px; overflow: hidden; border: 1px solid #3a6549; border-radius: 10px 10px 5px 5px; color: #dcebe0; background: #173924; box-shadow: 0 4px 0 #06140c; cursor: pointer; text-align: left; transition: transform .2s ease,border-color .2s ease,background .2s ease; }
+    .shelf.math .category { border-color: #65571f; background: #342f16; }
+    .category:hover { border-color: var(--mint); transform: translateY(-4px) rotate(-1deg); }
+    .shelf.math .category:hover { border-color: var(--yellow); transform: translateY(-4px) rotate(1deg); }
+    .category.active { border-color: #9ef0bf; background: #1b462d; box-shadow: 0 4px 0 #2f7e52,0 0 0 2px rgba(128,225,170,.16); transform: translateY(-3px); }
+    .shelf.math .category.active { border-color: #ffe373; background: #423914; box-shadow: 0 4px 0 #876b11,0 0 0 2px rgba(246,210,82,.14); }
+    .category::after { position: absolute; right: -13px; bottom: -15px; width: 51px; height: 51px; border-radius: 50%; background: rgba(128,225,170,.13); content: ""; }
+    .shelf.math .category::after { background: rgba(246,210,82,.12); }
+    .cat-icon { display: grid; width: 24px; height: 24px; place-items: center; border-radius: 6px; color: var(--mint); background: #225036; font-size: 9px; font-style: normal; }
+    .shelf.math .cat-icon { color: var(--yellow); background: #4a411a; }
+    .category strong { display: block; margin-top: 11px; font-size: 7px; line-height: 1.25; }
+    .category small { position: absolute; right: 8px; bottom: 8px; left: 8px; color: #6e8a76; font-size: 5.5px; }
+    .shelf.math .category small { color: #998b4e; }
+    .cat-arrow { position: absolute; top: 10px; right: 9px; z-index: 3; color: #6e947b; font-size: 9px; transition: transform .2s ease; }
+    .category.active .cat-arrow { color: var(--mint); transform: rotate(180deg); }
+    .shelf.math .category.active .cat-arrow { color: var(--yellow); }
+    .topic-tray { position: relative; margin-top: 13px; overflow: hidden; border: 1px solid #3b6d4c; border-radius: 14px; background: #0c2216; box-shadow: inset 0 1px 0 rgba(255,255,255,.035); animation: tray-open .42s cubic-bezier(.2,.8,.2,1) both; }
+    @keyframes tray-open { from { opacity: 0; transform: translateY(-8px) scale(.995); } }
+    .topic-tray::before { position: absolute; top: -6px; left: var(--pointer,18%); width: 12px; height: 12px; border-top: 1px solid #3b6d4c; border-left: 1px solid #3b6d4c; background: #0c2216; transform: rotate(45deg); content: ""; transition: left .35s ease; }
+    .tray-head { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 15px 16px 12px; border-bottom: 1px solid #234a33; }
+    .tray-title { display: flex; align-items: center; gap: 10px; }
+    .tray-title i { display: grid; width: 31px; height: 31px; place-items: center; border-radius: 8px; color: var(--mint); background: #1a482f; font-size: 11px; font-style: normal; }
+    .topic-tray[data-tone="gold"] .tray-title i { color: var(--yellow); background: #443b15; }
+    .tray-title strong,.tray-title small { display: block; }
+    .tray-title strong { font-size: 10px; }
+    .tray-title small { margin-top: 2px; color: #76927e; font-size: 6px; }
+    .tray-actions { display: flex; align-items: center; gap: 8px; }
+    .practice-category { padding: 8px 10px; border: 1px solid #9cebbc; border-radius: 8px; color: var(--ink); background: var(--mint); box-shadow: 0 3px 0 var(--mint-deep); font-size: 7px; font-weight: 800; }
+    .topic-tray[data-tone="gold"] .practice-category { border-color: #ffea94; background: var(--yellow); box-shadow: 0 3px 0 var(--yellow-deep); }
+    .close-tray { display: grid; width: 29px; height: 29px; place-items: center; border: 1px solid #315a41; border-radius: 8px; color: #7f9a87; background: #112e1e; cursor: pointer; font-size: 11px; }
+    .topic-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px; padding: 13px 15px 15px; }
+    .topic { display: flex; align-items: center; gap: 9px; min-height: 42px; padding: 8px 10px; border: 1px solid transparent; border-radius: 9px; color: #b9cbbf; background: #102d1d; cursor: pointer; text-align: left; transition: border-color .18s ease,background .18s ease,transform .18s ease; }
+    .topic:hover { border-color: #37694a; background: #153824; transform: translateX(2px); }
+    .topic-bubble { display: grid; flex: 0 0 19px; height: 19px; place-items: center; border: 1.5px solid #5f7867; border-radius: 50%; background: conic-gradient(var(--mint) calc(var(--p)*1%),transparent 0); }
+    .topic-tray[data-tone="gold"] .topic-bubble { background: conic-gradient(var(--yellow) calc(var(--p)*1%),transparent 0); }
+    .topic-bubble::after { width: 11px; height: 11px; border-radius: 50%; background: #102d1d; content: ""; }
+    .topic-name { flex: 1; min-width: 0; font-size: 7px; font-weight: 650; line-height: 1.35; }
+    .topic-count { flex: 0 0 auto; color: #718b79; font-size: 6px; }
+    .bottom-cta { position: relative; z-index: 2; display: flex; align-items: center; gap: 13px; margin-top: 17px; padding: 14px 16px; border: 1px solid #2c5a3e; border-radius: 15px; background: #102d1d; box-shadow: 0 5px 0 #041008; }
+    .target-icon { display: grid; flex: 0 0 35px; height: 35px; place-items: center; border-radius: 50%; color: var(--mint); background: #1b452d; font-size: 15px; }
+    .bottom-cta div { flex: 1; }
+    .bottom-cta strong { display: block; font-size: 10px; }
+    .bottom-cta p { margin: 2px 0 0; color: #789480; font-size: 7px; }
+    .mixed-btn { padding: 9px 12px; border: 1px solid #a9efc5; border-radius: 9px; color: var(--ink); background: var(--mint); box-shadow: 0 4px 0 var(--mint-deep); font-size: 7px; font-weight: 800; }
+    .approval { display: flex; justify-content: center; margin: 22px auto 0; }
+    .approve { display: flex; align-items: center; gap: 8px; padding: 11px 15px; border: 1px solid #37704d; border-radius: 11px; color: #c7dbce; background: #102a1c; box-shadow: 0 4px 0 #030c06; cursor: pointer; font-size: 9px; font-weight: 800; transition: transform .18s ease,background .18s ease,color .18s ease; }
+    .approve:hover { transform: translateY(-2px); }
+    .approve.selected { color: var(--ink); border-color: #aef0c9; background: var(--mint); box-shadow: 0 4px 0 var(--mint-deep); }
+    #indicator-bar { position: fixed; right: 0; bottom: 0; left: 0; z-index: 80; display: flex; align-items: center; justify-content: center; min-height: 46px; padding: 10px 20px; border-top: 1px solid #2d5b40; color: #8da996; background: rgba(5,15,8,.95); backdrop-filter: blur(18px); font-size: 9px; font-weight: 700; }
+    #indicator-bar .selected-text { color: var(--mint); }
+    @media (max-width: 950px) {
+      .intro { min-width: 900px; }
+      .screen { min-width: 900px; }
+      .approval { min-width: 900px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *,*::before,*::after { scroll-behavior: auto !important; animation: none !important; transition-duration: .001ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="companion"><div class="brand"><span class="brand-mark">T</span><span>TaleemSAT design companion<small>Final Question Bank hybrid · A portals + C decks</small></span></div><span class="refined">Refined direction</span></header>
+  <section class="intro"><div><p class="eyebrow">Final visual design</p><h1>One arcade. <span>Every SAT skill.</span></h1></div><p>Click the eight category cards inside the mockup. Each opens the approved full-width tray so you can test the newly added subcategory layer.</p></section>
+  <main class="screen-wrap">
+    <div class="screen">
+      <aside class="side">
+        <div class="side-logo"><i>T</i><span>Taleem<em>SAT</em></span></div><p class="nav-label">Mission menu</p>
+        <div class="nav-item"><i>▦</i>Dashboard</div><div class="nav-item active"><i>◉</i>Question Bank</div><div class="nav-item"><i>◷</i>Mock Test</div><div class="nav-item"><i>▣</i>Daily Question</div><div class="nav-item"><i>⌁</i>Analytics</div>
+        <div class="side-stats"><span class="side-stat"><i></i>0 days</span><span class="side-stat"><i></i>0 pts</span></div>
+        <div class="student"><b>M</b><span>Mirsoqiq<small>Student profile</small></span></div>
+      </aside>
+      <div class="main">
+        <header class="page-head">
+          <div><small>Practice arcade</small><h2>Pick a deck. Start a run.</h2><p>Build skills in short, satisfying rounds—your progress is always on the cabinet.</p></div>
+          <div class="tools"><div class="search"><i>⌕</i>Search practice decks or topics…</div><div class="difficulty"><span class="on">All</span><span>Easy</span><span>Medium</span><span>Hard</span></div></div>
+        </header>
+
+        <section class="portals">
+          <article class="portal reading"><div class="portal-copy"><p class="label" style="color:#285b3e">Reading & Writing</p><h3>Read sharper.<br>Write smarter.</h3><p class="portal-meta">544 questions · 4 skill worlds</p><span class="progress" style="--w:11%"><i></i></span><p class="portal-count">20 of 544 attempted</p><button class="portal-btn">Enter Reading →</button></div><div class="portal-art"><span class="art-orb"></span><span class="book"><i class="book-lines"></i><span class="book-bubs"><i></i><i></i><i></i><i></i></span></span><b class="spark one">✦</b><b class="spark two">Aa</b></div></article>
+          <article class="portal math"><div class="portal-copy"><p class="label" style="color:#705b10">Math</p><h3>Turn problems<br>into points.</h3><p class="portal-meta">456 questions · 4 skill worlds</p><span class="progress" style="--w:15%"><i></i></span><p class="portal-count">21 of 456 attempted</p><button class="portal-btn">Enter Math →</button></div><div class="portal-art"><span class="art-orb"></span><span class="calculator"><i class="calc-screen"></i><span class="calc-keys"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></span><b class="spark one">√x</b><b class="spark two">π</b></div></article>
+        </section>
+
+        <section class="deck">
+          <header class="deck-head"><div><p class="label">Choose a practice deck</p><h3>All SAT skill categories</h3></div><span>Click a deck to open its topics and progress</span></header>
+          <div class="shelves">
+            <section class="shelf"><header class="shelf-head"><strong>Reading & Writing</strong><small>544 questions</small></header><div class="categories">
+              <button class="category" data-category="information"><i class="cat-icon">i</i><b class="cat-arrow">⌄</b><strong>Information<br>& Ideas</strong><small>13 / 154</small></button>
+              <button class="category" data-category="craft"><i class="cat-icon">◇</i><b class="cat-arrow">⌄</b><strong>Craft &<br>Structure</strong><small>1 / 148</small></button>
+              <button class="category active" data-category="expression"><i class="cat-icon">✎</i><b class="cat-arrow">⌄</b><strong>Expression<br>of Ideas</strong><small>3 / 130</small></button>
+              <button class="category" data-category="conventions"><i class="cat-icon">✓</i><b class="cat-arrow">⌄</b><strong>English<br>Conventions</strong><small>3 / 112</small></button>
+            </div></section>
+            <section class="shelf math"><header class="shelf-head"><strong>Math</strong><small>456 questions</small></header><div class="categories">
+              <button class="category" data-category="algebra"><i class="cat-icon">√</i><b class="cat-arrow">⌄</b><strong>Algebra</strong><small>8 / 136</small></button>
+              <button class="category" data-category="advanced"><i class="cat-icon">x²</i><b class="cat-arrow">⌄</b><strong>Advanced<br>Math</strong><small>7 / 117</small></button>
+              <button class="category" data-category="data"><i class="cat-icon">◔</i><b class="cat-arrow">⌄</b><strong>Problem-Solving<br>& Data</strong><small>2 / 159</small></button>
+              <button class="category" data-category="geometry"><i class="cat-icon">△</i><b class="cat-arrow">⌄</b><strong>Geometry &<br>Trigonometry</strong><small>4 / 44</small></button>
+            </div></section>
+          </div>
+          <section class="topic-tray" id="topic-tray" data-tone="green" style="--pointer:31%">
+            <header class="tray-head"><div class="tray-title"><i id="tray-icon">✎</i><span><strong id="tray-name">Expression of Ideas</strong><small id="tray-total">3 of 130 questions attempted · 2 topics</small></span></div><div class="tray-actions"><button class="practice-category" id="tray-practice">Practice all Expression of Ideas →</button><button class="close-tray" id="tray-close" aria-label="Close topic tray">×</button></div></header>
+            <div class="topic-list" id="topic-list"></div>
+          </section>
+        </section>
+
+        <section class="bottom-cta"><span class="target-icon">◎</span><div><strong>Not sure which deck to choose?</strong><p>Start a balanced 10-question run across Reading & Writing and Math.</p></div><button class="mixed-btn">Start mixed practice →</button></section>
+      </div>
+    </div>
+    <div class="approval cards"><button class="approve card" data-choice="approve-hybrid" onclick="toggleSelect(this)">Approve this hybrid design <span>→</span></button></div>
+  </main>
+  <div id="indicator-bar"><span id="indicator-text">Explore the category trays, then approve the visual design or return with changes</span></div>
+  <script>
+    const data = {
+      information: { name:'Information & Ideas', icon:'i', attempted:13, total:154, tone:'green', pointer:'6.5%', topics:[['Central Ideas & Details',6,43],['Inferences',1,37],['Command of Evidence',1,70]] },
+      craft: { name:'Craft & Structure', icon:'◇', attempted:1, total:148, tone:'green', pointer:'18.5%', topics:[['Words in Context',0,66],['Text Structure & Purpose',1,53],['Cross-Text Connections',0,26]] },
+      expression: { name:'Expression of Ideas', icon:'✎', attempted:3, total:130, tone:'green', pointer:'31%', topics:[['Rhetorical Synthesis',2,65],['Transitions',0,63]] },
+      conventions: { name:'Standard English Conventions', icon:'✓', attempted:3, total:112, tone:'green', pointer:'43%', topics:[['Boundaries',0,53],['Form, Structure, and Sense',1,57]] },
+      algebra: { name:'Algebra', icon:'√', attempted:8, total:136, tone:'gold', pointer:'57%', topics:[['Linear Equations in One Variable',2,31],['Linear Functions',0,33],['Linear Equations in Two Variables',0,30],['Systems of Two Linear Equations in Two Variables',0,24],['Linear Inequalities in One or Two Variables',1,18]] },
+      advanced: { name:'Advanced Math', icon:'x²', attempted:7, total:117, tone:'gold', pointer:'69%', topics:[['Equivalent Expressions',0,36],['Nonlinear Equations in One Variable & Systems of Equations in Two Variables',0,38],['Nonlinear Functions',1,43]] },
+      data: { name:'Problem-Solving & Data Analysis', icon:'◔', attempted:2, total:159, tone:'gold', pointer:'81%', topics:[['Ratios, Rates, Proportional Relationships, and Units',0,32],['Percentages',0,24],['One-Variable Data: Distributions and Measures of Center and Spread',0,31],['Two-Variable Data: Models and Scatterplots',0,28],['Probability and Conditional Probability',0,23],['Inference from Sample Statistics and Margin of Error',0,16],['Evaluating Statistical Claims: Observational Studies and Experiments',0,5]] },
+      geometry: { name:'Geometry & Trigonometry', icon:'△', attempted:4, total:44, tone:'gold', pointer:'93%', topics:[['Area and Volume',0,17],['Lines, Angles, and Triangles',0,19],['Right Triangles and Trigonometry',0,4],['Circles',0,4]] }
+    };
+    const tray = document.getElementById('topic-tray');
+    const list = document.getElementById('topic-list');
+    function openCategory(key) {
+      const item = data[key];
+      document.querySelectorAll('.category').forEach(card => card.classList.toggle('active',card.dataset.category === key));
+      tray.hidden = false;
+      tray.dataset.tone = item.tone;
+      tray.style.setProperty('--pointer',item.pointer);
+      document.getElementById('tray-icon').textContent = item.icon;
+      document.getElementById('tray-name').textContent = item.name;
+      document.getElementById('tray-total').textContent = `${item.attempted} of ${item.total} questions attempted · ${item.topics.length} topics`;
+      document.getElementById('tray-practice').textContent = `Practice all ${item.name} →`;
+      list.innerHTML = item.topics.map(([name,attempted,total]) => `<button class="topic"><span class="topic-bubble" style="--p:${Math.round(attempted/Math.max(1,total)*100)}"></span><span class="topic-name">${name}</span><span class="topic-count">${attempted} / ${total}</span></button>`).join('');
+      tray.style.animation = 'none';
+      requestAnimationFrame(() => { tray.style.animation = ''; });
+    }
+    document.querySelectorAll('.category').forEach(card => card.addEventListener('click',() => openCategory(card.dataset.category)));
+    document.getElementById('tray-close').addEventListener('click',() => { tray.hidden = true; document.querySelectorAll('.category').forEach(card => card.classList.remove('active')); });
+    openCategory('expression');
+  </script>
+</body>
+</html>

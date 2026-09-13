@@ -204,6 +204,19 @@ SELECT * FROM attempts WHERE user_id = 'user-b-uuid'; -- should return 0 rows, n
 
 Run via a small script that runs each SQL test and asserts expected results.
 
+### Progression integration matrix
+
+- First incorrect attempt creates one ledger row, adds 5 XP, and advances the local daily count once.
+- First correct attempt creates one ledger row and adds 10 XP; a wrong-then-correct retry never gains the later bonus.
+- Practice then mock, and mock then practice, for the same question produce one lifetime award.
+- Concurrent duplicate attempts and duplicate IDs in a mock payload produce and display one award.
+- Questions five through ten add XP, but only question five extends that local day's streak.
+- Consecutive qualified local dates increment current streak; new qualifying work after a missed date resets it while preserving longest streak.
+- UTC timestamps on both sides of local midnight map to the saved timezone date. A later timezone change never moves existing events.
+- Backfill selects the earliest attempt deterministically; rerunning backfill and summary rebuild leaves results unchanged.
+- Student A cannot read student B's ledger/daily rows, insert attempts directly, invoke rebuild functions, or update XP/streak profile columns.
+- A failed progression trigger rolls back its source attempt and yields no client reward.
+
 ---
 
 ## End-to-end tests
@@ -216,10 +229,10 @@ Run via a small script that runs each SQL test and asserts expected results.
 ### Critical journeys to E2E
 
 1. **Sign-up + first practice** — student creates account, verifies email (mocked), answers a question.
-2. **QOD ritual** — student answers QOD, earns point, sees points update.
+2. **Progression lifecycle** — first-correct, first-incorrect, familiar repeat, mixed mock, fifth-question streak, dashboard refresh, and expired-streak states.
 3. **Upgrade flow** — student clicks upgrade, completes Stripe Checkout (test card), lands as Pro.
 4. **Certificate earning** — student earns 25 points, downloads PDF.
-5. **Admin imports CSV** — admin uploads CSV, sees questions in list.
+5. **Admin imports HTML question bank** — admin opens `/admin`, is redirected to questions, uploads an HTML file, reviews staged items, approves them, and sees questions in the list.
 6. **Cancel subscription** — Pro user cancels via portal, retains access until period end.
 
 ### Example
@@ -239,8 +252,8 @@ test('new user can sign up and answer first question', async ({ page }) => {
   await expect(page).toHaveURL('/dashboard');
   await expect(page.locator('text=Welcome')).toBeVisible();
   
-  await page.click('text=Answer today\'s question');
-  await expect(page).toHaveURL('/qod');
+  await page.click('text=Try your first question');
+  await expect(page).toHaveURL(/\/practice/);
   
   await page.click('input[value=A]');
   await page.click('text=Submit');
@@ -267,8 +280,9 @@ Some things are hard or expensive to automate. Manual QA checklist before every 
 - [ ] Answer 3 practice questions in different categories
 - [ ] Wrong answer shows explanation
 - [ ] Correct answer feels good
-- [ ] Answer today's QOD
-- [ ] Streak updates on dashboard
+- [ ] First-ever correct/incorrect answers show +10/+5 XP; familiar answers show no new XP
+- [ ] Five new questions protect the streak and refreshes do not change progress
+- [ ] Mixed new/familiar mock summary counts only new questions
 - [ ] Analytics page renders accurate stats
 - [ ] Upgrade to Pro with Stripe test card 4242 4242 4242 4242
 - [ ] AI insight loads on Pro
@@ -278,17 +292,16 @@ Some things are hard or expensive to automate. Manual QA checklist before every 
 - [ ] Mobile (375px width) — every page is usable
 
 ### Admin manual QA
+- [ ] Open `/admin` and confirm it redirects to `/admin/questions` for an admin account
+- [ ] Confirm a student account receives the intentional admin 404 from the role gate
 - [ ] Log in as admin
 - [ ] Add a question via form
 - [ ] Edit the question
 - [ ] Preview matches student view
 - [ ] Archive question
-- [ ] Import CSV (sample 5-row file)
-- [ ] Errors in CSV are reported correctly
-- [ ] Schedule a QOD
-- [ ] Unschedule a QOD
+- [ ] Import HTML question bank (sample file)
+- [ ] Flagged/unparseable questions are reported correctly in the review queue
 - [ ] View a user's profile
-- [ ] Adjust a user's points
 - [ ] Audit log shows the change
 
 ---
@@ -304,6 +317,7 @@ Some things are hard or expensive to automate. Manual QA checklist before every 
 - [ ] Submit forms with keyboard only
 - [ ] Use NVDA or VoiceOver to navigate a full session
 - [ ] Confirm screen reader announces correct/wrong on answer submit
+- [ ] Confirm XP/no-XP and streak feedback is announced and remains understandable without color
 - [ ] Verify color contrast on light + dark theme using DevTools picker
 - [ ] Test with `prefers-reduced-motion` enabled
 
@@ -409,7 +423,7 @@ When a bug is reported (by user, by Sentry, by us):
 | Severity | Definition | Response |
 |---|---|---|
 | **P0** | Site down, data loss, payment broken, security breach | Fix immediately, postmortem |
-| **P1** | Major feature broken (can't sign up, can't take QOD) | Fix within 24h |
+| **P1** | Major feature broken (can't sign up, can't practice) | Fix within 24h |
 | **P2** | Minor feature broken, workaround exists | Fix within 1 week |
 | **P3** | Cosmetic, edge case | Backlog, fix when convenient |
 

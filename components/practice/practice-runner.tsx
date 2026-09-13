@@ -1,0 +1,1019 @@
+'use client';
+
+import Image from 'next/image';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Bookmark,
+  Calculator,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  RotateCcw,
+  X,
+} from 'lucide-react';
+import {
+  ExamRoot,
+  ExamTopBar,
+  ExamFooter,
+  ExamNavigator,
+} from '@/components/exam/exam-chrome';
+import {
+  AnnotateToggle,
+  AppearanceMenu,
+  MoreMenu,
+  FullscreenToggle,
+  LineReaderOverlay,
+  READING_DIRECTIONS,
+  MATH_DIRECTIONS,
+  type MenuKey,
+} from '@/components/exam/exam-toolbar';
+import { ChartFigure } from '@/components/reading/chart-figure';
+import { QuestionBody } from '@/components/reading/question-body';
+import { GridInInput } from '@/components/reading/grid-in-input';
+import { PracticeDesmosPanel } from '@/components/practice/practice-desmos-panel';
+import {
+  PracticeHighlighter,
+  type PracticeHighlights,
+} from '@/components/practice/practice-highlighter';
+import { PracticeReferenceModal } from '@/components/practice/practice-reference-modal';
+import { PracticeWorkspace } from '@/components/practice/practice-workspace';
+import { QuestionRewardFeedback } from '@/components/progression/reward-feedback';
+import type { PracticeScope } from '@/components/practice/practice-browse';
+import type { ProgressionOutcome } from '@/lib/progression/types';
+import {
+  createKeyedLoader,
+  getOrCreatePendingSubmission,
+  isActiveQuestion,
+  LatestRequestGate,
+  SynchronousLock,
+  type PendingPracticeSubmission,
+} from '@/lib/practice/race-safety';
+import type {
+  PracticeBootstrap,
+  PracticeOption,
+  PracticeQuestion,
+} from '@/components/practice/types';
+
+const NO_HIGHLIGHTS: PracticeHighlights = {};
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type Status = 'loading' | 'ready' | 'empty' | 'error';
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
+export function PracticeRunner({
+  scope,
+  bootstrap,
+  status,
+  onExit,
+}: {
+  scope: PracticeScope;
+  bootstrap: PracticeBootstrap | null;
+  status: Status;
+  onExit: () => void;
+}) {
+  if (status !== 'ready' || !bootstrap) {
+    return <PracticeRunnerState scope={scope} status={status} onExit={onExit} />;
+  }
+
+  return (
+    <ReadyPracticeRunner
+      key={`${scope.kind}:${scope.slug}:${scope.subjectSlug}:${scope.difficulty}`}
+      scope={scope}
+      bootstrap={bootstrap}
+      onExit={onExit}
+    />
+  );
+}
+
+function PracticeRunnerState({
+  scope,
+  status,
+  onExit,
+}: {
+  scope: PracticeScope;
+  status: Status;
+  onExit: () => void;
+}) {
+  const failed = status === 'error' || status === 'ready';
+
+  return (
+    <ExamRoot variant="practice">
+      <ExamTopBar
+        title={scope.label}
+        subtitle={scope.difficulty !== 'all' ? `${scope.difficulty} difficulty` : undefined}
+        onExit={onExit}
+        exitLabel="All topics"
+      />
+      <CenteredStage>
+        {status === 'loading' ? (
+          <LoadingSkeleton />
+        ) : (
+          <EmptyState
+            title={failed ? "Couldn't load this set." : 'Nothing here yet.'}
+            body={
+              failed
+                ? 'Something went wrong reaching the question bank. Try again.'
+                : 'No questions match this difficulty yet. Try a different difficulty, or another topic.'
+            }
+            onReset={onExit}
+          />
+        )}
+      </CenteredStage>
+      <ExamFooter />
+    </ExamRoot>
+  );
+}
+
+function ReadyPracticeRunner({
+  scope,
+  bootstrap,
+  onExit,
+}: {
+  scope: PracticeScope;
+  bootstrap: PracticeBootstrap;
+  onExit: () => void;
+}) {
+  const manifest = bootstrap.ids;
+
+  // The ordered set for this scope — walked sequentially, not re-fetched.
+  const [index, setIndex] = useState(0);
+  const activeIndexRef = useRef(0);
+  const [current, setCurrent] = useState<PracticeQuestion | null>(bootstrap.question);
+  const [currentLoading, setCurrentLoading] = useState(false);
+  const [currentLoadError, setCurrentLoadError] = useState('');
+  const [questionStore] = useState(() => {
+    const cache = new Map<string, PracticeQuestion>([
+      [bootstrap.question.id, bootstrap.question],
+    ]);
+    return {
+      get: (id: string) => cache.get(id),
+      load: createKeyedLoader(async (id: string): Promise<PracticeQuestion> => {
+        const hit = cache.get(id);
+        if (hit) return hit;
+
+        const res = await fetch(`/api/practice/question?id=${id}`);
+        const data = (await res.json()) as { question?: PracticeQuestion };
+        if (!res.ok || !data.question || data.question.id !== id) {
+          throw new Error('Question load failed');
+        }
+        cache.set(id, data.question);
+        return data.question;
+      }),
+    };
+  });
+  const navigationGateRef = useRef(new LatestRequestGate());
+
+  // Per-question outcomes, keyed by question id so they survive paging away
+  // and back via the navigator.
+  const [tries, setTries] = useState<Record<string, string[]>>({});
+  const [solvedAnswer, setSolvedAnswer] = useState<Record<string, string>>({});
+  const [firstResult, setFirstResult] = useState<Record<string, boolean>>({});
+  const firstResultRef = useRef<Record<string, boolean>>({});
+  const [progressionByQuestion, setProgressionByQuestion] = useState<
+    Record<string, ProgressionOutcome | null>
+  >({});
+  const [progressionWarnings, setProgressionWarnings] = useState<Record<string, string>>({});
+  const [flagged, setFlagged] = useState<Set<string>>(new Set());
+  const [eliminated, setEliminated] = useState<Record<string, string[]>>({});
+  const [elimMode, setElimMode] = useState(false);
+
+  // Reading-tool state — lifted so the top-bar Annotate toggle and the
+  // Highlights list in More can see/drive it, and so highlights survive
+  // paging away from a question and back (they didn't before).
+  const [highlights, setHighlights] = useState<Record<string, PracticeHighlights>>({});
+  const [annotateOn, setAnnotateOn] = useState(false);
+  const [lineReaderOn, setLineReaderOn] = useState(false);
+  const [openMenu, setOpenMenu] = useState<MenuKey | null>(null);
+  const [referenceOpen, setReferenceOpen] = useState(false);
+  const [calculatorOpen, setCalculatorOpen] = useState(false);
+  const referenceButtonRef = useRef<HTMLButtonElement | null>(null);
+  const calculatorButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  // Transient, current-question-only state.
+  const [picked, setPicked] = useState<string | null>(null);
+  const [checkingQuestionId, setCheckingQuestionId] = useState<string | null>(null);
+  const [checkErrors, setCheckErrors] = useState<Record<string, string>>({});
+  const [qStartedAt, setQStartedAt] = useState<number | null>(() => Date.now());
+  const submissionLockRef = useRef(new SynchronousLock());
+  const pendingSubmissionsRef = useRef<Map<string, PendingPracticeSubmission>>(new Map());
+
+  const loadQuestion = questionStore.load;
+
+  const prefetch = useCallback(
+    (id: string | undefined) => {
+      if (!id || questionStore.get(id)) return;
+      void loadQuestion(id).catch(() => undefined);
+    },
+    [loadQuestion, questionStore]
+  );
+
+  const loadForegroundQuestion = useCallback((targetIndex: number) => {
+    const entry = manifest[targetIndex];
+    const requestId = navigationGateRef.current.begin();
+    const hit = questionStore.get(entry.id);
+
+    setCurrentLoadError('');
+    if (hit) {
+      setCurrentLoading(false);
+      setCurrent(hit);
+      setQStartedAt(Date.now());
+    } else {
+      setCurrentLoading(true);
+      setCurrent(null);
+      void loadQuestion(entry.id)
+        .then(question => {
+          if (!navigationGateRef.current.isCurrent(requestId)) return;
+          setCurrent(question);
+          setQStartedAt(Date.now());
+        })
+        .catch(() => {
+          if (!navigationGateRef.current.isCurrent(requestId)) return;
+          setCurrent(null);
+          setCurrentLoadError("Couldn't load this question. Check your connection and try again.");
+        })
+        .finally(() => {
+          if (navigationGateRef.current.isCurrent(requestId)) setCurrentLoading(false);
+        });
+    }
+
+    prefetch(manifest[targetIndex + 1]?.id);
+    prefetch(manifest[targetIndex - 1]?.id);
+  }, [manifest, questionStore, loadQuestion, prefetch, setCurrentLoadError, setCurrentLoading, setCurrent, setQStartedAt]);
+
+  const goTo = useCallback((i: number) => {
+    const clamped = Math.min(Math.max(i, 0), manifest.length - 1);
+    // Use the synchronous ref so multiple key presses before a render still
+    // advance from the most recently requested position.
+    if (clamped === activeIndexRef.current) return;
+
+    activeIndexRef.current = clamped;
+    setIndex(clamped);
+    const entry = manifest[clamped];
+    setPicked(pendingSubmissionsRef.current.get(entry.id)?.selectedAnswer ?? null);
+    loadForegroundQuestion(clamped);
+  }, [manifest, loadForegroundQuestion, setIndex, setPicked]);
+
+  const retryCurrentQuestion = useCallback(() => {
+    loadForegroundQuestion(activeIndexRef.current);
+  }, [loadForegroundQuestion]);
+
+  useEffect(() => {
+    prefetch(manifest[1]?.id);
+  }, [manifest, prefetch]);
+
+  const toggleFlag = useCallback((id: string) => {
+    setFlagged(f => {
+      const next = new Set(f);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, [setFlagged]);
+
+  const toggleElim = useCallback((id: string, optionId: string) => {
+    setEliminated(cur => {
+      const list = cur[id] ?? [];
+      return {
+        ...cur,
+        [id]: list.includes(optionId) ? list.filter(x => x !== optionId) : [...list, optionId],
+      };
+    });
+  }, [setEliminated]);
+
+  const setHighlightsFor = useCallback((id: string, next: PracticeHighlights) => {
+    setHighlights(currentHighlights => ({ ...currentHighlights, [id]: next }));
+  }, [setHighlights]);
+
+  const selectOption = useCallback(
+    (id: string, optionId: string) => {
+      const activeId = manifest[activeIndexRef.current]?.id;
+      if (!isActiveQuestion(current?.id, activeId) || id !== activeId) return;
+      if (solvedAnswer[id] !== undefined) return;
+      if ((tries[id] ?? []).includes(optionId)) return;
+      const pending = pendingSubmissionsRef.current.get(id);
+      if (pending && pending.selectedAnswer !== optionId) return;
+      setCheckErrors(errors => ({ ...errors, [id]: '' }));
+      setPicked(optionId);
+    },
+    [manifest, current, solvedAnswer, tries, setCheckErrors, setPicked]
+  );
+
+  const checkAnswer = useCallback(async () => {
+    const activeEntry = manifest[activeIndexRef.current];
+    const activeId = activeEntry?.id;
+    if (!activeEntry || !current || !picked || !isActiveQuestion(current.id, activeId)) return;
+    if (!submissionLockRef.current.acquire()) return;
+
+    const id = current.id;
+    const selectedAnswer = picked;
+    const pendingSubmission = getOrCreatePendingSubmission(
+      pendingSubmissionsRef.current,
+      {
+        sessionId: bootstrap.sessionId,
+        submissionId: activeEntry.submissionId,
+        questionId: id,
+        selectedAnswer,
+        timeTakenMs: qStartedAt === null ? null : Math.max(0, Date.now() - qStartedAt),
+      }
+    );
+
+    if (!pendingSubmission) {
+      submissionLockRef.current.release();
+      setCheckErrors(errors => ({
+        ...errors,
+        [id]: 'Retry the answer that is already pending for this question.',
+      }));
+      return;
+    }
+
+    setCheckingQuestionId(id);
+    setCheckErrors(errors => ({ ...errors, [id]: '' }));
+    try {
+      const res = await fetch('/api/practice/answer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: pendingSubmission.sessionId,
+          submissionId: pendingSubmission.submissionId,
+          selectedAnswer: pendingSubmission.selectedAnswer,
+          timeTakenMs: pendingSubmission.timeTakenMs,
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        isCorrect?: boolean;
+        firstResult?: boolean;
+        learningRetry?: boolean;
+        progression?: ProgressionOutcome | null;
+        warning?: string;
+      };
+      if (
+        !res.ok
+        || typeof data.isCorrect !== 'boolean'
+        || typeof data.firstResult !== 'boolean'
+      ) {
+        if (res.status >= 400 && res.status < 500) {
+          pendingSubmissionsRef.current.delete(id);
+        }
+        throw new Error('Attempt was not saved');
+      }
+      const isCorrect = data.isCorrect;
+      firstResultRef.current[id] = data.firstResult;
+      pendingSubmissionsRef.current.delete(id);
+      setFirstResult(results => ({ ...results, [id]: data.firstResult! }));
+      if (!data.learningRetry) {
+        setProgressionByQuestion(currentProgression => ({
+          ...currentProgression,
+          [id]: data.progression ?? null,
+        }));
+      }
+      setProgressionWarnings(warnings => ({
+        ...warnings,
+        [id]: data.warning === 'PROGRESSION_UNAVAILABLE'
+          ? 'Answer saved. Reward progress is temporarily unavailable.'
+          : '',
+      }));
+      if (isCorrect) {
+        setSolvedAnswer(solved => ({ ...solved, [id]: selectedAnswer }));
+      } else {
+        setTries(previousTries => ({
+          ...previousTries,
+          [id]: [...(previousTries[id] ?? []), selectedAnswer],
+        }));
+      }
+      // Either way the pick has been consumed: correct is now redundant with
+      // solvedAnswer, wrong needs a fresh pick before Check re-enables.
+      if (manifest[activeIndexRef.current]?.id === id) setPicked(null);
+    } catch {
+      // leave the pick in place so the student can just retry Check
+      setCheckErrors(errors => ({
+        ...errors,
+        [id]: "Couldn't save this answer. Check your connection and try again.",
+      }));
+    } finally {
+      setCheckingQuestionId(currentCheckingId => currentCheckingId === id ? null : currentCheckingId);
+      submissionLockRef.current.release();
+    }
+  }, [
+    manifest,
+    bootstrap.sessionId,
+    current,
+    picked,
+    qStartedAt,
+    setCheckErrors,
+    setCheckingQuestionId,
+    setFirstResult,
+    setProgressionByQuestion,
+    setProgressionWarnings,
+    setSolvedAnswer,
+    setTries,
+    setPicked,
+  ]);
+
+  const goNext = useCallback(() => goTo(activeIndexRef.current + 1), [goTo]);
+  const goBack = useCallback(() => goTo(activeIndexRef.current - 1), [goTo]);
+
+  const currentId = manifest[index]?.id;
+  const displayedQuestion = isActiveQuestion(current?.id, currentId) ? current : null;
+  const resolved = currentId !== undefined && solvedAnswer[currentId] !== undefined;
+  const isMath = scope.subjectSlug === 'math';
+  const directionsText = displayedQuestion
+    ? (isMath ? MATH_DIRECTIONS : READING_DIRECTIONS)
+    : undefined;
+
+  // A–D/1–4 to pick, Enter to check-or-continue, ←/→ to page, F to mark.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (!displayedQuestion || !currentId) return;
+
+      const letter = e.key.toUpperCase();
+      if (letter === 'F') {
+        e.preventDefault();
+        toggleFlag(currentId);
+        return;
+      }
+      if (!resolved) {
+        const opts = displayedQuestion.options;
+        let id: string | undefined;
+        if (letter >= 'A' && letter <= 'D') {
+          id = opts.find(o => o.id === letter)?.id ?? opts[letter.charCodeAt(0) - 65]?.id;
+        } else if (e.key >= '1' && e.key <= '4') {
+          id = opts[Number(e.key) - 1]?.id;
+        }
+        if (id) {
+          e.preventDefault();
+          selectOption(currentId, id);
+          return;
+        }
+      }
+      if ((e.target as HTMLElement | null)?.closest('button, [role="button"]')) return;
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (!resolved && picked && checkingQuestionId === null) checkAnswer();
+        else if (resolved) goNext();
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        goNext();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        goBack();
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [displayedQuestion, currentId, resolved, picked, checkingQuestionId, selectOption, checkAnswer, goNext, goBack, toggleFlag]);
+
+  return (
+    <ExamRoot variant="practice">
+      <ExamTopBar
+        title={scope.label}
+        subtitle={scope.difficulty !== 'all' ? `${scope.difficulty} difficulty` : undefined}
+        directions={directionsText}
+        onExit={onExit}
+        exitLabel="All topics"
+        center={
+          currentLoading || !displayedQuestion ? (
+            <span className="ex-clock big">--:--</span>
+          ) : (
+            <QuestionTimer key={currentId} startedAt={qStartedAt} frozen={resolved} />
+          )
+        }
+        right={
+          <>
+            {!isMath && (
+              <AnnotateToggle
+                on={annotateOn}
+                onToggle={() => setAnnotateOn(v => !v)}
+                disabled={!displayedQuestion?.passage}
+              />
+            )}
+            <AppearanceMenu
+              open={openMenu === 'appearance'}
+              onOpenChange={open => {
+                setOpenMenu(open ? 'appearance' : null);
+                if (open) {
+                  setCalculatorOpen(false);
+                  setReferenceOpen(false);
+                }
+              }}
+            />
+            {isMath && (
+              <>
+                <button
+                  ref={calculatorButtonRef}
+                  type="button"
+                  className={`ex-tool${calculatorOpen ? ' on' : ''}`}
+                  onClick={() => {
+                    setOpenMenu(null);
+                    setReferenceOpen(false);
+                    setCalculatorOpen(open => !open);
+                  }}
+                  aria-expanded={calculatorOpen}
+                  aria-label="Calculator"
+                  title="Calculator"
+                >
+                  <Calculator aria-hidden="true" />
+                </button>
+                <button
+                  ref={referenceButtonRef}
+                  type="button"
+                  className={`ex-tool${referenceOpen ? ' on' : ''}`}
+                  onClick={() => {
+                    setOpenMenu(null);
+                    setCalculatorOpen(false);
+                    setReferenceOpen(true);
+                  }}
+                  aria-expanded={referenceOpen}
+                  aria-label="Reference"
+                  title="Reference"
+                >
+                  <FileText aria-hidden="true" />
+                </button>
+              </>
+            )}
+            <MoreMenu
+              open={openMenu === 'more'}
+              onOpenChange={open => {
+                setOpenMenu(open ? 'more' : null);
+                if (open) {
+                  setCalculatorOpen(false);
+                  setReferenceOpen(false);
+                }
+              }}
+              lineReaderOn={lineReaderOn}
+              onToggleLineReader={() => setLineReaderOn(v => !v)}
+              markCount={currentId ? Object.keys(highlights[currentId] ?? {}).length : 0}
+              onClearMarks={() => currentId && setHighlightsFor(currentId, {})}
+            />
+            <FullscreenToggle />
+          </>
+        }
+      />
+
+      {currentId && (
+        <PracticeWorkspace
+          calculatorOpen={isMath && calculatorOpen}
+          calculator={isMath ? (
+            <PracticeDesmosPanel
+              open={calculatorOpen}
+              onOpenChange={setCalculatorOpen}
+              returnFocusRef={calculatorButtonRef}
+            />
+          ) : undefined}
+          overlay={<LineReaderOverlay active={lineReaderOn} />}
+          question={
+            <QuestionPane
+              seq={index + 1}
+              question={displayedQuestion}
+              loading={currentLoading}
+              loadError={currentLoadError}
+              onRetry={retryCurrentQuestion}
+              highlights={currentId ? (highlights[currentId] ?? NO_HIGHLIGHTS) : NO_HIGHLIGHTS}
+              onHighlightsChange={next => currentId && setHighlightsFor(currentId, next)}
+              annotate={annotateOn}
+            />
+          }
+          answers={
+            <ChoicesPane
+              question={displayedQuestion}
+              loading={currentLoading}
+              loadError={currentLoadError}
+              picked={picked}
+              tries={tries[currentId] ?? []}
+              solvedAnswer={solvedAnswer[currentId]}
+              firstCorrect={firstResult[currentId]}
+              flagged={flagged.has(currentId)}
+              eliminated={eliminated[currentId] ?? []}
+              elimMode={elimMode}
+              checking={checkingQuestionId !== null}
+              progression={progressionByQuestion[currentId] ?? null}
+              progressionWarning={progressionWarnings[currentId] ?? ''}
+              checkError={checkErrors[currentId] ?? ''}
+              onSelect={optId => selectOption(currentId, optId)}
+              onCheck={checkAnswer}
+              onToggleFlag={() => toggleFlag(currentId)}
+              onToggleElim={optId => toggleElim(currentId, optId)}
+              onToggleElimMode={() => setElimMode(m => !m)}
+            />
+          }
+        />
+      )}
+
+      <ExamFooter
+        left={
+          <div className="prx-footer-identity">
+            <a
+              className="prx-brand"
+              href="https://t.me/TaleemSAT"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Open the TaleemSAT Telegram channel"
+            >
+              <Image src="/logo.jpg" alt="" width={36} height={36} />
+              <span>TaleemSAT<small>SAT preparation</small></span>
+            </a>
+            <span className="ex-hint">
+              A–D to choose · Enter to check · ←/→ to page · F to mark
+            </span>
+          </div>
+        }
+        center={
+          <ExamNavigator
+            index={index}
+            total={manifest.length}
+            onJump={goTo}
+            bubbleClass={i => {
+              const m = manifest[i];
+              const r = firstResult[m.id];
+              const cls = r === true ? 'ok' : r === false ? 'bad' : '';
+              return `${cls}${flagged.has(m.id) ? ' flag' : ''}`;
+            }}
+            legend={
+              <>
+                <span className="ex-lg"><i className="ex-lg-dot ok" /> Correct</span>
+                <span className="ex-lg"><i className="ex-lg-dot bad" /> Incorrect</span>
+                <span className="ex-lg"><i className="ex-lg-dot flag" /> Marked</span>
+              </>
+            }
+          />
+        }
+        right={
+          <div className="ex-pager">
+            <button className="ex-page-btn" onClick={goBack} disabled={index === 0}>
+              <ChevronLeft aria-hidden="true" /> Back
+            </button>
+            <button
+              className="ex-page-btn next"
+              onClick={goNext}
+              disabled={index === manifest.length - 1}
+            >
+              Next <ChevronRight aria-hidden="true" />
+            </button>
+          </div>
+        }
+      />
+
+      {isMath && (
+        <PracticeReferenceModal
+          open={referenceOpen}
+          onOpenChange={setReferenceOpen}
+          returnFocusRef={referenceButtonRef}
+        />
+      )}
+    </ExamRoot>
+  );
+}
+
+// ─── Question pane (left) ──────────────────────────────────────────────────────
+
+function QuestionPane({
+  seq,
+  question,
+  loading,
+  loadError,
+  onRetry,
+  highlights,
+  onHighlightsChange,
+  annotate,
+}: {
+  seq: number;
+  question: PracticeQuestion | null;
+  loading: boolean;
+  loadError: string;
+  onRetry: () => void;
+  highlights: PracticeHighlights;
+  onHighlightsChange: (next: PracticeHighlights) => void;
+  annotate: boolean;
+}) {
+  if (loading) return <PaneSkeleton />;
+  if (loadError) return <PaneLoadError message={loadError} onRetry={onRetry} />;
+  if (!question) return <PaneSkeleton />;
+  return (
+    <>
+      <div className="ex-q-head">
+        <div className="ex-q-head-left">
+          <span className="ex-qnum">{seq}</span>
+          <DifficultyBadge difficulty={question.difficulty} />
+        </div>
+        <span className="ex-practice-mode">Practice mode</span>
+      </div>
+      {question.passage && (
+        <PracticeHighlighter
+          text={question.passage}
+          highlights={highlights}
+          onHighlightsChange={onHighlightsChange}
+          annotate={annotate}
+        />
+      )}
+      <ChartFigure svg={question.chart_svg} />
+      <QuestionBody text={question.question_text} tables={question.tables} className="ex-stem" />
+    </>
+  );
+}
+
+// ─── Choices pane (right) ──────────────────────────────────────────────────────
+
+function ChoicesPane({
+  question,
+  loading,
+  loadError,
+  picked,
+  tries,
+  solvedAnswer,
+  firstCorrect,
+  flagged,
+  eliminated,
+  elimMode,
+  checking,
+  progression,
+  progressionWarning,
+  checkError,
+  onSelect,
+  onCheck,
+  onToggleFlag,
+  onToggleElim,
+  onToggleElimMode,
+}: {
+  question: PracticeQuestion | null;
+  loading: boolean;
+  loadError: string;
+  picked: string | null;
+  tries: string[];
+  solvedAnswer: string | undefined;
+  firstCorrect: boolean | undefined;
+  flagged: boolean;
+  eliminated: string[];
+  elimMode: boolean;
+  checking: boolean;
+  progression: ProgressionOutcome | null;
+  progressionWarning: string;
+  checkError: string;
+  onSelect: (optionId: string) => void;
+  onCheck: () => void;
+  onToggleFlag: () => void;
+  onToggleElim: (optionId: string) => void;
+  onToggleElimMode: () => void;
+}) {
+  if (loading) return <PaneSkeleton />;
+  if (loadError) return <PaneLoadError message="Question unavailable." />;
+  if (!question) return <PaneSkeleton />;
+
+  const isGridIn = question.question_type === 'grid_in';
+  const resolved = solvedAnswer !== undefined;
+  const canCheck = !!picked?.trim() && !resolved && !tries.includes(picked ?? '') && !checking;
+
+  return (
+    <>
+      <div className="ex-toolbar">
+        <button
+          type="button"
+          className={`ex-mark${flagged ? ' on' : ''}`}
+          onClick={onToggleFlag}
+          aria-pressed={flagged}
+        >
+          <Bookmark aria-hidden="true" /> <span>Mark for review</span>
+        </button>
+        <div className="ex-toolbar-right">
+          {!isGridIn && (
+            <button
+              type="button"
+              className={`ex-tool${elimMode ? ' on' : ''}`}
+              onClick={onToggleElimMode}
+              disabled={resolved}
+              aria-pressed={elimMode}
+              title="Cross out answer choices"
+            >
+              <span className="ex-abc">ABC</span>
+            </button>
+          )}
+          {resolved ? (
+            <span className="ex-solved-pill">{firstCorrect ? '✓ Correct' : '✓ Found it'}</span>
+          ) : (
+            <button type="button" className="prx-btn" onClick={onCheck} disabled={!canCheck}>
+              {checking ? 'Checking…' : 'Check answer'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      <QuestionRewardFeedback outcome={progression} />
+      {progressionWarning && <p className="text-sm text-muted" role="status">{progressionWarning}</p>}
+      {checkError && <p className="progress-save-error" role="alert">{checkError}</p>}
+
+      {isGridIn ? (
+        <GridInInput
+          value={resolved ? (solvedAnswer ?? '') : (picked ?? '')}
+          onChange={onSelect}
+          onEnter={canCheck ? onCheck : undefined}
+          disabled={resolved}
+          state={resolved ? 'key' : undefined}
+          tries={tries}
+        />
+      ) : (
+        <ChoiceList
+          options={question.options}
+          picked={picked}
+          tries={tries}
+          solvedAnswer={solvedAnswer ?? null}
+          eliminated={eliminated}
+          elimMode={elimMode && !resolved}
+          interactive={!resolved}
+          onSelect={onSelect}
+          onElim={onToggleElim}
+        />
+      )}
+    </>
+  );
+}
+
+function ChoiceList({
+  options,
+  picked,
+  tries,
+  solvedAnswer,
+  eliminated,
+  elimMode,
+  interactive,
+  onSelect,
+  onElim,
+}: {
+  options: PracticeOption[];
+  picked: string | null;
+  tries: string[];
+  solvedAnswer: string | null;
+  eliminated: string[];
+  elimMode: boolean;
+  interactive: boolean;
+  onSelect: (id: string) => void;
+  onElim: (id: string) => void;
+}) {
+  return (
+    <div className="prx-opts" role="group" aria-label="Answer choices">
+      {options.map((opt, i) => {
+        const isTried = tries.includes(opt.id);
+        const isKey = solvedAnswer === opt.id;
+        const isElim = eliminated.includes(opt.id);
+        const isPicked = picked === opt.id;
+        const selectable = interactive && !isTried;
+
+        let cls = '';
+        if (isKey) cls = ' key';
+        else if (isTried) cls = ' tried';
+        else if (isPicked) cls = ' sel';
+        if (isElim && !isTried && !isKey) cls += ' elim';
+
+        return (
+          <div key={opt.id} className={`prx-choice-row${elimMode ? ' has-eliminator' : ''}`}>
+            <div
+              role="button"
+              tabIndex={selectable ? 0 : -1}
+              aria-disabled={!selectable}
+              className={`prx-opt prx-anim${cls}`}
+              style={{ animationDelay: `${0.08 + i * 0.04}s` }}
+              onClick={() => selectable && onSelect(opt.id)}
+              onKeyDown={e => {
+                if (!selectable) return;
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onSelect(opt.id);
+                }
+              }}
+              aria-pressed={isPicked}
+            >
+              <span className="prx-opt-bub">
+                <span>{opt.id}</span>
+              </span>
+              <span className="prx-opt-text" dangerouslySetInnerHTML={{ __html: opt.text }} />
+              {isKey && <span className="prx-opt-flag" style={{ color: 'var(--ok)' }}>✓</span>}
+              {isTried && <span className="prx-opt-flag" style={{ color: 'var(--err)' }}>✗</span>}
+            </div>
+            {interactive && elimMode && !isTried && (
+              <button
+                type="button"
+                className={`prx-elim-outside${isElim ? ' is-active' : ''}`}
+                onClick={() => onElim(opt.id)}
+                aria-label={isElim ? `Restore answer choice ${opt.id}` : `Cross out answer choice ${opt.id}`}
+                aria-pressed={isElim}
+                title={isElim ? 'Restore choice' : 'Cross out choice'}
+              >
+                <span>{opt.id}</span>
+                {isElim ? <RotateCcw aria-hidden="true" /> : <X aria-hidden="true" />}
+              </button>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Ticks once a second while the question is unsolved; freezes once it's not.
+ * Mounted fresh per question (keyed by question id in the caller) so its
+ * clock naturally starts at zero — no reset-on-prop-change effect needed.
+ */
+function QuestionTimer({ startedAt, frozen }: { startedAt: number | null; frozen: boolean }) {
+  const [now, setNow] = useState(() => startedAt ?? Date.now());
+
+  useEffect(() => {
+    if (frozen || startedAt == null) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [frozen, startedAt]);
+
+  const elapsed = startedAt == null ? 0 : Math.max(0, Math.floor((now - startedAt) / 1000));
+  return (
+    <span className="ex-practice-timer">
+      <span className="ex-clock big">{formatClock(elapsed)}</span>
+      <span className="ex-practice-timer-label">Time on question</span>
+    </span>
+  );
+}
+
+function formatClock(secs: number) {
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+function DifficultyBadge({ difficulty }: { difficulty: string }) {
+  return <span className={`prx-diff ${difficulty}`}>{difficulty}</span>;
+}
+
+function CenteredStage({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0, padding: '1.5rem' }}>
+      <div style={{ width: '100%', maxWidth: '42rem' }}>{children}</div>
+    </div>
+  );
+}
+
+function LoadingSkeleton() {
+  return (
+    <div className="prx-card flex flex-col gap-4 animate-pulse" aria-label="Loading question set">
+      <div className="h-4 w-32 rounded" style={{ background: 'var(--border)' }} />
+      <div className="h-20 rounded" style={{ background: 'var(--bg)' }} />
+      <div className="h-5 w-3/4 rounded" style={{ background: 'var(--border)' }} />
+      {[0, 1, 2, 3].map(i => (
+        <div key={i} className="h-12 rounded" style={{ background: 'var(--bg)' }} />
+      ))}
+    </div>
+  );
+}
+
+/** Lightweight per-pane placeholder while a prefetch-miss loads. */
+function PaneSkeleton() {
+  return (
+    <div className="flex flex-col gap-3 animate-pulse" aria-label="Loading">
+      <div className="h-4 w-24 rounded" style={{ background: 'var(--border)' }} />
+      <div className="h-4 w-full rounded" style={{ background: 'var(--border)' }} />
+      <div className="h-4 w-5/6 rounded" style={{ background: 'var(--border)' }} />
+      <div className="h-4 w-2/3 rounded" style={{ background: 'var(--border)' }} />
+    </div>
+  );
+}
+
+function PaneLoadError({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return (
+    <div className="prx-empty" role={onRetry ? 'alert' : undefined}>
+      <p className="prx-empty-title">Question unavailable</p>
+      <p className="prx-empty-sub mb-4">{message}</p>
+      {onRetry && (
+        <button type="button" onClick={onRetry} className="prx-btn">
+          Try again
+        </button>
+      )}
+    </div>
+  );
+}
+
+function EmptyState({
+  title,
+  body,
+  onReset,
+}: {
+  title: string;
+  body: string;
+  onReset: () => void;
+}) {
+  return (
+    <div className="prx-empty">
+      <div className="prx-idle-bubs" aria-hidden="true">
+        {['A', 'B', 'C', 'D'].map(l => (
+          <span key={l} className="prx-idle-bub done">{l}</span>
+        ))}
+      </div>
+      <p className="prx-empty-title">{title}</p>
+      <p className="prx-empty-sub mb-4">{body}</p>
+      <button onClick={onReset} className="prx-btn">
+        Back to topics
+      </button>
+    </div>
+  );
+}

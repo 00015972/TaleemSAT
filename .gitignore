@@ -25,7 +25,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 node_modules/
-MANIFEST
+/MANIFEST
 
 # PyInstaller
 #   Usually these files are written by a python script from a template
@@ -204,6 +204,9 @@ cython_debug/
 # Temporary file for partial code execution
 tempCodeRunnerFile.py
 
+# Local visual brainstorming previews
+.superpowers/
+
 # Ruff stuff:
 .ruff_cache/
 
@@ -253,3 +256,5 @@ Thumbs.db
 
 # Drizzle
 drizzle/meta/
+
+.trigger

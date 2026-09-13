@@ -1,13 +1,28 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { notFound, redirect } from 'next/navigation';
+import type { CSSProperties } from 'react';
+import { FiArrowLeft, FiEdit3 } from 'react-icons/fi';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireAdmin } from '@/lib/admin/require-admin';
 import {
   QuestionForm,
   type SubjectOption,
   type CategoryOption,
   type QuestionFormInitial,
 } from '@/components/admin/question-form';
-import type { QuestionOptions } from '@/lib/admin/question-validation';
+import { ANSWER_KEYS, type QuestionOptions } from '@/lib/admin/question-validation';
+
+/** Options are stored as [{ id: 'A', text }, ...] — see app/api/admin/questions/route.ts. */
+function toOptionsMap(raw: unknown): QuestionOptions {
+  const map: QuestionOptions = { A: '', B: '', C: '', D: '' };
+  if (Array.isArray(raw)) {
+    for (const entry of raw) {
+      const key = entry?.id as keyof QuestionOptions | undefined;
+      if (key && ANSWER_KEYS.includes(key)) map[key] = entry?.text ?? '';
+    }
+  }
+  return map;
+}
 
 export const metadata = { title: 'Edit question — Taleem SAT Admin' };
 
@@ -17,19 +32,24 @@ export default async function EditQuestionPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const supabase = await createClient();
+  const gate = await requireAdmin();
+  if (!gate.ok) {
+    if (gate.response.status === 401) redirect('/login');
+    notFound();
+  }
+  const admin = createAdminClient();
 
   const [{ data: question }, { data: subjectRows }, { data: categoryRows }] =
     await Promise.all([
-      supabase
+      admin
         .from('questions')
         .select(
-          'id, subject_id, category_id, question_text, passage, options, correct_answer, explanation, difficulty, status, tags'
+          'id, subject_id, category_id, question_text, passage, question_type, options, correct_answer, accepted_answers, explanation, difficulty, status, tags, tables, chart_svg'
         )
         .eq('id', id)
         .single(),
-      supabase.from('subjects').select('id, name').order('display_order'),
-      supabase.from('categories').select('id, name, subject_id').order('display_order'),
+      admin.from('subjects').select('id, name').order('display_order'),
+      admin.from('categories').select('id, name, subject_id').order('display_order'),
     ]);
 
   if (!question) notFound();
@@ -41,36 +61,44 @@ export default async function EditQuestionPage({
     subjectId: c.subject_id,
   }));
 
-  const opts = (question.options ?? {}) as Partial<QuestionOptions>;
   const initial: QuestionFormInitial = {
     subjectId: question.subject_id,
     categoryId: question.category_id,
     questionText: question.question_text,
     passage: question.passage ?? '',
-    options: {
-      A: opts.A ?? '',
-      B: opts.B ?? '',
-      C: opts.C ?? '',
-      D: opts.D ?? '',
-    },
+    questionType: question.question_type,
+    options: toOptionsMap(question.options),
     correctAnswer: question.correct_answer,
+    acceptedAnswers: question.accepted_answers ?? [],
     explanation: question.explanation,
     difficulty: question.difficulty,
     status: question.status,
     tags: question.tags ?? [],
+    tables: question.tables ?? [],
+    chartSvg: question.chart_svg ?? null,
   };
 
   return (
-    <div className="p-6 md:p-8 max-w-6xl">
-      <div className="adm-crumbs">
-        <Link href="/admin/questions">Questions</Link>
-        <span>/</span>
-        <span className="here">Edit</span>
-      </div>
-      <div className="adm-head">
-        <h1>Edit question</h1>
-        <StatusBadge status={question.status} />
-      </div>
+    <section className="question-studio-route">
+      <header className="question-studio-route-head question-studio-enter">
+        <Link href="/admin/questions" className="question-studio-route-back">
+          <FiArrowLeft aria-hidden="true" />
+          Questions
+        </Link>
+        <div className="question-studio-route-title">
+          <span className="question-studio-route-icon" aria-hidden="true">
+            <FiEdit3 />
+          </span>
+          <div>
+            <p>Question workshop / Edit</p>
+            <div className="question-studio-route-title-line">
+              <h1>Edit question</h1>
+              <StatusBadge status={question.status} />
+            </div>
+            <span>Refine each stage, confirm the student view, and save when every detail is ready.</span>
+          </div>
+        </div>
+      </header>
       <QuestionForm
         mode="edit"
         questionId={question.id}
@@ -78,7 +106,7 @@ export default async function EditQuestionPage({
         categories={categories}
         initial={initial}
       />
-    </div>
+    </section>
   );
 }
 
@@ -90,14 +118,7 @@ function StatusBadge({ status }: { status: string }) {
   };
   const color = colors[status] ?? 'var(--muted)';
   return (
-    <span
-      className="adm-pill"
-      style={{
-        color,
-        background: `color-mix(in srgb, ${color} 12%, transparent)`,
-        border: `1px solid color-mix(in srgb, ${color} 30%, transparent)`,
-      }}
-    >
+    <span className="question-studio-route-status" style={{ '--status-color': color } as CSSProperties}>
       {status}
     </span>
   );

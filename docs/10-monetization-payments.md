@@ -30,10 +30,9 @@ We do **not** rely on:
 
 | Feature | Detail |
 |---|---|
-| Question of the Day | ✅ Daily |
 | Practice questions | 5/day total (across all categories) |
 | Answer explanations | ❌ |
-| QOD points + earn certificates | ✅ Earn — but cannot download PDF |
+| Earn certificates | ✅ Earn — but cannot download PDF |
 | Performance dashboard | Basic stats only |
 | AI insights | ❌ |
 | Mock SAT tests | ❌ |

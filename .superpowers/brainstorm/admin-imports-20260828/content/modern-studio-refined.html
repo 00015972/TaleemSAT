@@ -1,0 +1,121 @@
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
+  .final-intro { max-width:820px;margin-bottom:22px; }
+  .final-wrap { border:1px solid #d8d6cc;border-radius:22px;overflow:hidden;background:#fff;box-shadow:0 30px 80px -48px rgba(24,75,47,.42); }
+  .final-ui { --bg:#f4f6f0;--surface:#ffffff;--surface2:#f8faf5;--text:#1a2a20;--soft:#687169;--line:#dfe4da;--green:#236b44;--green2:#318257;--green-soft:#e5f0e6;--gold:#b8922a;--gold-soft:#f8efd5;--red:#b8573d;--red-soft:#fae9e3;min-height:570px;color:var(--text);background:var(--bg);font-family:'Poppins',sans-serif;transition:background .3s ease,color .3s ease; }
+  .final-ui.dark { --bg:#171915;--surface:#21231f;--surface2:#292b26;--text:#f0eee7;--soft:#a6aa9f;--line:#393c35;--green:#55a979;--green2:#65b98a;--green-soft:#25392c;--gold:#d0aa42;--gold-soft:#38311d;--red:#e0795e;--red-soft:#3a2823; }
+  .final-ui * { box-sizing:border-box; }
+  .f-top { height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--surface) 93%,transparent);transition:background .3s,border-color .3s; }
+  .f-brand { display:flex;align-items:center;gap:9px;color:var(--green);font-size:12px;font-weight:800;letter-spacing:-.02em; }
+  .f-admin { padding:4px 7px;border:1px solid color-mix(in srgb,var(--gold) 48%,transparent);border-radius:6px;color:var(--gold);background:var(--gold-soft);font-size:6px;font-weight:700;letter-spacing:.14em;text-transform:uppercase; }
+  .f-tools { display:flex;align-items:center;gap:8px;color:var(--soft);font-size:6px;font-weight:500; }
+  .f-back { color:var(--text); }
+  .f-user { padding:0 4px;color:var(--soft); }
+  .f-theme { display:flex;align-items:center;gap:5px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface2);color:var(--text);font:600 6px/1 'Poppins',sans-serif;cursor:pointer;transition:transform .2s,background .3s,border-color .3s; }
+  .f-theme:hover { transform:translateY(-1px); }
+  .f-theme-icon { width:12px;height:12px;display:grid;place-items:center;border-radius:50%;color:var(--gold);background:var(--gold-soft);font-size:8px; }
+  .f-signout { padding:6px 9px;border:1px solid var(--line);border-radius:8px;color:var(--text); }
+  .f-shell { display:grid;grid-template-columns:106px minmax(0,1fr);min-height:518px; }
+  .f-side { padding:18px 11px;border-right:1px solid var(--line);background:var(--surface);transition:background .3s,border-color .3s; }
+  .f-nav { display:flex;align-items:center;gap:7px;height:29px;margin-bottom:5px;padding:0 9px;border:1px solid transparent;border-radius:8px;color:var(--soft);font-size:6px;font-weight:500; }
+  .f-nav i { width:13px;height:13px;display:grid;place-items:center;color:var(--soft);font-size:8px;font-style:normal; }
+  .f-nav.on { border-color:color-mix(in srgb,var(--green) 20%,transparent);color:var(--green);background:var(--green-soft);font-weight:600; }
+  .f-nav.on i { color:var(--green); }
+  .f-nav.off { opacity:.48; }
+  .f-side-foot { margin-top:76px;padding:10px 8px;border-radius:9px;background:var(--surface2);color:var(--soft);font-size:5px;line-height:1.5; }
+  .f-side-foot b { display:block;margin-bottom:2px;color:var(--text);font-size:6px; }
+  .f-main { position:relative;overflow:hidden;padding:22px 23px 26px;background-color:var(--bg);background-image:linear-gradient(color-mix(in srgb,var(--green) 3%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--green) 3%,transparent) 1px,transparent 1px);background-size:28px 28px;transition:background-color .3s; }
+  .f-main:before { content:'';position:absolute;width:240px;height:240px;right:-100px;top:-130px;border-radius:50%;background:color-mix(in srgb,var(--gold) 9%,transparent);filter:blur(5px); }
+  .f-head { position:relative;z-index:1;display:flex;align-items:flex-start;justify-content:space-between;gap:16px; }
+  .f-eyebrow { display:flex;align-items:center;gap:7px;color:var(--green);font-size:5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase; }
+  .f-eyebrow:before { content:'';width:18px;height:2px;border-radius:9px;background:var(--gold); }
+  .f-head h4 { margin:5px 0 3px;color:var(--text);font-size:23px;line-height:1;font-weight:800;letter-spacing:-.045em; }
+  .f-head p { margin:0;color:var(--soft);font-size:6px;font-weight:400; }
+  .f-import { display:flex;align-items:center;gap:7px;padding:8px 11px;border:1px solid color-mix(in srgb,var(--green) 85%,black);border-radius:9px;background:linear-gradient(135deg,var(--green),color-mix(in srgb,var(--green) 80%,#0f3f25));color:#fff;font-size:6px;font-weight:600;box-shadow:0 12px 24px -16px color-mix(in srgb,var(--green) 75%,transparent); }
+  .f-import i { width:15px;height:15px;display:grid;place-items:center;border-radius:5px;background:rgba(255,255,255,.15);font-size:10px;font-style:normal;font-weight:400; }
+  .f-overview { position:relative;z-index:1;display:grid;grid-template-columns:1.45fr .8fr .8fr;gap:8px;margin-top:16px; }
+  .f-ready { position:relative;min-height:84px;overflow:hidden;padding:13px 14px;border-radius:13px;background:linear-gradient(135deg,#1d5f3c 0%,#2d8154 100%);color:#fff;box-shadow:0 16px 32px -22px rgba(18,80,48,.85); }
+  .f-ready:after { content:'';position:absolute;width:100px;height:100px;right:-36px;top:-40px;border:1px solid rgba(255,220,120,.25);border-radius:28px;transform:rotate(28deg);box-shadow:0 0 0 14px rgba(255,220,120,.035),0 0 0 29px rgba(255,220,120,.025); }
+  .f-card-label { display:flex;align-items:center;gap:5px;color:var(--soft);font-size:5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase; }
+  .f-ready .f-card-label { color:rgba(255,255,255,.65); }
+  .f-ready strong { position:relative;z-index:1;display:block;margin-top:7px;font-size:22px;line-height:1;font-weight:700;letter-spacing:-.04em; }
+  .f-ready p { position:relative;z-index:1;margin:5px 0 0;color:rgba(255,255,255,.66);font-size:5px; }
+  .f-ready-bar { position:relative;z-index:1;width:60%;height:3px;margin-top:9px;overflow:hidden;border-radius:9px;background:rgba(255,255,255,.14); }
+  .f-ready-bar i { display:block;width:99.6%;height:100%;border-radius:9px;background:linear-gradient(90deg,#fff5d1,#d7ad39); }
+  .f-mini { min-height:84px;padding:13px;border:1px solid var(--line);border-radius:13px;background:color-mix(in srgb,var(--surface) 96%,transparent);box-shadow:0 12px 24px -24px rgba(18,59,38,.6);transition:background .3s,border-color .3s; }
+  .f-mini strong { display:block;margin-top:10px;color:var(--text);font-size:19px;line-height:1;font-weight:700;letter-spacing:-.04em; }
+  .f-mini p { margin:5px 0 0;color:var(--soft);font-size:5px; }
+  .f-mini.gold { border-color:color-mix(in srgb,var(--gold) 30%,var(--line));background:color-mix(in srgb,var(--gold-soft) 58%,var(--surface)); }
+  .f-mini.gold .f-card-label,.f-mini.gold strong { color:var(--gold); }
+  .f-sec { position:relative;z-index:1;display:flex;align-items:flex-end;justify-content:space-between;margin:17px 1px 8px; }
+  .f-sec h5 { margin:0;color:var(--text);font-size:9px;font-weight:700;letter-spacing:-.02em; }
+  .f-sec p { margin:2px 0 0;color:var(--soft);font-size:5px; }
+  .f-sec-tag { padding:4px 7px;border:1px solid var(--line);border-radius:99px;background:var(--surface);color:var(--soft);font-size:5px;font-weight:600; }
+  .f-table { position:relative;z-index:1;overflow:hidden;border:1px solid var(--line);border-radius:13px;background:var(--surface);box-shadow:0 18px 38px -34px rgba(17,61,38,.7);transition:background .3s,border-color .3s; }
+  .f-th,.f-row { display:grid;grid-template-columns:minmax(145px,2.1fr) .62fr .68fr .72fr .82fr 24px;column-gap:8px;align-items:center; }
+  .f-th { height:27px;padding:0 11px;color:var(--soft);background:var(--surface2);font-size:4px;font-weight:700;letter-spacing:.12em;text-transform:uppercase; }
+  .f-row { min-height:55px;padding:7px 11px;border-top:1px solid var(--line);transition:background .2s; }
+  .f-row:hover { background:color-mix(in srgb,var(--green-soft) 38%,var(--surface)); }
+  .f-file { display:grid;grid-template-columns:28px minmax(0,1fr);gap:8px;align-items:center;min-width:0; }
+  .f-file-icon { position:relative;width:28px;height:31px;display:grid;place-items:center;border:1px solid color-mix(in srgb,var(--green) 22%,var(--line));border-radius:7px;background:var(--green-soft);color:var(--green);font-size:5px;font-weight:700; }
+  .f-file-icon:after { content:'';position:absolute;right:4px;top:4px;width:5px;height:2px;border-radius:9px;background:var(--gold); }
+  .f-file-name { min-width:0; }
+  .f-file-name b { display:block;overflow:hidden;color:var(--text);font-size:5.5px;font-weight:600;text-overflow:ellipsis;white-space:nowrap; }
+  .f-file-name small { display:block;margin-top:4px;color:var(--soft);font-size:4px;font-weight:400; }
+  .f-status { display:flex;align-items:center;gap:4px;width:max-content;padding:4px 6px;border-radius:99px;color:var(--green);background:var(--green-soft);font-size:4px;font-weight:700;text-transform:uppercase;letter-spacing:.05em; }
+  .f-status:before { content:'';width:4px;height:4px;border-radius:50%;background:currentColor;box-shadow:0 0 0 2px color-mix(in srgb,var(--green) 12%,transparent); }
+  .f-extract b { display:block;color:var(--text);font-size:5px;font-weight:600; }
+  .f-extract span { color:var(--soft);font-weight:400; }
+  .f-bar { width:42px;height:2px;margin-top:5px;overflow:hidden;border-radius:9px;background:var(--line); }
+  .f-bar i { display:block;height:100%;border-radius:9px;background:linear-gradient(90deg,var(--green),var(--gold)); }
+  .f-review { color:var(--soft);font-size:5px;font-weight:500; }
+  .f-review.alert { display:flex;align-items:center;gap:4px;color:var(--red);font-weight:700; }
+  .f-review.alert:before { content:'!';width:11px;height:11px;display:grid;place-items:center;border-radius:4px;background:var(--red-soft);font-size:6px; }
+  .f-date { color:var(--soft);font-size:4.5px;font-weight:500;line-height:1.35; }
+  .f-date b { display:block;color:var(--text);font-size:5px;font-weight:600; }
+  .f-open { width:22px;height:22px;display:grid;place-items:center;border:1px solid var(--line);border-radius:7px;background:var(--surface2);color:var(--green);font-size:8px;font-weight:600; }
+  .f-footnote { position:relative;z-index:1;display:flex;align-items:center;gap:5px;margin:8px 2px 0;color:var(--soft);font-size:4.5px; }
+  .f-footnote i { width:5px;height:5px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px var(--green-soft); }
+  .final-approve { display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 20px;background:#fff; }
+  .final-approve h3 { margin:0 0 4px;color:#173b27;font-size:17px; }
+  .final-approve p { margin:0;color:#706d64;font-size:13px;line-height:1.5; }
+  .approve-chip { flex:0 0 auto;padding:8px 11px;border-radius:99px;background:#e9f2e8;color:#236b44;font:700 10px/1 'Poppins',sans-serif;letter-spacing:.06em;text-transform:uppercase; }
+</style>
+
+<div class="final-intro">
+  <h2>Modern Studio — refined final direction</h2>
+  <p class="subtitle">Use the theme control inside the mockup to inspect both palettes. The full file ledger now includes every requested column.</p>
+</div>
+
+<div class="final-wrap" data-choice="approve-modern-studio-refined" onclick="toggleSelect(this)">
+  <div class="final-ui" id="final-ui">
+    <div class="f-top">
+      <div class="f-brand">Taleem SAT <span class="f-admin">Admin</span></div>
+      <div class="f-tools"><span class="f-back">← Back to app</span><span class="f-user">Mirsodiq</span><button class="f-theme" id="mock-theme" onclick="event.stopPropagation();var ui=document.getElementById('final-ui');ui.classList.toggle('dark');this.querySelector('.f-theme-label').textContent=ui.classList.contains('dark')?'Light mode':'Dark mode';this.querySelector('.f-theme-icon').textContent=ui.classList.contains('dark')?'☼':'◐';"><span class="f-theme-icon">◐</span><span class="f-theme-label">Dark mode</span></button><span class="f-signout">Sign out</span></div>
+    </div>
+    <div class="f-shell">
+      <aside class="f-side">
+        <div class="f-nav"><i>⌂</i>Operations</div><div class="f-nav"><i>◇</i>Questions</div><div class="f-nav on"><i>⇧</i>Imports</div><div class="f-nav"><i>◷</i>Daily Question</div><div class="f-nav"><i>○</i>Users</div><div class="f-nav"><i>▱</i>Subscriptions</div><div class="f-nav off"><i>⚙</i>Settings</div>
+        <div class="f-side-foot"><b>Import workspace</b>HTML question banks are extracted here before review.</div>
+      </aside>
+      <main class="f-main">
+        <div class="f-head"><div><div class="f-eyebrow">Content workspace</div><h4>Imports</h4><p>Manage extracted question banks and review exceptions before publishing.</p></div><div class="f-import"><i>＋</i> Import HTML</div></div>
+        <div class="f-overview">
+          <div class="f-ready"><div class="f-card-label">Library readiness</div><strong>99.6%</strong><p>728 of 731 extracted questions are ready to review.</p><div class="f-ready-bar"><i></i></div></div>
+          <div class="f-mini"><div class="f-card-label">Source files</div><strong>12</strong><p>HTML imports on record</p></div>
+          <div class="f-mini gold"><div class="f-card-label">Needs review</div><strong>03</strong><p>Across recent imports</p></div>
+        </div>
+        <div class="f-sec"><div><h5>Import history</h5><p>Newest source files appear first.</p></div><span class="f-sec-tag">12 files</span></div>
+        <div class="f-table">
+          <div class="f-th"><span>File</span><span>Status</span><span>Extracted</span><span>Needs review</span><span>Started</span><span></span></div>
+          <div class="f-row"><div class="f-file"><span class="f-file-icon">HTML</span><div class="f-file-name"><b>SAT_Math_Medium_Problem-Solving_79-questions.html</b><small>Question bank source</small></div></div><span class="f-status">Completed</span><div class="f-extract"><b>79 <span>/ 79</span></b><div class="f-bar"><i style="width:100%"></i></div></div><span class="f-review">—</span><div class="f-date"><b>27 Aug</b>19:21</div><span class="f-open">→</span></div>
+          <div class="f-row"><div class="f-file"><span class="f-file-icon">HTML</span><div class="f-file-name"><b>SAT_Math_Medium_Advanced-Math_96-questions.html</b><small>Question bank source</small></div></div><span class="f-status">Completed</span><div class="f-extract"><b>96 <span>/ 96</span></b><div class="f-bar"><i style="width:100%"></i></div></div><span class="f-review">—</span><div class="f-date"><b>26 Aug</b>15:54</div><span class="f-open">→</span></div>
+          <div class="f-row"><div class="f-file"><span class="f-file-icon">HTML</span><div class="f-file-name"><b>SAT_Math_Medium_5-skills_110_questions.html</b><small>Question bank source</small></div></div><span class="f-status">Completed</span><div class="f-extract"><b>109 <span>/ 110</span></b><div class="f-bar"><i style="width:99%"></i></div></div><span class="f-review alert">1 question</span><div class="f-date"><b>26 Aug</b>13:14</div><span class="f-open">→</span></div>
+          <div class="f-row"><div class="f-file"><span class="f-file-icon">HTML</span><div class="f-file-name"><b>Math_Easy_Questions_251-283.html</b><small>Question bank source</small></div></div><span class="f-status">Completed</span><div class="f-extract"><b>33 <span>/ 33</span></b><div class="f-bar"><i style="width:100%"></i></div></div><span class="f-review">—</span><div class="f-date"><b>26 Aug</b>11:56</div><span class="f-open">→</span></div>
+        </div>
+        <div class="f-footnote"><i></i> All imports are synchronized with the review workspace.</div>
+      </main>
+    </div>
+  </div>
+  <div class="final-approve"><div><h3>Refined Modern Studio</h3><p>Poppins-only typography, warm light mode, charcoal dark mode, layered summaries, and a complete scan-friendly import ledger.</p></div><span class="approve-chip">Click to approve</span></div>
+</div>

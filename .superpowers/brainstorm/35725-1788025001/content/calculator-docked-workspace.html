@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TaleemSAT — Docked Desmos Workspace</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+    *{box-sizing:border-box}
+    :root{
+      --navy:#123354;--navy-2:#0b2743;--navy-3:#071d32;--mint:#42bf83;
+      --canvas:#edf3f7;--paper:#ffffff;--paper-2:#f8fafc;--line:#cbd9e3;
+      --text:#182940;--muted:#657c90;--faint:#8ca0b1;--shadow:rgba(22,53,78,.12);
+      --yellow:#eebd36;--calc-w:390px;--answer-w:410px;--normal-left:50%;
+    }
+    html[data-theme="dark"]{
+      --canvas:#0c1722;--paper:#172838;--paper-2:#1c3041;--line:#3a5265;
+      --text:#edf5fa;--muted:#afbfca;--faint:#8196a7;--shadow:rgba(0,0,0,.32);
+    }
+    html,body{height:100%;margin:0;overflow:hidden}
+    body{font-family:Manrope,system-ui,sans-serif;background:#07121d;color:var(--text)}
+    button{font:inherit;cursor:pointer}
+    .stage{height:100%;display:grid;place-items:center;background:#07121d;transition:.2s ease}
+    .app{width:100%;height:100%;min-height:690px;display:grid;grid-template-rows:76px minmax(0,1fr) 70px;background:var(--canvas);overflow:hidden;transition:width .24s ease,border-radius .24s ease,box-shadow .24s ease}
+    .stage.compact{padding:22px}
+    .stage.compact .app{width:min(900px,100%);border-radius:18px;box-shadow:0 30px 80px #0008}
+
+    .topbar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:20px;padding:10px 22px;background:var(--navy);color:#fff;border-bottom:4px solid var(--mint);z-index:10}
+    .top-left,.tools,.section,.answer-tools,.mark,.brand,.pager,.question-index,.calc-title,.demo{display:flex;align-items:center}
+    .top-left{gap:16px}.back{height:42px;padding:0 15px;border:1px solid #668099;border-radius:11px;background:transparent;color:#e7f0f6;font-weight:750}
+    .section{align-items:flex-start;flex-direction:column;gap:5px}.section strong{font-size:15px}.section span{color:#7fe1ab;font-size:11px;font-weight:800}
+    .timer{text-align:center;line-height:1}.timer strong{display:block;font-size:25px;letter-spacing:.08em}.timer small{display:block;margin-top:7px;color:#b8cad8;font-size:8px;font-weight:800;letter-spacing:.16em;text-transform:uppercase}
+    .tools{justify-content:flex-end;gap:8px}.tool{width:43px;height:43px;display:grid;place-items:center;border:1px solid #5e7b94;border-radius:11px;background:transparent;color:#dfebf3;position:relative;transition:.15s}.tool:hover,.tool.active{transform:translateY(-2px);background:#ffffff12;border-color:#74d7a4}.tool svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.tool b{position:absolute;top:47px;left:50%;transform:translateX(-50%);padding:5px 8px;border-radius:6px;background:#06121d;color:#fff;font-size:9px;white-space:nowrap;opacity:0;pointer-events:none}.tool:hover b{opacity:1}
+
+    .workspace{min-height:0;display:grid;gap:0;padding:14px 16px;background:radial-gradient(circle at 16% 15%,#42bf8315,transparent 24rem),linear-gradient(135deg,transparent 0 49%,#ffffff09 50%,transparent 51%) 0 0/28px 28px,var(--canvas);transition:grid-template-columns .18s ease}
+    .app:not(.calc-open):not(.compact-app) .workspace{grid-template-columns:minmax(390px,var(--normal-left)) 18px minmax(390px,1fr);grid-template-areas:"question q-divider answer"}
+    .app.calc-open:not(.compact-app) .workspace{grid-template-columns:var(--calc-w) 18px minmax(360px,1fr) 18px var(--answer-w);grid-template-areas:"calc calc-divider question q-divider answer"}
+    .pane,.calculator{min-width:0;min-height:0;border:1px solid var(--line);border-radius:15px;background:var(--paper);box-shadow:0 7px 24px var(--shadow);overflow:auto}
+    .question{grid-area:question;padding:29px 34px}.answers{grid-area:answer;padding:28px 30px}.calculator{grid-area:calc;display:none;overflow:hidden;background:#f4f6f8;border-color:#aebdca}.calc-open .calculator{display:grid;grid-template-rows:54px minmax(0,1fr)}
+    .q-divider{grid-area:q-divider}.calc-divider{grid-area:calc-divider;display:none}.calc-open .calc-divider{display:block}
+    .divider{position:relative;cursor:col-resize;touch-action:none}.divider:before{content:"";position:absolute;left:8px;top:0;bottom:0;width:2px;border-radius:2px;background:#7791a6}.divider:hover:before,.divider.dragging:before{background:#2d78b6}.grip{position:absolute;left:50%;top:50%;width:24px;height:54px;display:grid;place-items:center;transform:translate(-50%,-50%);border:1px solid #8ba2b4;border-radius:99px;background:var(--paper);box-shadow:0 3px 10px var(--shadow);color:var(--muted);font-size:13px;letter-spacing:-2px;z-index:3}
+
+    .qhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:36px}.qmeta{display:flex;gap:10px;align-items:center}.qnum{width:42px;height:42px;display:grid;place-items:center;border-radius:11px;background:#dfeaf5;border:1px solid #bad0e2;color:#123354;font-size:14px;font-weight:800}.difficulty{padding:8px 12px;border:1px solid #dfc15c;border-radius:99px;background:#fae8a0;color:#75560a;font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}.mode{color:var(--faint);font-size:9px;font-weight:800;letter-spacing:.16em;text-transform:uppercase}.copy{font-size:17px;font-weight:600;line-height:1.82}.equation{width:max-content;margin:30px auto;padding:20px 34px;border:1px solid var(--line);border-radius:13px;background:var(--paper-2);font-family:Georgia,serif;font-size:27px}.stem{margin-top:28px;padding-top:24px;border-top:1px solid var(--line);font-size:18px;font-weight:800;line-height:1.55}
+    .answer-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:25px;padding-bottom:19px;border-bottom:1px solid var(--line)}.mark{gap:8px;padding:7px 2px;border:0;background:transparent;color:var(--muted);font-size:12px;font-weight:750;white-space:nowrap}.mark.active{color:var(--text);text-decoration:underline;text-underline-offset:4px}.mark svg{width:19px;height:19px;fill:transparent;stroke:currentColor;stroke-width:1.8}.mark.active svg{fill:#f2c94c;stroke:#9b7100}.answer-tools{gap:8px}.abc{height:40px;padding:0 11px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--muted);font-weight:800;text-decoration:line-through}.check{height:42px;padding:0 14px;border:1px solid var(--navy-2);border-radius:10px;background:var(--navy);box-shadow:0 4px 0 var(--navy-2);color:#fff;font-size:12px;font-weight:800}.choices{display:grid;gap:12px}.choice-row{display:grid;grid-template-columns:minmax(0,1fr) 38px;gap:9px;align-items:center}.choice{min-height:75px;display:grid;grid-template-columns:36px 1fr;gap:13px;align-items:center;padding:13px 15px;border:1px solid var(--line);border-radius:13px;background:var(--paper-2);color:var(--text);text-align:left;box-shadow:0 1px 0 var(--line)}.letter{width:33px;height:33px;display:grid;place-items:center;border:1.5px solid #7f96a9;border-radius:50%;font-size:11px;font-weight:800}.choice-copy{font-size:14px;font-weight:650;line-height:1.45}.cross{width:36px;height:36px;border:1px solid var(--line);border-radius:50%;background:var(--paper);color:var(--muted);font-size:11px;font-weight:800;position:relative}.cross:after{content:"";position:absolute;left:7px;right:7px;top:17px;height:1.5px;background:currentColor;transform:rotate(-12deg)}
+
+    .calc-head{display:flex;align-items:center;justify-content:space-between;padding:0 17px;background:#16293b;color:#edf4f8}.calc-title{gap:9px;font-size:13px;font-weight:800}.calc-head button{width:34px;height:34px;border:0;background:transparent;color:#dae6ed;font-size:24px}.calc-body{min-height:0;display:grid;grid-template-rows:47% 53%;color:#20242a}.graph{position:relative;overflow:hidden;background-color:#fff;background-image:linear-gradient(#dce2e7 1px,transparent 1px),linear-gradient(90deg,#dce2e7 1px,transparent 1px);background-size:30px 30px}.axis-x,.axis-y{position:absolute;background:#343a41}.axis-x{left:0;right:0;top:56%;height:2px}.axis-y{top:0;bottom:0;left:51%;width:2px}.curve{position:absolute;left:22%;top:11%;width:54%;height:76%;border:3px solid #be3e5b;border-color:transparent #be3e5b #be3e5b transparent;border-radius:0 0 90% 0;transform:rotate(15deg)}.zoom{position:absolute;right:9px;top:10px;display:grid;gap:5px}.zoom i{width:38px;height:38px;display:grid;place-items:center;border:1px solid #c9d0d6;border-radius:6px;background:#f5f5f5;box-shadow:0 2px 5px #0002;font-style:normal;font-size:20px;font-weight:800}.expressions{min-height:0;display:grid;grid-template-rows:47px minmax(70px,1fr) auto;background:#f8f8f8;border-top:1px solid #ccd3d8}.expr-tools{display:flex;justify-content:space-between;align-items:center;padding:0 14px;border-bottom:1px solid #d1d7dc;font-size:20px}.expr{display:grid;grid-template-columns:42px 1fr;border-bottom:1px solid #d4dade}.expr-no{display:grid;place-items:start center;padding-top:18px;background:#709bd5;color:#fff;font-weight:700}.expr-input{padding:17px 13px;background:#fff;font-family:Georgia,serif;font-size:18px}.keys{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;padding:7px;background:#e2e5e8}.keys i{min-height:28px;display:grid;place-items:center;border:1px solid #c9ced2;border-radius:4px;background:#fff;font-style:normal;font-weight:700}
+
+    .footer{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:18px;padding:10px 24px;border-top:1px solid var(--line);background:var(--paper);z-index:9}.brand{gap:10px;width:max-content;color:var(--text);text-decoration:none;font-weight:800}.logo{width:38px;height:38px;display:grid;place-items:center;border:2px solid #8fa3b3;border-radius:11px;background:#0d1116;color:#fff;font-family:Georgia,serif;font-size:19px}.brand small{display:block;margin-top:3px;color:var(--faint);font-size:8px;letter-spacing:.11em;text-transform:uppercase}.question-index{justify-self:center;gap:10px;height:45px;padding:0 17px;border:1px solid var(--line);border-radius:12px;background:var(--paper-2);color:var(--text);font-size:12px;font-weight:800;box-shadow:0 3px 10px var(--shadow)}.pager{justify-self:end;gap:9px}.pager button{height:42px;padding:0 16px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--text);font-weight:800}.pager .next{border-color:var(--navy);background:var(--navy);color:#fff}
+
+    .demo{position:fixed;left:50%;bottom:82px;z-index:50;transform:translateX(-50%);gap:7px;padding:7px;border:1px solid #416177;border-radius:13px;background:#071522ed;box-shadow:0 16px 35px #0008}.demo button{height:34px;padding:0 11px;border:1px solid #3f5e73;border-radius:8px;background:#112b3e;color:#dce8ef;font-size:10px;font-weight:800}.demo button.on{border-color:#70d9a1;background:#76d9a4;color:#092237}.demo .approve{border-color:#5c86aa;background:#17456d;color:#fff}
+    .status{position:fixed;left:18px;bottom:86px;z-index:49;padding:8px 11px;border:1px solid #46667d;border-radius:9px;background:#0a1b29e8;color:#cfe0ea;font-size:9px;font-weight:750}.status strong{color:#7de1aa}
+
+    .app.compact-app{grid-template-rows:72px minmax(0,1fr) 66px}.app.compact-app .workspace{grid-template-columns:minmax(320px,1fr) 16px minmax(320px,1fr);grid-template-rows:minmax(370px,1fr) 330px;grid-template-areas:"question q-divider answer" "calc calc calc";overflow:auto}.app.compact-app:not(.calc-open) .workspace{grid-template-rows:minmax(0,1fr)}.app.compact-app .calc-divider{display:none}.app.compact-app .calculator{margin-top:14px}.app.compact-app .calc-body{grid-template-columns:48% 52%;grid-template-rows:1fr}.app.compact-app .tools{gap:5px}.app.compact-app .tool{width:39px;height:39px}.app.compact-app .topbar{padding-inline:15px}.app.compact-app .question,.app.compact-app .answers{padding:23px}.app.compact-app .copy{font-size:15px}.app.compact-app .choice-copy{font-size:12px}.app.compact-app .answer-head{align-items:flex-start}.app.compact-app .footer{padding-inline:16px}.app.compact-app .brand span{display:none}
+    @media(max-width:980px){.stage{padding:0}.stage .app{width:100%;border-radius:0}.app{grid-template-rows:72px minmax(0,1fr) 66px}.app .workspace{grid-template-columns:minmax(320px,1fr) 16px minmax(320px,1fr)!important;grid-template-rows:minmax(370px,1fr) 330px;grid-template-areas:"question q-divider answer" "calc calc calc"!important;overflow:auto}.app:not(.calc-open) .workspace{grid-template-rows:minmax(0,1fr)}.app .calc-divider{display:none!important}.app .calculator{margin-top:14px}.app .calc-body{grid-template-columns:48% 52%;grid-template-rows:1fr}.tools{gap:5px}.tool{width:39px;height:39px}.topbar{padding-inline:15px}.question,.answers{padding:23px}.copy{font-size:15px}.choice-copy{font-size:12px}.brand span{display:none}}
+  </style>
+</head>
+<body>
+  <div class="stage" id="stage">
+    <main class="app calc-open" id="app">
+      <header class="topbar">
+        <div class="top-left"><button class="back">← &nbsp;All topics</button><div class="section"><strong>Math</strong><span>Directions⌄</span></div></div>
+        <div class="timer"><strong>03:08</strong><small>Time on question</small></div>
+        <div class="tools">
+          <button class="tool" id="textBtn"><svg viewBox="0 0 24 24"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg><b>Reading text size</b></button>
+          <button class="tool active" id="calcBtn"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h1M12 11h1M16 11h1M8 15h1M12 15h1M16 15h1"/></svg><b>Calculator</b></button>
+          <button class="tool"><svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6zM14 3v4h4M9 12h6M9 16h6"/></svg><b>Reference</b></button>
+          <button class="tool" id="themeBtn"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9Z"/></svg><b>Appearance</b></button>
+          <button class="tool"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg><b>More</b></button>
+          <button class="tool"><svg viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg><b>Full screen</b></button>
+        </div>
+      </header>
+
+      <section class="workspace" id="workspace">
+        <aside class="calculator" id="calculator">
+          <div class="calc-head"><div class="calc-title"><span>▦</span><span>Desmos Calculator</span></div><button id="calcClose" aria-label="Close calculator">×</button></div>
+          <div class="calc-body"><div class="graph"><i class="axis-x"></i><i class="axis-y"></i><i class="curve"></i><div class="zoom"><i>⌕</i><i>+</i><i>−</i></div></div><div class="expressions"><div class="expr-tools"><b>＋</b><span>↶ &nbsp; ↷ &nbsp; ⚙</span></div><div class="expr"><span class="expr-no">1</span><span class="expr-input">y = x² − 6x + 13</span></div><div class="keys"><i>x</i><i>y</i><i>a²</i><i>aᵇ</i><i>7</i><i>8</i><i>9</i><i>÷</i><i>4</i><i>5</i><i>6</i><i>×</i><i>1</i><i>2</i><i>3</i><i>−</i><i>0</i><i>.</i><i>=</i><i>+</i></div></div></div>
+        </aside>
+        <div class="divider calc-divider" id="calcDivider"><div class="grip">••</div></div>
+
+        <article class="pane question">
+          <div class="qhead"><div class="qmeta"><span class="qnum">29</span><span class="difficulty">Medium</span></div><span class="mode">Practice mode</span></div>
+          <div class="copy">The equation shown gives the relationship between the number of minutes, <em>x</em>, Maria spends running each day and the number of minutes she spends biking each day.</div>
+          <div class="equation">y = 75 − 2x</div>
+          <div class="stem">In this context, what does the number 75 represent?</div>
+        </article>
+        <div class="divider q-divider" id="questionDivider"><div class="grip">••</div></div>
+        <article class="pane answers">
+          <div class="answer-head"><button class="mark" id="mark"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg><span>Mark for review</span></button><div class="answer-tools"><button class="abc">ABC</button><button class="check">Check answer</button></div></div>
+          <div class="choices">
+            <div class="choice-row"><button class="choice"><span class="letter">A</span><span class="choice-copy">The number of minutes spent running each day</span></button><button class="cross">A</button></div>
+            <div class="choice-row"><button class="choice"><span class="letter">B</span><span class="choice-copy">The number of minutes spent biking each day</span></button><button class="cross">B</button></div>
+            <div class="choice-row"><button class="choice"><span class="letter">C</span><span class="choice-copy">The total number of minutes spent running and biking each day</span></button><button class="cross">C</button></div>
+            <div class="choice-row"><button class="choice"><span class="letter">D</span><span class="choice-copy">The number of minutes spent biking for each minute spent running</span></button><button class="cross">D</button></div>
+          </div>
+        </article>
+      </section>
+
+      <footer class="footer">
+        <a class="brand" href="https://t.me/TaleemSAT" target="_blank" rel="noopener"><span class="logo">N</span><span>TaleemSAT<small>SAT preparation</small></span></a>
+        <button class="question-index">▦ &nbsp; Question 29 of 568 &nbsp;⌃</button>
+        <div class="pager"><button>‹ &nbsp;Back</button><button class="next">Next&nbsp; ›</button></div>
+      </footer>
+    </main>
+  </div>
+
+  <div class="status" id="status"><strong>Desktop:</strong> 3 docked columns · drag either handle</div>
+  <div class="demo">
+    <button class="on" id="desktopBtn">Desktop</button>
+    <button id="compactBtn">Small screen</button>
+    <button class="on" id="openBtn">Calculator open</button>
+    <button id="closedBtn">Calculator closed</button>
+    <button class="approve" data-choice="docked-workspace-approved" onclick="toggleSelect(this)">Approve layout</button>
+  </div>
+
+  <script>
+    const app=document.getElementById('app'),stage=document.getElementById('stage'),status=document.getElementById('status');
+    const calcBtn=document.getElementById('calcBtn'),openBtn=document.getElementById('openBtn'),closedBtn=document.getElementById('closedBtn');
+    const desktopBtn=document.getElementById('desktopBtn'),compactBtn=document.getElementById('compactBtn');
+    function setCalculator(open){app.classList.toggle('calc-open',open);calcBtn.classList.toggle('active',open);openBtn.classList.toggle('on',open);closedBtn.classList.toggle('on',!open);updateStatus()}
+    function setCompact(compact){app.classList.toggle('compact-app',compact);stage.classList.toggle('compact',compact);desktopBtn.classList.toggle('on',!compact);compactBtn.classList.toggle('on',compact);updateStatus()}
+    function updateStatus(){const small=app.classList.contains('compact-app'),open=app.classList.contains('calc-open');status.innerHTML=open?(small?'<strong>Small screen:</strong> calculator is pushed below both exam panes':'<strong>Desktop:</strong> 3 docked columns · drag either handle'):'<strong>Restored:</strong> original 2-pane split and width preference'}
+    calcBtn.onclick=()=>setCalculator(!app.classList.contains('calc-open'));document.getElementById('calcClose').onclick=()=>setCalculator(false);openBtn.onclick=()=>setCalculator(true);closedBtn.onclick=()=>setCalculator(false);desktopBtn.onclick=()=>setCompact(false);compactBtn.onclick=()=>setCompact(true);
+    document.getElementById('themeBtn').onclick=()=>document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark';document.getElementById('mark').onclick=e=>e.currentTarget.classList.toggle('active');
+    document.querySelectorAll('.choice').forEach(choice=>choice.onclick=()=>{document.querySelectorAll('.choice').forEach(c=>c.style.outline='');choice.style.outline='2px solid #2d78b6'});
+    function drag(divider,onMove){divider.addEventListener('pointerdown',e=>{if(app.classList.contains('compact-app'))return;divider.classList.add('dragging');divider.setPointerCapture(e.pointerId);const move=event=>onMove(event.clientX);const up=()=>{divider.classList.remove('dragging');divider.removeEventListener('pointermove',move);divider.removeEventListener('pointerup',up)};divider.addEventListener('pointermove',move);divider.addEventListener('pointerup',up)})}
+    drag(document.getElementById('calcDivider'),x=>{if(!app.classList.contains('calc-open'))return;const box=document.getElementById('workspace').getBoundingClientRect();const width=Math.max(310,Math.min(box.width*.38,x-box.left-16));app.style.setProperty('--calc-w',width+'px')});
+    drag(document.getElementById('questionDivider'),x=>{const box=document.getElementById('workspace').getBoundingClientRect();if(app.classList.contains('calc-open')){const answer=Math.max(330,Math.min(box.width*.38,box.right-x-16));app.style.setProperty('--answer-w',answer+'px')}else{const left=Math.max(390,Math.min(box.width-390,x-box.left-16));app.style.setProperty('--normal-left',left+'px')}});
+    document.addEventListener('keydown',e=>{if(e.key==='Escape')setCalculator(false)});
+  </script>
+</body>
+</html>

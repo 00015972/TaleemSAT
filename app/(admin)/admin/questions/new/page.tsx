@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { FiArrowLeft, FiEdit3 } from 'react-icons/fi';
 import { createClient } from '@/lib/supabase/server';
 import {
   QuestionForm,
@@ -24,17 +25,24 @@ export default async function NewQuestionPage() {
   }));
 
   return (
-    <div className="p-6 md:p-8 max-w-6xl">
-      <div className="adm-crumbs">
-        <Link href="/admin/questions">Questions</Link>
-        <span>/</span>
-        <span className="here">New</span>
-      </div>
-      <div className="adm-head">
-        <h1>New question</h1>
-        <p>Write it on the left, see the student&apos;s card on the right.</p>
-      </div>
+    <section className="question-studio-route">
+      <header className="question-studio-route-head question-studio-enter">
+        <Link href="/admin/questions" className="question-studio-route-back">
+          <FiArrowLeft aria-hidden="true" />
+          Questions
+        </Link>
+        <div className="question-studio-route-title">
+          <span className="question-studio-route-icon" aria-hidden="true">
+            <FiEdit3 />
+          </span>
+          <div>
+            <p>Question workshop / New</p>
+            <h1>Create a question</h1>
+            <span>Shape the content in four focused steps and review it exactly as a student will see it.</span>
+          </div>
+        </div>
+      </header>
       <QuestionForm mode="create" subjects={subjects} categories={categories} />
-    </div>
+    </section>
   );
 }

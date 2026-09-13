@@ -47,8 +47,8 @@ const config: Config = {
         err: 'var(--err)',
       },
       fontFamily: {
-        serif: ['"Playfair Display"', 'Georgia', 'serif'],
-        'serif-body': ['"Source Serif 4"', '"Iowan Old Style"', 'Georgia', 'serif'],
+        serif: ['"Manrope"', 'ui-sans-serif', 'sans-serif'],
+        'serif-body': ['"Manrope"', 'ui-sans-serif', 'sans-serif'],
         sans: ['"DM Sans"', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'sans-serif'],
         mono: ['"JetBrains Mono"', 'ui-monospace', 'Menlo', 'monospace'],
       },
