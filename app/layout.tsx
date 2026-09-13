@@ -7,6 +7,10 @@ export const metadata: Metadata = {
   title: 'Taleem SAT — The Smarter Way to Conquer the Digital SAT',
   description:
     'Focused Digital SAT practice with category-based questions, accuracy tracking, daily missions, streaks, and XP. Free during beta.',
+  icons: {
+    icon: '/logo-rounded.png',
+    shortcut: '/logo-rounded.png',
+  },
 };
 
 const themeScript = `
