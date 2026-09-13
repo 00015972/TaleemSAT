@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSyncExternalStore } from 'react';
+import { FiAward, FiZap } from 'react-icons/fi';
 import {
   BarChart3,
   ChevronsLeft,
@@ -73,7 +74,13 @@ export function AppSidebar({
 }: {
   onNavigate: () => void;
   onCloseMobile: () => void;
-  user: { name: string; email: string; initials: string };
+  user: {
+    name: string;
+    email: string;
+    initials: string;
+    currentStreak: number;
+    totalXp: number;
+  };
 }) {
   const pathname = usePathname();
   const collapsed = useSyncExternalStore(
@@ -149,6 +156,31 @@ export function AppSidebar({
             );
           })}
         </nav>
+
+        <div
+          className="sb-stats"
+          role="group"
+          aria-label={`${user.currentStreak} day streak and ${user.totalXp} lifetime XP`}
+          title={`${user.currentStreak} day streak · ${user.totalXp.toLocaleString('en-US')} lifetime XP`}
+        >
+          <span className="sb-stat sb-stat-streak">
+            <span className="sb-stat-icon" aria-hidden="true">
+              <FiZap />
+            </span>
+            <span className="sb-stat-text">
+              <strong>{user.currentStreak.toLocaleString('en-US')}</strong>{' '}
+              day{user.currentStreak === 1 ? '' : 's'}
+            </span>
+          </span>
+          <span className="sb-stat sb-stat-xp">
+            <span className="sb-stat-icon" aria-hidden="true">
+              <FiAward />
+            </span>
+            <span className="sb-stat-text">
+              <strong>{user.totalXp.toLocaleString('en-US')}</strong> XP
+            </span>
+          </span>
+        </div>
 
         <div className="sb-div" />
         <nav className="sb-nav" aria-label="Account">

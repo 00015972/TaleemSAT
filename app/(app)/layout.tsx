@@ -28,6 +28,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       .join('')
       .toUpperCase()
       .slice(0, 2) || (user.email?.slice(0, 2).toUpperCase() ?? '??');
+  const currentStreak = Math.max(0, profile?.current_streak ?? 0);
+  const totalXp = Math.max(0, profile?.total_xp ?? 0);
 
   return (
     <AppShell
@@ -35,6 +37,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         name: name || user.email || 'Student',
         email: user.email ?? '',
         initials,
+        currentStreak,
+        totalXp,
       }}
     >
       <TimezoneSync
