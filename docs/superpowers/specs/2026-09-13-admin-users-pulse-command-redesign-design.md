@@ -40,6 +40,8 @@ The memorable visual element is the seven-day activity rhythm repeated across th
 
 - Use the existing admin typography and design tokens rather than loading a route-specific font.
 - Use strong, compact sans-serif headings with tabular figures for metrics, percentages, dates, and activity counts.
+- Apply the approved readability refinement by increasing small interface typography approximately 15–20%. This includes filter labels and values, table headings, user metadata, badges, activity labels, signal-card copy, pagination, and drawer supporting text. Preserve the existing display-heading and KPI scale so the hierarchy remains distinct.
+- Increase control and row heights only where the larger type requires breathing room; preserve the current workspace proportions and responsive structure.
 - Green communicates activity and primary actions; gold is reserved for paid access, attention, and premium emphasis.
 - Status always includes text or iconography and is never encoded by color alone.
 - Light mode receives the same hierarchy using warm cream, white, green, and restrained gold surfaces.
