@@ -39,13 +39,13 @@ The email uses:
 - a warm cream outer background;
 - a centered white message card no wider than 600 pixels;
 - a full-width deep emerald header block;
-- the existing Taleem SAT logo presented in a compact white frame;
+- an image-free Taleem SAT “T” monogram presented in a compact white frame;
 - a white Taleem SAT wordmark and muted-green “Practice with purpose” tagline;
 - a thin antique-gold divider beneath the header;
 - an editorial eyebrow, strong dark-green heading, restrained body copy, and emerald CTA;
 - a light cream footer with Taleem SAT identification and a Help Center link.
 
-The logo source is `{{ .SiteURL }}/logo.jpg`. This reuses the repository's existing `public/logo.jpg` after deployment and avoids requiring a second image host. Visible brand text remains beside the image, so the sender remains identifiable when an email client blocks remote images.
+The monogram is constructed from nested presentation tables, background colors, borders, and live text. It does not make a remote image request, so the mark and adjacent wordmark remain visible when an email client blocks images. Website and Help Center links use the public `https://taleemsat.com` domain directly.
 
 ## Template Architecture and Compatibility
 
@@ -98,7 +98,7 @@ Security notification templates must be enabled at project level for Supabase to
 ## Error and Edge Cases
 
 - Long email addresses, phone numbers, provider names, and factor names wrap without widening the card.
-- A blocked logo leaves the visible Taleem SAT wordmark and tagline intact.
+- The image-free monogram and visible Taleem SAT wordmark remain available without remote-image permission.
 - A blocked background color does not hide white text because the header includes a dark fallback background declaration and the message body contains the action context.
 - Action emails include a visible raw-link fallback for recipients whose client does not render the button correctly.
 - Security templates avoid unsupported action links; the Help Center is the stable response path.
@@ -114,7 +114,7 @@ Implementation is complete when:
 - reauthentication contains `{{ .Token }}`;
 - notification templates contain their documented contextual variables where applicable;
 - every file contains the approved emerald header and gold divider;
-- every file references `{{ .SiteURL }}/logo.jpg` and keeps visible fallback branding;
+- every file contains the image-free monogram and visible fallback branding;
 - the README maps all 13 files and subjects to their Dashboard locations;
 - HTML is checked for balanced tags, unresolved implementation placeholders, and accidental use of application-only CSS;
 - representative action, code, and security-notification templates are rendered at desktop and mobile widths for visual inspection;

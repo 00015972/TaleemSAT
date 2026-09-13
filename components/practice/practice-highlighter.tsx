@@ -1,13 +1,26 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { Check, Eraser, Highlighter } from 'lucide-react';
+import {
+  updatePracticeHighlights,
+  type PracticeHighlightColor,
+  type PracticeHighlightRegion,
+  type PracticeHighlights,
+  type PracticeHighlightTarget,
+} from '@/lib/practice/highlights';
 
-export type PracticeHighlightColor = 'yellow' | 'blue' | 'pink';
-export type PracticeHighlights = Record<number, PracticeHighlightColor>;
+export type { PracticeHighlights } from '@/lib/practice/highlights';
 
-type Token = { text: string; isWord: boolean };
 type PalettePosition = { left: number; top: number };
 
 const COLORS: Array<{ id: PracticeHighlightColor; label: string }> = [
@@ -16,14 +29,73 @@ const COLORS: Array<{ id: PracticeHighlightColor; label: string }> = [
   { id: 'pink', label: 'Pink' },
 ];
 
-function tokenize(text: string): Token[] {
-  const out: Token[] = [];
-  const re = /[A-Za-z][A-Za-z'-]*|[^A-Za-z]+/g;
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(text)) !== null) {
-    out.push({ text: match[0], isWord: /^[A-Za-z]/.test(match[0]) });
+const WORD_PATTERN = /[\p{L}\p{N}](?:[\p{L}\p{M}\p{N}'’.-]*[\p{L}\p{M}\p{N}])?/gu;
+const SKIPPED_CONTENT =
+  '[data-practice-word], math, svg, table, button, input, textarea, select, option, code, pre';
+
+function isHighlightRegion(value: string | undefined): value is PracticeHighlightRegion {
+  return value === 'passage' || value === 'stem';
+}
+
+function unwrapWords(regionElement: HTMLElement) {
+  for (const word of regionElement.querySelectorAll<HTMLElement>('[data-practice-word]')) {
+    word.replaceWith(document.createTextNode(word.textContent ?? ''));
   }
-  return out;
+  regionElement.normalize();
+}
+
+function decorateRegion(regionElement: HTMLElement, region: PracticeHighlightRegion) {
+  unwrapWords(regionElement);
+
+  const walker = document.createTreeWalker(regionElement, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      const parent = node.parentElement;
+      if (!parent || parent.closest(SKIPPED_CONTENT)) return NodeFilter.FILTER_REJECT;
+      return /[\p{L}\p{N}]/u.test(node.nodeValue ?? '')
+        ? NodeFilter.FILTER_ACCEPT
+        : NodeFilter.FILTER_REJECT;
+    },
+  });
+  const textNodes: Text[] = [];
+  let textNode: Node | null;
+  while ((textNode = walker.nextNode())) textNodes.push(textNode as Text);
+
+  let wordIndex = 0;
+  for (const node of textNodes) {
+    const fragment = document.createDocumentFragment();
+    let cursor = 0;
+    WORD_PATTERN.lastIndex = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = WORD_PATTERN.exec(node.data)) !== null) {
+      if (match.index > cursor) fragment.append(node.data.slice(cursor, match.index));
+
+      const word = document.createElement('span');
+      word.className = 'prh-word';
+      word.dataset.practiceRegion = region;
+      word.dataset.practiceWord = String(wordIndex++);
+      word.textContent = match[0];
+      fragment.append(word);
+      cursor = match.index + match[0].length;
+    }
+
+    if (cursor < node.data.length) fragment.append(node.data.slice(cursor));
+    node.replaceWith(fragment);
+  }
+}
+
+function paintHighlights(root: HTMLElement, highlights: PracticeHighlights) {
+  for (const word of root.querySelectorAll<HTMLElement>('[data-practice-word]')) {
+    const region = word.dataset.practiceRegion;
+    const index = Number(word.dataset.practiceWord);
+    const marked = isHighlightRegion(region) && Number.isInteger(index)
+      ? highlights[region]?.[index]
+      : undefined;
+
+    word.classList.toggle('is-yellow', marked === 'yellow');
+    word.classList.toggle('is-blue', marked === 'blue');
+    word.classList.toggle('is-pink', marked === 'pink');
+  }
 }
 
 function selectionInside(selection: Selection, root: HTMLElement) {
@@ -33,26 +105,46 @@ function selectionInside(selection: Selection, root: HTMLElement) {
 }
 
 export function PracticeHighlighter({
-  text,
+  contentKey,
+  passage,
   highlights,
   onHighlightsChange,
   annotate,
+  children,
 }: {
-  text: string;
+  contentKey: string;
+  passage: string | null;
   highlights: PracticeHighlights;
   onHighlightsChange: (next: PracticeHighlights) => void;
   annotate: boolean;
+  children: ReactNode;
 }) {
-  const passageRef = useRef<HTMLDivElement | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const [color, setColor] = useState<PracticeHighlightColor>('yellow');
-  const [selectionIndices, setSelectionIndices] = useState<number[]>([]);
+  const [selectionTargets, setSelectionTargets] = useState<PracticeHighlightTarget[]>([]);
   const [palettePosition, setPalettePosition] = useState<PalettePosition | null>(null);
-  const tokens = tokenize(text);
 
   const closePalette = useCallback(() => {
-    setSelectionIndices([]);
+    setSelectionTargets([]);
     setPalettePosition(null);
   }, []);
+
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+
+    for (const regionElement of root.querySelectorAll<HTMLElement>(
+      '[data-practice-highlight-region]'
+    )) {
+      const region = regionElement.dataset.practiceHighlightRegion;
+      if (isHighlightRegion(region)) decorateRegion(regionElement, region);
+    }
+  }, [contentKey]);
+
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (root) paintHighlights(root, highlights);
+  }, [contentKey, highlights]);
 
   useEffect(() => {
     if (!annotate) {
@@ -74,7 +166,7 @@ export function PracticeHighlighter({
 
   const readSelection = useCallback(() => {
     if (!annotate) return;
-    const root = passageRef.current;
+    const root = rootRef.current;
     const selection = window.getSelection();
     if (!root || !selection || selection.isCollapsed || selection.rangeCount === 0) {
       closePalette();
@@ -86,12 +178,20 @@ export function PracticeHighlighter({
     }
 
     const range = selection.getRangeAt(0);
-    const indices = Array.from(root.querySelectorAll<HTMLElement>('[data-practice-word]'))
-      .filter(node => range.intersectsNode(node))
-      .map(node => Number(node.dataset.practiceWord))
-      .filter(Number.isInteger);
+    const targets = Array.from(
+      root.querySelectorAll<HTMLElement>('[data-practice-word][data-practice-region]')
+    ).flatMap(word => {
+      const region = word.dataset.practiceRegion;
+      const index = Number(word.dataset.practiceWord);
+      if (!isHighlightRegion(region) || !Number.isInteger(index)) return [];
+      try {
+        return range.intersectsNode(word) ? [{ region, index }] : [];
+      } catch {
+        return [];
+      }
+    });
 
-    if (indices.length === 0) {
+    if (targets.length === 0) {
       closePalette();
       return;
     }
@@ -103,18 +203,13 @@ export function PracticeHighlighter({
       window.innerWidth - paletteWidth - 12
     );
     const top = Math.max(12, rect.top - 58);
-    setSelectionIndices(indices);
+    setSelectionTargets(targets);
     setPalettePosition({ left, top });
   }, [annotate, closePalette]);
 
   const applyTo = useCallback(
-    (indices: number[], nextColor: PracticeHighlightColor | null) => {
-      const next = { ...highlights };
-      for (const index of indices) {
-        if (nextColor) next[index] = nextColor;
-        else delete next[index];
-      }
-      onHighlightsChange(next);
+    (targets: PracticeHighlightTarget[], nextColor: PracticeHighlightColor | null) => {
+      onHighlightsChange(updatePracticeHighlights(highlights, targets, nextColor));
       if (nextColor) setColor(nextColor);
       window.getSelection()?.removeAllRanges();
       closePalette();
@@ -123,19 +218,36 @@ export function PracticeHighlighter({
   );
 
   const toggleWord = useCallback(
-    (index: number) => {
+    (event: ReactMouseEvent<HTMLDivElement>) => {
       if (!annotate) return;
       const selection = window.getSelection();
       if (selection && !selection.isCollapsed) return;
-      applyTo([index], highlights[index] === color ? null : color);
+      if (!(event.target instanceof Element)) return;
+
+      const word = event.target.closest<HTMLElement>(
+        '[data-practice-word][data-practice-region]'
+      );
+      const region = word?.dataset.practiceRegion;
+      const index = Number(word?.dataset.practiceWord);
+      if (!word || !isHighlightRegion(region) || !Number.isInteger(index)) return;
+
+      const target = { region, index };
+      applyTo([target], highlights[region]?.[index] === color ? null : color);
     },
     [annotate, applyTo, highlights, color]
   );
 
-  let wordIndex = -1;
+  const regionEvents = {
+    onPointerUp: readSelection,
+    onKeyUp: readSelection,
+    onClick: toggleWord,
+  };
 
   return (
-    <div className="prh-wrap">
+    <div
+      ref={rootRef}
+      className={`prh-wrap${passage ? ' has-passage' : ''}${annotate ? ' is-annotating' : ''}`}
+    >
       {annotate && (
         <div className="prh-colorbar" role="toolbar" aria-label="Highlight color">
           <span className="prh-colorbar-label">
@@ -154,27 +266,22 @@ export function PracticeHighlighter({
         </div>
       )}
 
+      {passage && (
+        <div
+          className="prx-passage prh-passage"
+          data-practice-highlight-region="passage"
+          {...regionEvents}
+        >
+          {passage}
+        </div>
+      )}
+
       <div
-        ref={passageRef}
-        className={`prx-passage prh-passage${annotate ? ' is-annotating' : ''}`}
-        onPointerUp={readSelection}
-        onKeyUp={readSelection}
+        className="prh-stem"
+        data-practice-highlight-region="stem"
+        {...regionEvents}
       >
-        {tokens.map((token, tokenIndex) => {
-          if (!token.isWord) return <span key={tokenIndex}>{token.text}</span>;
-          const index = ++wordIndex;
-          const marked = highlights[index];
-          return (
-            <span
-              key={tokenIndex}
-              data-practice-word={index}
-              className={`prh-word${marked ? ` is-${marked}` : ''}`}
-              onClick={() => toggleWord(index)}
-            >
-              {token.text}
-            </span>
-          );
-        })}
+        {children}
       </div>
 
       {palettePosition &&
@@ -182,7 +289,7 @@ export function PracticeHighlighter({
           <div
             className="prh-floating ex-practice"
             role="toolbar"
-            aria-label={`Highlight ${selectionIndices.length} selected word${selectionIndices.length === 1 ? '' : 's'}`}
+            aria-label={`Highlight ${selectionTargets.length} selected word${selectionTargets.length === 1 ? '' : 's'}`}
             style={{ left: palettePosition.left, top: palettePosition.top }}
           >
             {COLORS.map(item => (
@@ -191,14 +298,14 @@ export function PracticeHighlighter({
                 color={item.id}
                 label={`Highlight ${item.label.toLowerCase()}`}
                 active={color === item.id}
-                onClick={() => applyTo(selectionIndices, item.id)}
+                onClick={() => applyTo(selectionTargets, item.id)}
               />
             ))}
             <span className="prh-palette-divider" aria-hidden="true" />
             <button
               type="button"
               className="prh-erase"
-              onClick={() => applyTo(selectionIndices, null)}
+              onClick={() => applyTo(selectionTargets, null)}
               aria-label="Erase highlight"
               title="Erase highlight"
             >

@@ -10370,8 +10370,8 @@ html[data-sb-collapsed='true'] .sb-logout .sb-label {
   border-color: var(--air-paper);
 }
 
-/* multi-color reading highlights */
-.ex-practice .prh-wrap + .ex-stem {
+/* multi-color passage and question-stem highlights */
+.ex-practice .prh-wrap.has-passage .prh-stem > .ex-stem:first-child {
   margin-top: 1.65rem;
   padding-top: 1.35rem;
   border-top: 1px solid var(--air-line);
@@ -10435,7 +10435,7 @@ html[data-sb-collapsed='true'] .sb-logout .sb-label {
   color: #142338;
   stroke-width: 3;
 }
-.ex-practice .prh-passage.is-annotating {
+.ex-practice .prh-wrap.is-annotating :is(.prh-passage, .ex-stem) {
   cursor: text;
   user-select: text;
 }
@@ -10444,7 +10444,7 @@ html[data-sb-collapsed='true'] .sb-logout .sb-label {
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
 }
-.ex-practice .prh-passage.is-annotating .prh-word {
+.ex-practice .prh-wrap.is-annotating .prh-word {
   cursor: pointer;
 }
 .ex-practice .prh-word.is-yellow {

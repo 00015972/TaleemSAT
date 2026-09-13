@@ -158,7 +158,8 @@ export function AnnotateToggle({
       onClick={onToggle}
       disabled={disabled}
       aria-pressed={on}
-      title={disabled ? 'No passage to annotate' : 'Tap words to highlight them'}
+      aria-label="Highlight question text"
+      title={disabled ? 'Question unavailable' : 'Highlight question text'}
     >
       <Highlighter aria-hidden="true" />
     </button>
