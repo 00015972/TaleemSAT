@@ -222,21 +222,36 @@ export function UserCommandDrawer({
           </button>
         </header>
 
-        <nav className="users-drawer-tabs" aria-label="User detail sections">
+        <nav className="users-drawer-tabs" aria-label="User detail sections" role="tablist">
           {([
             ['overview', 'Overview', FiUser],
             ['billing', 'Billing', FiCreditCard],
             ['activity', 'Activity', FiActivity],
             ['notes', 'Notes', FiFileText],
           ] as const).map(([value, label, Icon]) => (
-            <button key={value} type="button" className={tab === value ? 'is-active' : undefined} onClick={() => setTab(value)}>
+            <button
+              key={value}
+              id={`users-drawer-tab-${value}`}
+              type="button"
+              role="tab"
+              aria-selected={tab === value}
+              aria-controls="users-drawer-tabpanel"
+              className={tab === value ? 'is-active' : undefined}
+              onClick={() => setTab(value)}
+            >
               <Icon aria-hidden="true" /> {label}
               {value === 'notes' && detail && detail.notes.length > 0 && <span>{detail.notes.length}</span>}
             </button>
           ))}
         </nav>
 
-        <div className="users-drawer-body">
+        <div
+          id="users-drawer-tabpanel"
+          className="users-drawer-body"
+          role="tabpanel"
+          aria-labelledby={`users-drawer-tab-${tab}`}
+          tabIndex={0}
+        >
           {loading ? (
             <DrawerSkeleton />
           ) : error ? (

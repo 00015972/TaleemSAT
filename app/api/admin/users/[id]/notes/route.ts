@@ -40,7 +40,15 @@ export async function POST(
   if (!parsed.ok) return parsed.response;
 
   const admin = createAdminClient();
-  const { data: target } = await admin.from('users').select('id').eq('id', id).maybeSingle();
+  const { data: target, error: targetError } = await admin
+    .from('users')
+    .select('id')
+    .eq('id', id)
+    .maybeSingle();
+  if (targetError) {
+    console.error('[admin-users] note target lookup failed', targetError);
+    return Response.json({ error: 'NOTE_CREATE_FAILED' }, { status: 500 });
+  }
   if (!target) return Response.json({ error: 'USER_NOT_FOUND' }, { status: 404 });
 
   const { data: note, error } = await admin

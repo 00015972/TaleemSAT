@@ -51,11 +51,14 @@ export function UsersFiltersBar({
             placeholder="Search name, email, or exact user ID…"
             onChange={event => onSearchChange(event.target.value)}
             onKeyDown={event => {
-              if (event.key === 'Enter') event.currentTarget.blur();
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                onPatch({ q: filters.q });
+              }
             }}
           />
           {filters.q && (
-            <button type="button" aria-label="Clear search" onClick={() => onSearchChange('')}>
+            <button type="button" aria-label="Clear search" onClick={() => onPatch({ q: '' })}>
               <FiX aria-hidden="true" />
             </button>
           )}
