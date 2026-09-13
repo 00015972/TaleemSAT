@@ -39,6 +39,7 @@ import { PracticeReferenceModal } from '@/components/practice/practice-reference
 import { PracticeWorkspace } from '@/components/practice/practice-workspace';
 import { QuestionRewardFeedback } from '@/components/progression/reward-feedback';
 import type { PracticeScope } from '@/components/practice/practice-browse';
+import { countPracticeHighlights } from '@/lib/practice/highlights';
 import type { ProgressionOutcome } from '@/lib/progression/types';
 import {
   createKeyedLoader,
@@ -484,13 +485,11 @@ function ReadyPracticeRunner({
         }
         right={
           <>
-            {!isMath && (
-              <AnnotateToggle
-                on={annotateOn}
-                onToggle={() => setAnnotateOn(v => !v)}
-                disabled={!displayedQuestion?.passage}
-              />
-            )}
+            <AnnotateToggle
+              on={annotateOn}
+              onToggle={() => setAnnotateOn(v => !v)}
+              disabled={!displayedQuestion}
+            />
             <AppearanceMenu
               open={openMenu === 'appearance'}
               onOpenChange={open => {
@@ -546,7 +545,7 @@ function ReadyPracticeRunner({
               }}
               lineReaderOn={lineReaderOn}
               onToggleLineReader={() => setLineReaderOn(v => !v)}
-              markCount={currentId ? Object.keys(highlights[currentId] ?? {}).length : 0}
+              markCount={currentId ? countPracticeHighlights(highlights[currentId] ?? {}) : 0}
               onClearMarks={() => currentId && setHighlightsFor(currentId, {})}
             />
             <FullscreenToggle />
@@ -701,16 +700,16 @@ function QuestionPane({
         </div>
         <span className="ex-practice-mode">Practice mode</span>
       </div>
-      {question.passage && (
-        <PracticeHighlighter
-          text={question.passage}
-          highlights={highlights}
-          onHighlightsChange={onHighlightsChange}
-          annotate={annotate}
-        />
-      )}
-      <ChartFigure svg={question.chart_svg} />
-      <QuestionBody text={question.question_text} tables={question.tables} className="ex-stem" />
+      <PracticeHighlighter
+        contentKey={question.id}
+        passage={question.passage}
+        highlights={highlights}
+        onHighlightsChange={onHighlightsChange}
+        annotate={annotate}
+      >
+        <ChartFigure svg={question.chart_svg} />
+        <QuestionBody text={question.question_text} tables={question.tables} className="ex-stem" />
+      </PracticeHighlighter>
     </>
   );
 }

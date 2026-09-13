@@ -4,12 +4,12 @@ These are ready-to-paste HTML templates for all 13 hosted Supabase Auth email te
 
 ## Before installing
 
-- Deploy the application and confirm that `{{ .SiteURL }}/logo.jpg` resolves publicly. In this repository, it maps to `public/logo.jpg`.
-- In Supabase, set **Authentication → URL Configuration → Site URL** to the production Taleem SAT URL.
+- The header mark is built from email-safe HTML text and colors, so it remains visible when an email client blocks remote images.
+- Website and Help Center links point directly to `https://taleemsat.com` and `https://taleemsat.com/help`.
 - Keep link tracking disabled in the SMTP/email provider. Rewritten authentication links may not work correctly.
 - Send a test email after saving each action template. Some security scanners prefetch one-time links; Supabase documents OTP or an intermediate confirmation page as alternatives if this affects your users.
 
-The repository's local `NEXT_PUBLIC_SITE_URL` is currently `http://localhost:3000`, which is correct for local development but cannot serve an image to real email recipients. The hosted Supabase project's Site URL must be the public HTTPS production domain before these templates are used. If the production app will not host the logo, upload `public/logo.jpg` to a public HTTPS location and replace every `{{ .SiteURL }}/logo.jpg` occurrence with that fixed image URL.
+The `{{ .ConfirmationURL }}` placeholder intentionally remains in the five action templates. Supabase replaces it with a secure, recipient-specific URL when sending a real email. Clicking it while previewing an HTML file through localhost will not work because no Supabase rendering has taken place.
 
 ## Where to paste each template
 
@@ -46,7 +46,6 @@ On the same page, open **Security notifications**. Enable a notification if you 
 
 - `{{ .ConfirmationURL }}` — generated one-time action URL
 - `{{ .Token }}` — reauthentication verification code
-- `{{ .SiteURL }}` — configured production application URL
 - `{{ .Email }}` — current user email address
 - `{{ .NewEmail }}` and `{{ .OldEmail }}` — email-change context
 - `{{ .Phone }}` and `{{ .OldPhone }}` — phone-change context
