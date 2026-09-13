@@ -19,6 +19,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_user_notes: {
+        Row: {
+          author_user_id: string | null
+          body: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          author_user_id?: string | null
+          body: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          author_user_id?: string | null
+          body?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_user_notes_author_user_id_fkey"
+            columns: ["author_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_user_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_insights: {
         Row: {
           computed_at: string
@@ -1152,6 +1191,46 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_users_directory: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_role?: Database["public"]["Enums"]["user_role"] | null
+          p_search?: string | null
+          p_segment?: string | null
+          p_sort?: string
+          p_tier?: Database["public"]["Enums"]["user_tier"] | null
+        }
+        Returns: {
+          accuracy: number | null
+          attempts_7d: number
+          correct_attempts: number
+          created_at: string
+          daily_activity: Json
+          email: string
+          filtered_total: number
+          full_name: string | null
+          id: string
+          last_active_at: string | null
+          role: Database["public"]["Enums"]["user_role"]
+          subscription_status: Database["public"]["Enums"]["subscription_status"] | null
+          tier: Database["public"]["Enums"]["user_tier"]
+          total_attempts: number
+        }[]
+      }
+      admin_users_summary: {
+        Args: never
+        Returns: {
+          inactive_paid: number
+          needs_attention: number
+          paid_access: number
+          recent_upgrades: number
+          renewal_risk: number
+          total_users: number
+          weekly_active: number
+          workspace_health: number
+        }[]
+      }
       create_assessment_session: {
         Args: {
           p_config?: Json
@@ -1164,6 +1243,24 @@ export type Database = {
       finalize_mock_session: {
         Args: { p_results: Json; p_session_id: string; p_user_id: string }
         Returns: Json
+      }
+      get_dashboard_snapshot: {
+        Args: {
+          p_timezone: string
+          p_today: string
+          p_week_start: string
+        }
+        Returns: Json
+      }
+      get_import_job_item_counts: {
+        Args: {
+          p_job_ids: string[]
+        }
+        Returns: {
+          failed_count: number
+          job_id: string
+          success_count: number
+        }[]
       }
       get_practice_overview: {
         Args: never

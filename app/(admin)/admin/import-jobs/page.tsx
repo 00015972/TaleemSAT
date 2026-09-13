@@ -39,30 +39,24 @@ export default async function ImportJobsPage() {
     .order('created_at', { ascending: false })
     .limit(50);
 
-  // Per-job `count`-only queries — a single row-select across every job's
-  // items would be silently truncated by PostgREST's default row cap once
-  // the combined item count crosses it, undercounting whichever jobs' rows
-  // fell past the cutoff (e.g. showing "0/110" for a fully-extracted file).
-  // A `head: true` count has no rows to cap, so this scales past that limit.
+  // One grouped aggregate rather than two count-only queries per job, which
+  // made this page issue 101 round trips to render 50 rows. Counting in the
+  // database also keeps the reason those per-job queries existed: a plain
+  // row-select across every job's items is truncated by PostgREST's default
+  // row cap, undercounting whichever jobs fell past the cutoff (showing
+  // "0/110" for a fully-extracted file). An aggregate returns one row per
+  // job, so there is nothing for the cap to truncate.
   const jobIds = (jobs ?? []).map(j => j.id);
-  const countPairs = await Promise.all(
-    jobIds.map(async jobId => {
-      const [{ count: successCount }, { count: failedCount }] = await Promise.all([
-        admin
-          .from('import_job_items')
-          .select('id', { count: 'exact', head: true })
-          .eq('job_id', jobId)
-          .in('status', ['pending_review', 'approved']),
-        admin
-          .from('import_job_items')
-          .select('id', { count: 'exact', head: true })
-          .eq('job_id', jobId)
-          .eq('status', 'verification_failed'),
-      ]);
-      return [jobId, { successCount: successCount ?? 0, failedCount: failedCount ?? 0 }] as const;
-    })
+  const { data: itemCounts } = jobIds.length
+    ? await admin.rpc('get_import_job_item_counts', { p_job_ids: jobIds })
+    : { data: [] };
+
+  const countsByJob = new Map(
+    (itemCounts ?? []).map(row => [
+      row.job_id,
+      { successCount: Number(row.success_count), failedCount: Number(row.failed_count) },
+    ])
   );
-  const countsByJob = new Map(countPairs);
 
   const rows = (jobs ?? []).map(job => {
     const live = countsByJob.get(job.id);

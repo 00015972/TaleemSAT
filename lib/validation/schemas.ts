@@ -123,6 +123,10 @@ export const adminUserUpdateSchema = z
   })
   .refine(body => body.role !== undefined || body.tier !== undefined, 'No update supplied.');
 
+export const adminUserNoteSchema = z.strictObject({
+  body: z.string().trim().min(1).max(2_000),
+});
+
 const importOptionSchema = z.strictObject({
   id: answerKeySchema,
   text: boundedText(20_000),

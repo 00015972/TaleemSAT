@@ -14,6 +14,7 @@ import {
   AuthStage,
   AuthSubmitButton,
 } from '@/components/auth/auth-ui';
+import { TURNSTILE_ENABLED, TurnstileWidget, type TurnstileWidgetHandle } from '@/components/auth/turnstile-widget';
 
 export function LoginForm({
   next,
@@ -27,11 +28,18 @@ export function LoginForm({
   const [password, setPassword] = useState('');
   const [error, setError] = useState(initialError);
   const [loading, setLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string>();
   const submittingRef = useRef(false);
+  const turnstileRef = useRef<TurnstileWidgetHandle>(null);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (submittingRef.current) return;
+
+    if (TURNSTILE_ENABLED && !captchaToken) {
+      setError('Please complete the CAPTCHA challenge.');
+      return;
+    }
 
     submittingRef.current = true;
     setError('');
@@ -39,7 +47,14 @@ export function LoginForm({
 
     try {
       const supabase = createClient();
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+        options: { captchaToken },
+      });
+
+      turnstileRef.current?.reset();
+      setCaptchaToken(undefined);
 
       if (signInError) {
         setError(
@@ -89,6 +104,8 @@ export function LoginForm({
             <AuthPasswordInput id="login-password" value={password} onChange={setPassword} placeholder="Enter your password" autoComplete="current-password" describedBy={error ? 'login-error' : undefined} />
           </div>
         </div>
+
+        <TurnstileWidget ref={turnstileRef} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken(undefined)} />
 
         <AuthSubmitButton loading={loading} label="Continue learning" loadingLabel="Signing in…" />
       </form>

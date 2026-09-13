@@ -1,18 +1,22 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/types';
+import type { ProgressionSnapshot } from '@/lib/progression/types';
+import { DAILY_STREAK_GOAL } from '@/lib/progression/types';
+import { shiftIsoDate } from '@/lib/progression/dates';
 
 /**
  * Lightweight aggregation for the student dashboard. Deliberately separate
  * from lib/analytics/overview.ts (the Pro-gated Analytics page + AI insight
- * prompt) so dashboard changes never touch that contract — this only reads
- * what the free dashboard needs: subject-level accuracy, a rolling recent-
- * attempt trend, a 30-day-ago comparison, and daily activity counts.
+ * prompt) so dashboard changes never touch that contract.
  *
- * All-time totals (totalAttempts, overallAccuracy, bySubject) are fetched as
- * DB-side counts rather than by scanning every attempt a user has ever made.
- * Everything else here only ever looks back 60 days at most, so the one
- * row-level query is bounded to a 63-day window instead of full history.
+ * Everything here comes from one `get_dashboard_snapshot` call. It used to be
+ * eight queries in two dependent waves — the per-subject all-time totals
+ * could not even start until the subjects list returned — plus two more for
+ * progression. Each of those is a network round trip, and a warm round trip
+ * to Supabase measures 300-700 ms from Tashkent, so the page spent well over
+ * a second doing nothing but waiting. Postgres now does the aggregation and
+ * this module only reshapes the result.
  */
 
 export type SubjectSnapshot = {
@@ -20,12 +24,6 @@ export type SubjectSnapshot = {
   slug: string;
   attempts: number;
   correct: number;
-  accuracy: number; // 0..1
-};
-
-export type WeekPoint = {
-  weekStart: string; // ISO date
-  attempts: number;
   accuracy: number; // 0..1
 };
 
@@ -52,172 +50,145 @@ export type DashboardSnapshot = {
   totalAttempts: number;
   overallAccuracy: number; // 0..1
   bySubject: SubjectSnapshot[];
-  weekly: WeekPoint[]; // last 6 weeks, oldest first
   accuracyTrend: AccuracyTrendPoint[]; // latest 30 attempts, oldest first
   subjectTrend: SubjectTrend[];
   dailyActivity: DayActivity[]; // last 28 days, oldest first
   todayCount: number;
   weekCount: number;
   monthCount: number;
+  progression: ProgressionSnapshot;
 };
 
-type Row = {
-  is_correct: boolean;
-  created_at: string;
-  questions: { subjects: { name: string; slug: string } | null } | null;
+/** Points charted on the accuracy trend, and the rolling window each averages. */
+const TREND_POINTS = 30;
+const TREND_WINDOW = 5;
+
+type RawSnapshot = {
+  total_attempts: number;
+  total_correct: number;
+  window_attempts: number;
+  by_subject: { slug: string; name: string; attempts: number; correct: number }[];
+  subject_trend: {
+    slug: string;
+    name: string;
+    last30: number | string | null;
+    prior30: number | string | null;
+  }[];
+  daily_activity: { date: string; count: number }[];
+  recent: { created_at: string; is_correct: boolean }[];
+  progression: {
+    total_xp: number;
+    current_streak: number;
+    longest_streak: number;
+    last_streak_date: string | null;
+    days: {
+      activity_date: string;
+      qualifying_question_count: number;
+      xp_earned: number;
+      streak_earned: boolean;
+    }[];
+  };
 };
 
-type SubjectRef = { id: string; slug: string; name: string };
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-// Covers the 6-week `weekly` bucket, the 28-day `dailyActivity` window, and
-// the 60-day `subjectTrend` comparison — the only things the row-level query
-// below needs. A returning user whose only history is older than this won't
-// show it in `accuracyTrend` ("latest 30 attempts"), which is the one
-// deliberate trade-off: recency over exhaustiveness for a trend chart.
-const LOOKBACK_DAYS = 63;
+/** Postgres returns `avg()` as numeric, which the driver hands over as a string. */
+function toRatio(value: number | string | null): number | null {
+  if (value === null) return null;
+  const parsed = typeof value === 'string' ? Number(value) : value;
+  return Number.isFinite(parsed) ? parsed : null;
+}
 
 export async function computeDashboardSnapshot(
   supabase: SupabaseClient<Database>,
-  userId: string
+  options: { timezone: string; today: string; weekStart: string }
 ): Promise<DashboardSnapshot> {
-  const now = Date.now();
-  const windowStart = new Date(now - LOOKBACK_DAYS * DAY_MS).toISOString();
-
-  const [{ data: subjectRows }, { count: totalAttempts }, { count: totalCorrect }, { data }] =
-    await Promise.all([
-      supabase.from('subjects').select('id, slug, name'),
-      supabase.from('attempts').select('*', { count: 'exact', head: true }).eq('user_id', userId),
-      supabase
-        .from('attempts')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .eq('is_correct', true),
-      supabase
-        .from('attempts')
-        .select('is_correct, created_at, questions(subjects(name, slug))')
-        .eq('user_id', userId)
-        .gte('created_at', windowStart)
-        .order('created_at', { ascending: true }),
-    ]);
-
-  const subjects = (subjectRows ?? []) as unknown as SubjectRef[];
-  const rows = (data ?? []) as unknown as Row[];
-
-  // All-time per-subject accuracy, counted in the DB — this must cover a
-  // user's whole history, not just the `rows` window above.
-  const bySubject: SubjectSnapshot[] = (
-    await Promise.all(
-      subjects.map(async subject => {
-        const [{ count: attempts }, { count: correct }] = await Promise.all([
-          supabase
-            .from('attempts')
-            .select('*, questions!inner(subject_id)', { count: 'exact', head: true })
-            .eq('user_id', userId)
-            .eq('questions.subject_id', subject.id),
-          supabase
-            .from('attempts')
-            .select('*, questions!inner(subject_id)', { count: 'exact', head: true })
-            .eq('user_id', userId)
-            .eq('questions.subject_id', subject.id)
-            .eq('is_correct', true),
-        ]);
-        return {
-          subject: subject.name,
-          slug: subject.slug,
-          attempts: attempts ?? 0,
-          correct: correct ?? 0,
-          accuracy: attempts ? (correct ?? 0) / attempts : 0,
-        };
-      })
-    )
-  ).sort((a, b) => b.attempts - a.attempts);
-
-  // Weekly buckets — last 6 weeks, oldest first.
-  const weekly: WeekPoint[] = [];
-  for (let i = 5; i >= 0; i--) {
-    const start = now - (i + 1) * 7 * DAY_MS;
-    const end = now - i * 7 * DAY_MS;
-    const bucket = rows.filter(r => {
-      const t = new Date(r.created_at).getTime();
-      return t > start && t <= end;
-    });
-    const correct = bucket.filter(r => r.is_correct).length;
-    weekly.push({
-      weekStart: new Date(start).toISOString().slice(0, 10),
-      attempts: bucket.length,
-      accuracy: bucket.length ? correct / bucket.length : 0,
-    });
-  }
-
-  // A weekly average can collapse an active month into only a few dots. The
-  // dashboard's hero chart instead follows the latest 30 attempts and uses a
-  // five-attempt rolling window. This keeps the curve detailed while every
-  // point still represents the student's real work rather than interpolation.
-  const recentRows = rows.slice(-30);
-  const recentStartIndex = rows.length - recentRows.length;
-  const accuracyTrend: AccuracyTrendPoint[] = recentRows.map((row, index) => {
-    const rowIndex = recentStartIndex + index;
-    const sample = rows.slice(Math.max(0, rowIndex - 4), rowIndex + 1);
-    const correct = sample.filter(item => item.is_correct).length;
-    return {
-      createdAt: row.created_at,
-      attemptNumber: rowIndex + 1,
-      windowSize: sample.length,
-      accuracy: sample.length ? correct / sample.length : 0,
-    };
+  const { data, error } = await supabase.rpc('get_dashboard_snapshot', {
+    p_timezone: options.timezone,
+    p_today: options.today,
+    p_week_start: options.weekStart,
   });
 
-  // Per-subject: last 30 days vs the 30 days before that.
-  const inWindow = (iso: string, fromMs: number, toMs: number) => {
-    const t = new Date(iso).getTime();
-    return t > fromMs && t <= toMs;
-  };
-  const subjectTrend: SubjectTrend[] = subjects.map(subject => {
-    const last30Rows = rows.filter(
-      r =>
-        r.questions?.subjects?.slug === subject.slug &&
-        inWindow(r.created_at, now - 30 * DAY_MS, now)
-    );
-    const prior30Rows = rows.filter(
-      r =>
-        r.questions?.subjects?.slug === subject.slug &&
-        inWindow(r.created_at, now - 60 * DAY_MS, now - 30 * DAY_MS)
-    );
-    const acc = (arr: Row[]) =>
-      arr.length ? arr.filter(r => r.is_correct).length / arr.length : null;
-    return { subject: subject.name, slug: subject.slug, last30: acc(last30Rows), prior30: acc(prior30Rows) };
-  });
-
-  // Daily activity — last 28 days, oldest first.
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
-  const dailyActivity: DayActivity[] = [];
-  for (let i = 27; i >= 0; i--) {
-    const dayStart = startOfToday.getTime() - i * DAY_MS;
-    const dayEnd = dayStart + DAY_MS;
-    const count = rows.filter(r => {
-      const t = new Date(r.created_at).getTime();
-      return t >= dayStart && t < dayEnd;
-    }).length;
-    dailyActivity.push({ date: new Date(dayStart).toISOString().slice(0, 10), count });
+  if (error) {
+    throw new Error(`Dashboard snapshot query failed: ${error.message}`);
   }
 
-  const todayCount = dailyActivity[dailyActivity.length - 1]?.count ?? 0;
-  const weekCount = dailyActivity.slice(-7).reduce((n, d) => n + d.count, 0);
-  const monthCount = dailyActivity.reduce((n, d) => n + d.count, 0);
+  const raw = data as unknown as RawSnapshot;
+
+  const totalAttempts = raw.total_attempts ?? 0;
+
+  const bySubject: SubjectSnapshot[] = (raw.by_subject ?? []).map(row => ({
+    subject: row.name,
+    slug: row.slug,
+    attempts: row.attempts,
+    correct: row.correct,
+    accuracy: row.attempts ? row.correct / row.attempts : 0,
+  }));
+
+  const subjectTrend: SubjectTrend[] = (raw.subject_trend ?? []).map(row => ({
+    subject: row.name,
+    slug: row.slug,
+    last30: toRatio(row.last30),
+    prior30: toRatio(row.prior30),
+  }));
+
+  // `recent` carries up to four attempts older than the charted window so the
+  // leftmost points average over a full five-attempt window rather than a
+  // truncated one. Those lead-in rows are consumed here, never plotted.
+  const recent = raw.recent ?? [];
+  const firstPlotted = Math.max(0, recent.length - TREND_POINTS);
+  const windowAttempts = raw.window_attempts ?? recent.length;
+  const accuracyTrend: AccuracyTrendPoint[] = recent
+    .slice(firstPlotted)
+    .map((row, index) => {
+      const rowIndex = firstPlotted + index;
+      const sample = recent.slice(Math.max(0, rowIndex - (TREND_WINDOW - 1)), rowIndex + 1);
+      const correct = sample.filter(item => item.is_correct).length;
+      return {
+        createdAt: row.created_at,
+        attemptNumber: windowAttempts - (recent.length - 1 - rowIndex),
+        windowSize: sample.length,
+        accuracy: sample.length ? correct / sample.length : 0,
+      };
+    });
+
+  const dailyActivity: DayActivity[] = (raw.daily_activity ?? []).map(day => ({
+    date: day.date,
+    count: Number(day.count) || 0,
+  }));
+
+  const progressionDays = raw.progression?.days ?? [];
+  const todayRow = progressionDays.find(day => day.activity_date === options.today);
+  const lastStreakDate = raw.progression?.last_streak_date ?? null;
+  const yesterday = shiftIsoDate(options.today, -1);
 
   return {
-    totalAttempts: totalAttempts ?? 0,
-    overallAccuracy: totalAttempts ? (totalCorrect ?? 0) / totalAttempts : 0,
+    totalAttempts,
+    overallAccuracy: totalAttempts ? (raw.total_correct ?? 0) / totalAttempts : 0,
     bySubject,
-    weekly,
     accuracyTrend,
     subjectTrend,
     dailyActivity,
-    todayCount,
-    weekCount,
-    monthCount,
+    todayCount: dailyActivity.at(-1)?.count ?? 0,
+    weekCount: dailyActivity.slice(-7).reduce((n, d) => n + d.count, 0),
+    monthCount: dailyActivity.reduce((n, d) => n + d.count, 0),
+    progression: {
+      timezone: options.timezone,
+      today: {
+        activityDate: options.today,
+        newQuestions: todayRow?.qualifying_question_count ?? 0,
+        xpEarned: todayRow?.xp_earned ?? 0,
+        streakEarned: todayRow?.streak_earned ?? false,
+        goal: DAILY_STREAK_GOAL,
+      },
+      weekXp: progressionDays.reduce((sum, day) => sum + day.xp_earned, 0),
+      totalXp: raw.progression?.total_xp ?? 0,
+      // A streak only survives if it was earned today or yesterday; anything
+      // older has already lapsed.
+      currentStreak:
+        lastStreakDate && lastStreakDate >= yesterday
+          ? (raw.progression?.current_streak ?? 0)
+          : 0,
+      longestStreak: raw.progression?.longest_streak ?? 0,
+      lastStreakDate,
+    },
   };
 }

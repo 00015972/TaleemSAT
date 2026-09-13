@@ -6,17 +6,25 @@ import { ArrowLeft, Mail } from 'lucide-react';
 import { buildAuthCallbackUrl } from '@/lib/auth/redirect';
 import { createClient } from '@/lib/supabase/client';
 import { AuthAlert, AuthInput, AuthPanelHeader, AuthStage, AuthSubmitButton } from '@/components/auth/auth-ui';
+import { TURNSTILE_ENABLED, TurnstileWidget, type TurnstileWidgetHandle } from '@/components/auth/turnstile-widget';
 
 export function ForgotPasswordForm() {
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [captchaToken, setCaptchaToken] = useState<string>();
   const submittingRef = useRef(false);
+  const turnstileRef = useRef<TurnstileWidgetHandle>(null);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (submittingRef.current) return;
+
+    if (TURNSTILE_ENABLED && !captchaToken) {
+      setError('Please complete the CAPTCHA challenge.');
+      return;
+    }
 
     submittingRef.current = true;
     setError('');
@@ -29,7 +37,11 @@ export function ForgotPasswordForm() {
           next: '/reset-password',
           flow: 'recovery',
         }),
+        captchaToken,
       });
+
+      turnstileRef.current?.reset();
+      setCaptchaToken(undefined);
 
       if (resetError) {
         setError(resetError.message);
@@ -73,6 +85,7 @@ export function ForgotPasswordForm() {
             <AuthInput id="forgot-password-email" type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@example.com" required autoComplete="email" aria-describedby={error ? 'forgot-password-error' : undefined} />
           </div>
         </div>
+        <TurnstileWidget ref={turnstileRef} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken(undefined)} />
         <AuthSubmitButton loading={loading} label="Send secure link" loadingLabel="Sending link…" />
       </form>
 

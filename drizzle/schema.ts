@@ -127,6 +127,30 @@ export const users = pgTable(
   ]
 );
 
+// ─── Internal admin user notes ─────────────────────────────────────
+export const adminUserNotes = pgTable(
+  'admin_user_notes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    authorUserId: uuid('author_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    body: text('body').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('admin_user_notes_user_created_idx').on(t.userId, t.createdAt),
+    index('admin_user_notes_author_idx').on(t.authorUserId),
+    check(
+      'admin_user_notes_body_length_chk',
+      sql`char_length(btrim(${t.body})) between 1 and 2000`
+    ),
+  ]
+);
+
 // ─── Questions ──────────────────────────────────────────────────────
 export const questions = pgTable(
   'questions',
@@ -227,6 +251,9 @@ export const attempts = pgTable(
   },
   (t) => [
     index('attempts_user_id_created_at_idx').on(t.userId, t.createdAt),
+    // Makes the dashboard's all-time correct/total tallies index-only rather
+    // than a heap lookup per attempt row.
+    index('attempts_user_correct_idx').on(t.userId, t.isCorrect),
     index('attempts_question_id_idx').on(t.questionId),
     index('attempts_user_question_idx').on(t.userId, t.questionId),
     uniqueIndex('attempts_user_submission_key_unique').on(t.userId, t.submissionKey),

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  adminUserNoteSchema,
   adminUserUpdateSchema,
   bulkQuestionActionSchema,
   importItemUpdateSchema,
@@ -116,6 +117,9 @@ test('question and admin schemas reject malformed IDs, arrays, and enums', () =>
   assert.equal(bulkQuestionActionSchema.safeParse({ ids: [ID_A, ID_A], action: 'archive' }).success, false);
   assert.equal(adminUserUpdateSchema.safeParse({ role: 'admin' }).success, true);
   assert.equal(adminUserUpdateSchema.safeParse({}).success, false);
+  assert.equal(adminUserNoteSchema.parse({ body: '  Follow up next week.  ' }).body, 'Follow up next week.');
+  assert.equal(adminUserNoteSchema.safeParse({ body: '   ' }).success, false);
+  assert.equal(adminUserNoteSchema.safeParse({ body: 'x'.repeat(2_001) }).success, false);
   assert.equal(uuidSchema.safeParse('not-a-uuid').success, false);
 });
 

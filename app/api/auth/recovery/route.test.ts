@@ -8,7 +8,7 @@ let hasRecoveryCookie = true;
 let user: ClaimsUser | null = {
   id: 'student-a',
   email: 'student-a@example.test',
-  user_metadata: {},
+  emailVerified: true, user_metadata: {},
 };
 let updateError: { message: string } | null = null;
 let updatedPassword: string | null = null;
@@ -74,7 +74,7 @@ test('recovery update requires an authenticated Supabase user', async () => {
 test('recovery update validates JSON and password bounds', async t => {
   const { POST } = await import('./route');
   hasRecoveryCookie = true;
-  user = { id: 'student-a', email: null, user_metadata: {} };
+  user = { id: 'student-a', email: null, emailVerified: true, user_metadata: {} };
 
   for (const [label, body] of [
     ['invalid JSON', '{not-json'],
@@ -94,7 +94,7 @@ test('recovery update validates JSON and password bounds', async t => {
 test('recovery update changes the password and consumes recovery state', async () => {
   const { POST } = await import('./route');
   hasRecoveryCookie = true;
-  user = { id: 'student-a', email: null, user_metadata: {} };
+  user = { id: 'student-a', email: null, emailVerified: true, user_metadata: {} };
   updateError = null;
   updatedPassword = null;
 
@@ -109,7 +109,7 @@ test('recovery update changes the password and consumes recovery state', async (
 test('provider failures keep recovery state available for a retry', async () => {
   const { POST } = await import('./route');
   hasRecoveryCookie = true;
-  user = { id: 'student-a', email: null, user_metadata: {} };
+  user = { id: 'student-a', email: null, emailVerified: true, user_metadata: {} };
   updateError = { message: 'New password should be different from the old password.' };
 
   const response = await POST(request(JSON.stringify({ password: 'same-password' })));

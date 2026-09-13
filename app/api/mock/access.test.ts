@@ -40,7 +40,7 @@ test('mock APIs enforce the development restriction before processing requests',
     for (const { label, metadata } of identities) {
       for (const body of method === 'POST' ? ['{"answers":[{"questionId":"example","selectedAnswer":"A"}]}', '{invalid', 'null'] : [undefined]) {
         await t.test(`${method} ${path}: ${label}, body ${body ?? 'none'}`, async () => {
-          user = metadata ? { id: 'test-user', email: null, user_metadata: metadata } : null;
+          user = metadata ? { id: 'test-user', email: null, emailVerified: true, user_metadata: metadata } : null;
           databaseCalls = 0;
           const request = new Request(`http://localhost/api/mock/${path}?preview=true&role=admin&subject=math&count=40`, {
             method,

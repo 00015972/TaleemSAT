@@ -23,6 +23,7 @@ import {
   AuthStage,
   AuthSubmitButton,
 } from '@/components/auth/auth-ui';
+import { TURNSTILE_ENABLED, TurnstileWidget, type TurnstileWidgetHandle } from '@/components/auth/turnstile-widget';
 
 const TARGET_SCORES = ['1200', '1300', '1350', '1400', '1450', '1500', '1550+'];
 
@@ -40,7 +41,9 @@ export function SignupForm() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [pendingEmail, setPendingEmail] = useState('');
+  const [captchaToken, setCaptchaToken] = useState<string>();
   const submittingRef = useRef(false);
+  const turnstileRef = useRef<TurnstileWidgetHandle>(null);
 
   function set(field: string, value: string | boolean) {
     setForm(previous => ({ ...previous, [field]: value }));
@@ -76,6 +79,10 @@ export function SignupForm() {
       setStep(1);
       return;
     }
+    if (TURNSTILE_ENABLED && !captchaToken) {
+      setError('Please complete the CAPTCHA challenge.');
+      return;
+    }
 
     submittingRef.current = true;
     setLoading(true);
@@ -95,8 +102,12 @@ export function SignupForm() {
             marketing_opt_in: form.marketingOptIn,
           },
           emailRedirectTo: buildAuthCallbackUrl(window.location.origin),
+          captchaToken,
         },
       });
+
+      turnstileRef.current?.reset();
+      setCaptchaToken(undefined);
 
       if (signUpError) {
         const message = signUpError.message.toLowerCase();
@@ -220,6 +231,8 @@ export function SignupForm() {
               <span className="auth-check-mark" aria-hidden="true">✓</span>
               <span><strong>Keep me on track</strong><small>Send study tips, reminders, and platform updates. Unsubscribe anytime.</small></span>
             </label>
+
+            <TurnstileWidget ref={turnstileRef} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken(undefined)} />
 
             <div className="auth-step-actions">
               <button type="button" className="auth-back-button" onClick={() => { setError(''); setStep(1); }} disabled={loading}>

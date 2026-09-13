@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { fontVariables } from './fonts';
 import { Providers } from './providers';
 import './globals.css';
 
@@ -32,7 +33,12 @@ const sidebarScript = `
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
+    <html
+      lang="en"
+      suppressHydrationWarning
+      data-scroll-behavior="smooth"
+      className={fontVariables}
+    >
       <head>
         {/* Plain <script> tags, not next/script's <Script strategy="beforeInteractive">:
             these must block paint (set data-theme before first render, no FOUC), and

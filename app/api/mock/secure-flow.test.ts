@@ -80,7 +80,7 @@ function gradingRows() {
 }
 
 function resetScenario() {
-  user = { id: 'student-a', email: null, user_metadata: {} };
+  user = { id: 'student-a', email: null, emailVerified: true, user_metadata: {} };
   activeQuestionIds = [];
   roster = [];
   rpcCalls = [];

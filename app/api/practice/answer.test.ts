@@ -76,7 +76,7 @@ function recorded(overrides: Record<string, unknown> = {}) {
 }
 
 function resetScenario() {
-  user = { id: 'student-a', email: 'student-a@example.test', user_metadata: {} };
+  user = { id: 'student-a', email: 'student-a@example.test', emailVerified: true, user_metadata: {} };
   adminClientCalls = 0;
   sessionResult = { data: { id: SESSION_ID }, error: null };
   submissionResults = [{ data: { question_id: QUESTION_ID, attempt_id: null }, error: null }];

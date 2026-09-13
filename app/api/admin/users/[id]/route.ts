@@ -4,9 +4,32 @@ import { requireAdmin } from '@/lib/admin/require-admin';
 import { logAudit } from '@/lib/admin/audit';
 import { invalidPathParameter, parseJsonRequest } from '@/lib/validation/request';
 import { adminUserUpdateSchema, uuidSchema } from '@/lib/validation/schemas';
+import { getAdminUserDetail } from '@/lib/admin/users';
 
 type Role = 'student' | 'admin';
 type Tier = 'free' | 'pro' | 'elite';
+
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const gate = await requireAdmin();
+  if (!gate.ok) return gate.response;
+
+  const { id } = await params;
+  if (!uuidSchema.safeParse(id).success) return invalidPathParameter('id');
+
+  try {
+    const user = await getAdminUserDetail(id);
+    if (!user) {
+      return Response.json({ error: 'USER_NOT_FOUND' }, { status: 404 });
+    }
+    return Response.json({ user });
+  } catch (error) {
+    console.error('[admin-users] detail request failed', error);
+    return Response.json({ error: 'DETAIL_FAILED' }, { status: 500 });
+  }
+}
 
 /**
  * Change a user's role and/or tier. Sensitive: every change is audit-logged.

@@ -11,7 +11,7 @@ import {
   Target,
   Trophy,
 } from 'lucide-react';
-import { createClient, getAppProfile, getUser } from '@/lib/supabase/server';
+import { createClient, getAppProfile, getClaimsUser } from '@/lib/supabase/server';
 import { AppMenuButton } from '@/components/app-menu-button';
 import { ResendVerificationButton } from '@/components/resend-verification-button';
 import {
@@ -23,7 +23,7 @@ import {
 import { AccuracyTrendChart } from '@/components/dashboard/accuracy-trend';
 import { Reveal } from '@/components/dashboard/reveal';
 import { CountUp } from '@/components/dashboard/count-up';
-import { computeProgressionSnapshot } from '@/lib/progression/dashboard';
+import { localDateAt, mondayWeekStart, normalizeTimeZone } from '@/lib/progression/dates';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Dashboard — Taleem SAT' };
@@ -31,8 +31,15 @@ export const metadata = { title: 'Dashboard — Taleem SAT' };
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export default async function DashboardPage() {
-  const supabase = await createClient();
-  const user = await getUser();
+  // `getClaimsUser` verifies the access token's signature locally against the
+  // cached JWKS. `getUser` re-fetches the auth record from Supabase on every
+  // call, which is a full round trip — 300-700 ms from Tashkent — to learn
+  // things this page already has in the token.
+  const [supabase, user, profile] = await Promise.all([
+    createClient(),
+    getClaimsUser(),
+    getAppProfile(),
+  ]);
 
   if (!user) redirect('/login');
 
@@ -40,15 +47,19 @@ export default async function DashboardPage() {
   // eslint-disable-next-line react-hooks/purity
   const requestNowMs = Date.now();
 
-  const [profile, snapshot, progression] = await Promise.all([
-    getAppProfile(),
-    computeDashboardSnapshot(supabase, user.id),
-    computeProgressionSnapshot(supabase, user.id, new Date(requestNowMs)),
-  ]);
+  // Date boundaries are resolved here, not in SQL, so the timezone rules stay
+  // in one tested place and the snapshot query stays a pure read.
+  const timezone = normalizeTimeZone(profile?.timezone);
+  const todayStr = localDateAt(new Date(requestNowMs), timezone);
 
-  const todayStr = progression.today.activityDate;
+  const snapshot = await computeDashboardSnapshot(supabase, {
+    timezone,
+    today: todayStr,
+    weekStart: mondayWeekStart(todayStr),
+  });
+  const progression = snapshot.progression;
 
-  const isVerified = Boolean(user.email_confirmed_at);
+  const isVerified = user.emailVerified;
   const rawName: string =
     (profile?.full_name as string | null) ??
     (user.user_metadata?.full_name as string | undefined) ??

@@ -11,7 +11,7 @@ let userFilter: [string, unknown] | null = null;
 let updateResult: { data: { id: string } | null; error: { message: string } | null };
 
 function resetScenario() {
-  user = { id: USER_ID, email: 'student@example.test', user_metadata: {} };
+  user = { id: USER_ID, email: 'student@example.test', emailVerified: true, user_metadata: {} };
   clientCalls = 0;
   updatePayload = null;
   userFilter = null;
