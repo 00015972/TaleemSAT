@@ -26,7 +26,8 @@ export async function POST(
   if (targetError) return Response.json({ error: 'RESET_FAILED' }, { status: 500 });
   if (!target) return Response.json({ error: 'USER_NOT_FOUND' }, { status: 404 });
 
-  const redirectTo = buildAuthCallbackUrl(request.nextUrl.origin, {
+  const redirectOrigin = process.env.NEXT_PUBLIC_SITE_URL || request.nextUrl.origin;
+  const redirectTo = buildAuthCallbackUrl(redirectOrigin, {
     next: '/reset-password',
     flow: 'recovery',
   });

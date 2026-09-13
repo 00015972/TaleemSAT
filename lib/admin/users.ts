@@ -349,7 +349,8 @@ export async function getAdminUserDetail(
         .from('certificates')
         .select('id, tier, awarded_at, pdf_url')
         .eq('user_id', userId)
-        .order('awarded_at', { ascending: false }),
+        .order('awarded_at', { ascending: false })
+        .limit(50),
       getAdminUserNotes(userId, client).catch(error => {
         console.error('[admin-users] notes unavailable', error);
         return [];

@@ -258,3 +258,4 @@ Thumbs.db
 drizzle/meta/
 
 .trigger
+.env*

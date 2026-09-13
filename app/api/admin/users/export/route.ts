@@ -12,7 +12,11 @@ export async function GET(request: NextRequest) {
   const gate = await requireAdmin();
   if (!gate.ok) return gate.response;
 
-  const raw = Object.fromEntries(request.nextUrl.searchParams.entries()) as UsersSearchParams;
+  const raw: UsersSearchParams = {};
+  for (const key of ['q', 'role', 'tier', 'segment', 'sort', 'page'] as const) {
+    const values = request.nextUrl.searchParams.getAll(key);
+    if (values.length > 0) raw[key] = values;
+  }
   const filters = parseUsersSearchParams(raw);
 
   try {
