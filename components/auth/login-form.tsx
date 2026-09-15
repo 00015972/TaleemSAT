@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { LockKeyhole, Mail } from 'lucide-react';
 import { getSafeAuthRedirect } from '@/lib/auth/redirect';
 import { createClient } from '@/lib/supabase/client';
+import { GoogleAuthButton } from '@/components/auth/google-auth-button';
 import {
   AuthAlert,
   AuthInput,
@@ -82,6 +83,8 @@ export function LoginForm({
         title="Ready for your next win?"
         description="Sign in and continue building the score you are working toward."
       />
+
+      <GoogleAuthButton next={next} label="Continue with Google" />
 
       <form onSubmit={handleSubmit} className="auth-form">
         {error && <AuthAlert id="login-error">{error}</AuthAlert>}

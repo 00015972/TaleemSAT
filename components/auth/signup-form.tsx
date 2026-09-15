@@ -15,6 +15,7 @@ import { getSignupOutcome } from '@/lib/auth/flow';
 import { buildAuthCallbackUrl } from '@/lib/auth/redirect';
 import { createClient } from '@/lib/supabase/client';
 import { ResendVerificationButton } from '@/components/resend-verification-button';
+import { GoogleAuthButton } from '@/components/auth/google-auth-button';
 import {
   AuthAlert,
   AuthInput,
@@ -176,6 +177,8 @@ export function SignupForm() {
 
         {step === 1 ? (
           <div className="auth-step-panel" key="signup-step-one">
+            <GoogleAuthButton label="Sign up with Google" />
+
             <div className="auth-field">
               <label htmlFor="signup-full-name">Full name</label>
               <div className="auth-field-control">
